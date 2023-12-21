@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::hash::{Hash, Hasher};
 use std::io::Read;
+use std::iter::IntoIterator;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::warn;
@@ -15,7 +16,7 @@ pub enum Type {
     String,
     Float,
 }
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Value {
     Int(i64),
     String(String),
@@ -23,6 +24,13 @@ pub enum Value {
 }
 // assuming non-nan floats
 impl Eq for Value {}
+
+impl PartialOrd for Value {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
 impl Ord for Value {
     fn cmp(&self, other: &Self) -> Ordering {
         match (self, other) {
@@ -42,30 +50,33 @@ impl Hash for Value {
         }
     }
 }
-impl Into<i64> for Value {
-    fn into(self) -> i64 {
-        match self {
+
+impl From<Value> for i64 {
+    fn from(val: Value) -> Self {
+        match val {
             Value::Int(x) => x,
-            _ => panic!("Cannot convert {:?} to i64", self),
+            _ => panic!("Cannot convert {:?} to i64", val),
         }
     }
 }
-impl Into<String> for Value {
-    fn into(self) -> String {
-        match self {
+
+impl From<Value> for String {
+    fn from(val: Value) -> Self {
+        match val {
             Value::String(x) => x,
-            _ => panic!("Cannot convert {:?} to String", self),
+            _ => panic!("Cannot convert {:?} to String", val),
         }
     }
 }
-impl Into<f64> for Value {
-    fn into(self) -> f64 {
-        match self {
+impl From<Value> for f64 {
+    fn from(val: Value) -> Self {
+        match val {
             Value::Float(x) => x,
-            _ => panic!("Cannot convert {:?} to f64", self),
+            _ => panic!("Cannot convert {:?} to f64", val),
         }
     }
 }
+
 impl From<i64> for Value {
     fn from(x: i64) -> Self {
         Value::Int(x)
@@ -112,7 +123,7 @@ pub enum Column {
 }
 impl Column {
     pub fn push(&mut self, value: Value) {
-        match (self, value.into()) {
+        match (self, value) {
             (Column::Int(x), Value::Int(y)) => x.push(y),
             (Column::String(x), Value::String(y)) => x.push(y),
             (Column::Float(x), Value::Float(y)) => x.push(y),
@@ -168,7 +179,7 @@ impl Column {
         }
     }
     pub fn update(&mut self, index: usize, value: Value) {
-        match (self, value.into()) {
+        match (self, value) {
             (Column::Int(x), Value::Int(y)) => x[index] = y,
             (Column::String(x), Value::String(y)) => x[index] = y,
             (Column::Float(x), Value::Float(y)) => x[index] = y,
@@ -209,6 +220,11 @@ pub struct WorkTable {
     index: Option<usize>,
     index_values: HashMap<Value, usize>,
 }
+impl Default for WorkTable {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 impl WorkTable {
     pub fn new() -> Self {
         Self {
@@ -226,7 +242,7 @@ impl WorkTable {
             .columns
             .iter()
             .enumerate()
-            .find(|(_, x)| x == &&index)
+            .find(|(_, x)| x == &index)
             .expect("Index not found")
             .0;
         self.index = Some(index);
@@ -257,7 +273,7 @@ impl WorkTable {
         }
     }
     pub fn get_by_index(&self, index: &Value) -> Option<Vec<Value>> {
-        let row = self.index_values.get(&index)?;
+        let row = self.index_values.get(index)?;
         self.get_row(*row)
     }
     pub fn shape(&self) -> (usize, usize) {
@@ -272,7 +288,7 @@ impl WorkTable {
         self.columns
             .iter()
             .enumerate()
-            .find(|(_, x)| x == &&name)
+            .find(|(_, x)| x == &name)
             .map(|(i, _)| &self.column_values[i])
     }
     pub fn get_column_i64(&self, name: &str) -> Option<&[i64]> {
@@ -345,7 +361,7 @@ impl WorkTable {
             .columns
             .iter()
             .enumerate()
-            .find(|(_, x)| x == &&column)
+            .find(|(_, x)| x == &column)
             .expect("Column not found")
             .0;
         self.column_values[column].update(row, value);
@@ -423,9 +439,6 @@ impl<T> RWorkTable<T> {
     pub fn into_rows(self) -> Vec<T> {
         self.rows
     }
-    pub fn into_iter(self) -> impl Iterator<Item = T> {
-        self.rows.into_iter()
-    }
     pub fn iter(&self) -> impl Iterator<Item = &T> {
         self.rows.iter()
     }
@@ -453,5 +466,15 @@ impl<T> RWorkTable<T> {
             futures.push(f(row).await?);
         }
         Ok(futures)
+    }
+}
+
+impl<T> IntoIterator for RWorkTable<T> {
+    type Item = T;
+
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.rows.into_iter()
     }
 }
