@@ -8,7 +8,7 @@ authors = ["PathScale"]
 
 [dependencies]
 # error
-eyre = "0.6.11"
+eyre = "=0.6.8"
 # tokio
 tokio = { version = "1.35.1", features = ["full"] }
 # tracing
