@@ -26,7 +26,7 @@ pub enum Value {
 impl Eq for Value {}
 
 impl PartialOrd for Value {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
@@ -346,14 +346,14 @@ impl WorkTable {
                 .collect(),
         )
     }
-    pub fn find_row_index(&self, mut check: impl FnMut(&RowView) -> bool) -> Option<usize> {
+    pub fn find_row_index(&self, mut check: impl FnMut(RowView) -> bool) -> Option<usize> {
         for i in 0..self.shape().0 {
             let row = RowView {
                 index: i,
                 column_names: &self.columns,
                 columns: &self.column_values,
             };
-            if check(&row) {
+            if check(row) {
                 return Some(i);
             }
         }
@@ -450,6 +450,18 @@ impl WorkTable {
             };
             *col = new_columns;
         }
+    }
+    pub fn get_rows(&self) -> impl Iterator<Item = RowView> {
+        let len = self.shape().0;
+        (0..len)
+            .map(|index| {
+                RowView {
+                    index,
+                    column_names: &self.columns,
+                    columns: &self.column_values,
+                }
+            })
+
     }
 }
 pub type SyncWorkTable = Arc<RwLock<WorkTable>>;
