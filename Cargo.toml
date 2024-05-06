@@ -8,12 +8,12 @@ authors = ["PathScale"]
 
 [dependencies]
 # error
-eyre = "=0.6.8"
+eyre = "0.6.8"
 # tokio
-tokio = { version = "1.35.1", features = ["full"] }
+tokio = { version = "1", features = ["full"] }
 # tracing
-tracing = "0.1.40"
+tracing = "0.1"
 # serialize
-serde = { version = "1.0.193", features = ["derive"] }
-serde_json = "1.0.108"
-csv = "1.2.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+csv = "1.3"
