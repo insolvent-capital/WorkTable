@@ -214,6 +214,23 @@ impl Iterator for ColumnIterator<'_> {
     }
 }
 
+pub struct RowView<'a> {
+    index: usize,
+    column_names: &'a Vec<String>,
+    columns: &'a Vec<Column>,
+}
+impl<'a> RowView<'a> {
+    pub fn get<T: From<Value>>(&self, column: &str) -> Option<T> {
+        let column = self
+            .column_names
+            .iter()
+            .enumerate()
+            .find(|(_, x)| x.as_str() == column)
+            .map(|(i, _)| i)?;
+        self.columns[column].get(self.index)
+    }
+}
+
 pub struct WorkTable {
     columns: Vec<String>,
     column_values: Vec<Column>,
@@ -272,6 +289,11 @@ impl WorkTable {
             self.column_values[i].push(column);
         }
     }
+    pub fn update_row<const N: usize>(&mut self, row_id: usize, row: [Value; N]) {
+        for (i, value) in row.into_iter().enumerate() {
+            self.column_values[i].update(row_id, value);
+        }
+    }
     pub fn get_by_index(&self, index: &Value) -> Option<Vec<Value>> {
         let row = self.index_values.get(index)?;
         self.get_row(*row)
@@ -323,6 +345,19 @@ impl WorkTable {
                 })
                 .collect(),
         )
+    }
+    pub fn find_row_index(&self, mut check: impl FnMut(&RowView) -> bool) -> Option<usize> {
+        for i in 0..self.shape().0 {
+            let row = RowView {
+                index: i,
+                column_names: &self.columns,
+                columns: &self.column_values,
+            };
+            if check(&row) {
+                return Some(i);
+            }
+        }
+        None
     }
     pub fn get_value<T: From<Value>>(&self, column: &str, row: usize) -> Option<T> {
         let column = self.get_column(column)?;
