@@ -426,6 +426,14 @@ impl<'a> RowViewMut<'a> {
             .unwrap()
     }
     #[allow(private_bounds)]
+    pub fn set<T>(&mut self, field: T, value: T::Type)
+    where
+        T: WorkTableField,
+        for<'b> &'b mut T::Type: From<ValueRefMut<'b>>,
+    {
+        *self.index_mut(field) = value;
+    }
+    #[allow(private_bounds)]
     pub fn get_mut<T: ?Sized>(&mut self, column: &str) -> Option<&mut T>
     where
         for<'b> &'b mut T: From<ValueRefMut<'b>>,
