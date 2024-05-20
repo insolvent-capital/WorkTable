@@ -522,7 +522,12 @@ impl WorkTable {
     }
     //noinspection RsConstantConditionIf
     pub fn add_field<T: WorkTableField>(&mut self, _field: T) {
-        self.add_column(T::NAME, <T::Type as IntoColumn>::into_column());
+        let name = T::NAME.to_string();
+        let index = self.column_names.len();
+        assert_eq!(index, T::INDEX, "Field index mismatch");
+        self.columns_map.insert(name.clone(), index as _);
+        self.column_names.push(name);
+        self.column_values.push(T::Type::into_column());
 
         if T::PRIMARY {
             self.set_primary();
