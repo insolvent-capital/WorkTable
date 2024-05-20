@@ -722,7 +722,7 @@ macro_rules! field {
         $index: expr, $f: ident: $ty: ty, $name: expr $(, primary = $indexed: expr)?
     ) => {
         pub struct $f;
-        impl WorkTableField for $f {
+        impl $crate::worktable::WorkTableField for $f {
             type Type = $ty;
             const INDEX: usize = $index;
             const NAME: &'static str = $name;
