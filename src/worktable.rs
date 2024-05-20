@@ -1,14 +1,13 @@
-use eyre::{Context, eyre, Result};
-use serde::*;
 use std::cmp::Ordering;
-use std::collections::HashMap;
-use std::future::Future;
+use std::collections::BTreeMap;
 use std::hash::{Hash, Hasher};
 use std::io::Read;
 use std::iter::IntoIterator;
 use std::sync::Arc;
+
+use eyre::{eyre, Context, Result};
+use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
-use tracing::warn;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd)]
 pub enum Type {
@@ -21,6 +20,19 @@ pub enum Value {
     Int(i64),
     String(String),
     Float(f64),
+}
+#[derive(Debug, Clone, Copy, Serialize, PartialEq)]
+enum ValueRef<'a> {
+    Int(&'a i64),
+    String(&'a String),
+    Float(&'a f64),
+}
+
+#[derive(Debug, Serialize, PartialEq)]
+enum ValueRefMut<'a> {
+    Int(&'a mut i64),
+    String(&'a mut String),
+    Float(&'a mut f64),
 }
 // assuming non-nan floats
 impl Eq for Value {}
@@ -59,6 +71,22 @@ impl From<Value> for i64 {
         }
     }
 }
+impl<'a> From<ValueRef<'a>> for &'a i64 {
+    fn from(val: ValueRef<'a>) -> Self {
+        match val {
+            ValueRef::Int(x) => x,
+            _ => panic!("Cannot convert {:?} to i64", val),
+        }
+    }
+}
+impl<'a> From<ValueRefMut<'a>> for &'a mut i64 {
+    fn from(val: ValueRefMut<'a>) -> Self {
+        match val {
+            ValueRefMut::Int(x) => x,
+            _ => panic!("Cannot convert {:?} to i64", val),
+        }
+    }
+}
 
 impl From<Value> for String {
     fn from(val: Value) -> Self {
@@ -68,10 +96,51 @@ impl From<Value> for String {
         }
     }
 }
+impl<'a> From<ValueRef<'a>> for &'a String {
+    fn from(val: ValueRef<'a>) -> Self {
+        match val {
+            ValueRef::String(x) => x,
+            _ => panic!("Cannot convert {:?} to String", val),
+        }
+    }
+}
+impl<'a> From<ValueRef<'a>> for &'a str {
+    fn from(val: ValueRef<'a>) -> Self {
+        match val {
+            ValueRef::String(x) => x,
+            _ => panic!("Cannot convert {:?} to String", val),
+        }
+    }
+}
+impl<'a> From<ValueRefMut<'a>> for &'a mut String {
+    fn from(val: ValueRefMut<'a>) -> Self {
+        match val {
+            ValueRefMut::String(x) => x,
+            _ => panic!("Cannot convert {:?} to String", val),
+        }
+    }
+}
+
 impl From<Value> for f64 {
     fn from(val: Value) -> Self {
         match val {
             Value::Float(x) => x,
+            _ => panic!("Cannot convert {:?} to f64", val),
+        }
+    }
+}
+impl<'a> From<ValueRef<'a>> for &'a f64 {
+    fn from(val: ValueRef<'a>) -> Self {
+        match val {
+            ValueRef::Float(x) => x,
+            _ => panic!("Cannot convert {:?} to f64", val),
+        }
+    }
+}
+impl<'a> From<ValueRefMut<'a>> for &'a mut f64 {
+    fn from(val: ValueRefMut<'a>) -> Self {
+        match val {
+            ValueRefMut::Float(x) => x,
             _ => panic!("Cannot convert {:?} to f64", val),
         }
     }
@@ -116,6 +185,25 @@ impl TryFrom<serde_json::Value> for Value {
         }
     }
 }
+trait IntoColumn: Sized {
+    fn into_column() -> Column;
+}
+impl IntoColumn for i64 {
+    fn into_column() -> Column {
+        Column::Int(vec![])
+    }
+}
+impl IntoColumn for String {
+    fn into_column() -> Column {
+        Column::String(vec![])
+    }
+}
+impl IntoColumn for f64 {
+    fn into_column() -> Column {
+        Column::Float(vec![])
+    }
+}
+
 pub enum Column {
     Int(Vec<i64>),
     String(Vec<String>),
@@ -138,11 +226,36 @@ impl Column {
             _ => panic!("Cannot push column of different type"),
         }
     }
-    pub fn get<T: From<Value>>(&self, index: usize) -> Option<T> {
+    pub fn get_value(&self, index: usize) -> Option<Value> {
+        let val = match self {
+            Column::Int(x) => Value::Int(x.get(index)?.clone()),
+            Column::String(x) => Value::String(x.get(index)?.clone()),
+            Column::Float(x) => Value::Float(x.get(index)?.clone()),
+        };
+        Some(val)
+    }
+
+    #[allow(private_bounds)]
+    pub fn get<T: ?Sized>(&self, index: usize) -> Option<&T>
+    where
+        for<'b> &'b T: From<ValueRef<'b>>,
+    {
         let x = match self {
-            Column::Int(x) => Value::Int(*x.get(index)?),
-            Column::String(x) => Value::String(x.get(index)?.to_string()),
-            Column::Float(x) => Value::Float(*x.get(index)?),
+            Column::Int(x) => ValueRef::Int(x.get(index)?),
+            Column::String(x) => ValueRef::String(x.get(index)?),
+            Column::Float(x) => ValueRef::Float(x.get(index)?),
+        };
+        Some(x.into())
+    }
+    #[allow(private_bounds)]
+    pub fn get_mut<T: ?Sized>(&mut self, index: usize) -> Option<&mut T>
+    where
+        for<'b> &'b mut T: From<ValueRefMut<'b>>,
+    {
+        let x = match self {
+            Column::Int(x) => ValueRefMut::Int(x.get_mut(index)?),
+            Column::String(x) => ValueRefMut::String(x.get_mut(index)?),
+            Column::Float(x) => ValueRefMut::Float(x.get_mut(index)?),
         };
         Some(x.into())
     }
@@ -178,14 +291,7 @@ impl Column {
             Column::Float(x) => x.is_empty(),
         }
     }
-    pub fn update(&mut self, index: usize, value: Value) {
-        match (self, value) {
-            (Column::Int(x), Value::Int(y)) => x[index] = y,
-            (Column::String(x), Value::String(y)) => x[index] = y,
-            (Column::Float(x), Value::Float(y)) => x[index] = y,
-            _ => panic!("Cannot update column of different type"),
-        }
-    }
+
     pub fn iter(&self) -> impl Iterator<Item = Value> + '_ {
         ColumnIterator {
             column: self,
@@ -199,6 +305,46 @@ impl Column {
             Column::Float(_) => Type::Float,
         }
     }
+    pub fn as_i64(&self) -> &[i64] {
+        match self {
+            Column::Int(x) => x.as_slice(),
+            _ => panic!(
+                "Cannot get i64 from column of different type: {:?}",
+                self.get_type()
+            ),
+        }
+    }
+    pub fn as_str(&self) -> &[String] {
+        match self {
+            Column::String(x) => x.as_slice(),
+            _ => panic!(
+                "Cannot get String from column of different type: {:?}",
+                self.get_type()
+            ),
+        }
+    }
+    pub fn as_f64(&self) -> &[f64] {
+        match self {
+            Column::Float(x) => x.as_slice(),
+            _ => panic!(
+                "Cannot get f64 from column of different type: {:?}",
+                self.get_type()
+            ),
+        }
+    }
+    pub fn swap_remove(&mut self, index: usize) {
+        match self {
+            Column::Int(x) => {
+                x.swap_remove(index);
+            }
+            Column::String(x) => {
+                x.swap_remove(index);
+            }
+            Column::Float(x) => {
+                x.swap_remove(index);
+            }
+        };
+    }
 }
 
 struct ColumnIterator<'a> {
@@ -208,34 +354,136 @@ struct ColumnIterator<'a> {
 impl Iterator for ColumnIterator<'_> {
     type Item = Value;
     fn next(&mut self) -> Option<Self::Item> {
-        let value = self.column.get(self.index)?;
+        let value = self.column.get_value(self.index)?;
         self.index += 1;
         Some(value)
     }
 }
 
+#[derive(Clone)]
 pub struct RowView<'a> {
     index: usize,
-    column_names: &'a Vec<String>,
-    columns: &'a Vec<Column>,
+    table: &'a WorkTable,
 }
 impl<'a> RowView<'a> {
-    pub fn get<T: From<Value>>(&self, column: &str) -> Option<T> {
-        let column = self
+    #[allow(private_bounds)]
+    pub fn index<T>(&self, _field: T) -> &T::Type
+    where
+        T: WorkTableField,
+        for<'b> &'b T::Type: From<ValueRef<'b>>,
+    {
+        self.table.column_values[T::INDEX].get(self.index).unwrap()
+    }
+    #[allow(private_bounds)]
+    pub fn get<T: ?Sized>(&self, column: &str) -> Option<&T>
+    where
+        for<'b> &'b T: From<ValueRef<'b>>,
+    {
+        let column = self.table.columns_map.get(column)?;
+
+        self.table.column_values[*column as usize].get(self.index)
+    }
+    pub fn dump(&self) -> Vec<Value> {
+        self.table
             .column_names
             .iter()
             .enumerate()
-            .find(|(_, x)| x.as_str() == column)
-            .map(|(i, _)| i)?;
-        self.columns[column].get(self.index)
+            .map(|(i, _)| self.table.column_values[i].get_value(self.index).unwrap())
+            .collect()
+    }
+}
+pub struct RowViewMut<'a> {
+    index: usize,
+    table: &'a mut WorkTable,
+    begin: Option<*mut usize>,
+}
+impl<'a> RowViewMut<'a> {
+    #[allow(private_bounds)]
+    pub fn index<T>(&self, _field: T) -> &T::Type
+    where
+        T: WorkTableField,
+        for<'b> &'b T::Type: From<ValueRef<'b>>,
+    {
+        self.table.column_values[T::INDEX].get(self.index).unwrap()
+    }
+    #[allow(private_bounds)]
+    pub fn get<T: ?Sized>(&self, column: &str) -> Option<&T>
+    where
+        for<'b> &'b T: From<ValueRef<'b>>,
+    {
+        let column = self.table.columns_map.get(column)?;
+
+        self.table.column_values[*column as usize].get(self.index)
+    }
+    #[allow(private_bounds)]
+    pub fn index_mut<T>(&mut self, _field: T) -> &mut T::Type
+    where
+        T: WorkTableField,
+        for<'b> &'b mut T::Type: From<ValueRefMut<'b>>,
+    {
+        self.table.column_values[T::INDEX]
+            .get_mut(self.index)
+            .unwrap()
+    }
+    #[allow(private_bounds)]
+    pub fn get_mut<T: ?Sized>(&mut self, column: &str) -> Option<&mut T>
+    where
+        for<'b> &'b mut T: From<ValueRefMut<'b>>,
+    {
+        let column = *self.table.columns_map.get(column)?;
+        debug_assert_ne!(
+            self.table
+                .primary_map
+                .as_ref()
+                .map_or(ColumnId::MAX, |_| column),
+            0,
+            "Cannot get mutable reference to index column"
+        );
+        self.table.column_values[column as usize].get_mut(self.index)
+    }
+    pub fn remove(self) {
+        let len = self.table.len();
+        if let Some(index_values) = &mut self.table.primary_map {
+            let index_value = self.table.column_values[0].get_value(self.index).unwrap();
+            // special case for last element
+            if self.index == len - 1 {
+                index_values.remove(&index_value);
+            } else {
+                let last_index_value = self.table.column_values[0].get_value(len - 1).unwrap();
+                let current_index_mapping = *index_values.get(&index_value).unwrap();
+                index_values.remove(&index_value);
+                index_values.insert(last_index_value, current_index_mapping);
+            }
+        }
+        if let Some(begin) = self.begin {
+            // update begin pointers
+            unsafe {
+                *begin = self.index;
+            }
+        }
+
+        self.table
+            .column_values
+            .iter_mut()
+            .for_each(|x| x.swap_remove(self.index));
+    }
+    pub fn dump(&self) -> Vec<Value> {
+        self.table
+            .column_names
+            .iter()
+            .enumerate()
+            .map(|(i, _)| self.table.column_values[i].get_value(self.index).unwrap())
+            .collect()
     }
 }
 
+type ColumnId = u8;
 pub struct WorkTable {
-    columns: Vec<String>,
+    column_names: Vec<String>,
+    columns_map: BTreeMap<String, ColumnId>,
     column_values: Vec<Column>,
-    index: Option<usize>,
-    index_values: HashMap<Value, usize>,
+
+    primary_map: Option<BTreeMap<Value, usize>>,
 }
 impl Default for WorkTable {
     fn default() -> Self {
@@ -245,171 +493,120 @@ impl Default for WorkTable {
 impl WorkTable {
     pub fn new() -> Self {
         Self {
-            columns: vec![],
+            column_names: vec![],
+            columns_map: Default::default(),
             column_values: vec![],
-            index: None,
-            index_values: Default::default(),
+            primary_map: None,
         }
     }
-    pub fn set_index(&mut self, index: &str) {
-        if let Some(i) = self.index {
-            warn!("Overwriting index {} {} with {}", self.columns[i], i, index);
+    pub fn set_primary(&mut self) {
+        // index must be first column
+        let column = 0;
+        let mut index_values = BTreeMap::new();
+        for (i, value) in self.column_values[column].iter().enumerate() {
+            index_values.insert(value.clone(), i);
         }
-        let index = self
-            .columns
-            .iter()
-            .enumerate()
-            .find(|(_, x)| x == &index)
-            .expect("Index not found")
-            .0;
-        self.index = Some(index);
-        let mut index_values = HashMap::new();
-        for (i, row) in self.column_values[index].iter().enumerate() {
-            index_values.insert(row, i);
-        }
-        self.index_values = index_values;
+        self.primary_map = Some(index_values);
     }
     pub fn add_column(&mut self, name: impl Into<String>, column: Column) {
         let name = name.into();
-        let exists = self.columns.iter().any(|x| x == &name);
+        let exists = self.columns_map.contains_key(&name);
         if exists {
             panic!("Overwriting column {}", name);
         }
-        self.columns.push(name);
+
+        self.columns_map
+            .insert(name.clone(), self.column_names.len() as _);
+        self.column_names.push(name);
         self.column_values.push(column);
     }
-    pub fn add_row<const N: usize>(&mut self, row: [Value; N]) {
-        if let Some(index) = self.index {
-            let index_value = row[index].clone();
+    //noinspection RsConstantConditionIf
+    pub fn add_field<T: WorkTableField>(&mut self, _field: T) {
+        self.add_column(T::NAME, <T::Type as IntoColumn>::into_column());
 
-            self.index_values
-                .insert(index_value, self.column_values[0].len());
+        if T::PRIMARY {
+            self.set_primary();
+        }
+    }
+    pub fn add_row<const N: usize>(&mut self, row: [Value; N]) {
+        assert_eq!(self.column_values.len(), N);
+        if let Some(primary_map) = &mut self.primary_map {
+            let index = primary_map.len();
+            primary_map.insert(row[0].clone(), index);
         }
         for (i, column) in row.into_iter().enumerate() {
             self.column_values[i].push(column);
         }
     }
-    pub fn update_row<const N: usize>(&mut self, row_id: usize, row: [Value; N]) {
-        for (i, value) in row.into_iter().enumerate() {
-            self.column_values[i].update(row_id, value);
+
+    pub fn len(&self) -> usize {
+        if self.column_values.is_empty() {
+            return 0;
         }
+        self.column_values[0].len()
     }
-    pub fn get_by_index(&self, index: &Value) -> Option<Vec<Value>> {
-        let row = self.index_values.get(index)?;
-        self.get_row(*row)
+    pub fn count_columns(&self) -> usize {
+        self.column_values.len()
     }
+    pub fn columns(&self) -> impl Iterator<Item = (&str, &Column)> {
+        self.column_names
+            .iter()
+            .zip(self.column_values.iter())
+            .map(|(name, column)| (name.as_str(), column))
+    }
+
     pub fn shape(&self) -> (usize, usize) {
-        let columns = self.column_values.len();
-        if columns == 0 {
-            return (0, 0);
-        }
-        let rows = self.column_values[0].len();
+        let rows = self.len();
+        let columns = self.count_columns();
         (rows, columns)
     }
     pub fn get_column(&self, name: &str) -> Option<&Column> {
-        self.columns
+        self.column_names
             .iter()
             .enumerate()
             .find(|(_, x)| x == &name)
             .map(|(i, _)| &self.column_values[i])
     }
-    pub fn get_column_i64(&self, name: &str) -> Option<&[i64]> {
-        self.get_column(name).and_then(|x| match x {
-            Column::Int(x) => Some(x.as_slice()),
-            _ => None,
-        })
-    }
-    pub fn get_column_str(&self, name: &str) -> Option<&[String]> {
-        self.get_column(name).and_then(|x| match x {
-            Column::String(x) => Some(x.as_slice()),
-            _ => None,
-        })
-    }
-    pub fn get_column_f64(&self, name: &str) -> Option<&[f64]> {
-        self.get_column(name).and_then(|x| match x {
-            Column::Float(x) => Some(x.as_slice()),
-            _ => None,
-        })
-    }
-    pub fn get_row(&self, index: usize) -> Option<Vec<Value>> {
+
+    pub fn get(&self, index: usize) -> Option<RowView> {
         if index >= self.shape().0 {
             return None;
         }
-        Some(
-            self.column_values
-                .iter()
-                .map(|x| match x {
-                    Column::Int(x) => Value::Int(x[index]),
-                    Column::String(x) => Value::String(x[index].clone()),
-                    Column::Float(x) => Value::Float(x[index]),
-                })
-                .collect(),
-        )
+        Some(RowView { index, table: self })
     }
-    pub fn find_row_index(&self, mut check: impl FnMut(RowView) -> bool) -> Option<usize> {
-        for i in 0..self.shape().0 {
-            let row = RowView {
-                index: i,
-                column_names: &self.columns,
-                columns: &self.column_values,
-            };
-            if check(row) {
-                return Some(i);
-            }
+    pub fn index(&self, index: usize) -> RowView {
+        self.get(index).expect("Index out of bounds")
+    }
+    pub fn get_mut(&mut self, index: usize) -> Option<RowViewMut> {
+        if index >= self.shape().0 {
+            return None;
         }
-        None
+        Some(RowViewMut {
+            index,
+            table: self,
+            begin: None,
+        })
     }
-    pub fn get_value<T: From<Value>>(&self, column: &str, row: usize) -> Option<T> {
-        let column = self.get_column(column)?;
-        let value = column.get(row)?;
-        Some(value)
+    pub fn index_mut(&mut self, index: usize) -> RowViewMut {
+        self.get_mut(index).expect("Index out of bounds")
     }
-    pub fn get_value_i64(&self, column: &str, row: usize) -> Option<i64> {
-        let column = self.get_column(column)?;
-        let value = column.get_i64(row)?;
-        Some(value)
+    pub fn get_by_primary(&self, index: &Value) -> Option<RowView> {
+        let index = *self.primary_map.as_ref().expect("no index").get(index)?;
+        Some(RowView { index, table: self })
     }
-    pub fn get_value_str(&self, column: &str, row: usize) -> Option<&str> {
-        let column = self.get_column(column)?;
-        let value = column.get_str(row)?;
-        Some(value)
-    }
-    pub fn get_value_f64(&self, column: &str, row: usize) -> Option<f64> {
-        let column = self.get_column(column)?;
-        let value = column.get_f64(row)?;
-        Some(value)
-    }
-    pub fn get_value_by_index_i64(&self, index: &Value, column: &str) -> Option<i64> {
-        let row = self.index_values.get(index)?;
-        self.get_value_i64(column, *row)
-    }
-    pub fn get_value_by_index_str(&self, index: &Value, column: &str) -> Option<&str> {
-        let row = self.index_values.get(index)?;
-        self.get_value_str(column, *row)
-    }
-    pub fn get_value_by_index_f64(&self, index: &Value, column: &str) -> Option<f64> {
-        let row = self.index_values.get(index)?;
-        self.get_value_f64(column, *row)
-    }
-    pub fn update_value(&mut self, row: usize, column: &str, value: Value) {
-        let column = self
-            .columns
-            .iter()
-            .enumerate()
-            .find(|(_, x)| x == &column)
-            .expect("Column not found")
-            .0;
-        self.column_values[column].update(row, value);
-    }
-    pub fn update_value_by_index(&mut self, index: &Value, column: &str, value: Value) {
-        let row = self.index_values.get(index).expect("Index not found");
-        self.update_value(*row, column, value);
+    pub fn get_by_primary_mut(&mut self, index: &Value) -> Option<RowViewMut> {
+        let index = *self.primary_map.as_ref().expect("no index").get(index)?;
+        Some(RowViewMut {
+            index,
+            table: self,
+            begin: None,
+        })
     }
     pub fn load_csv(&mut self, file: impl Read) -> Result<()> {
         let mut rdr = csv::Reader::from_reader(file);
         let headers = rdr.headers()?;
         for i in 0..headers.len() {
-            debug_assert!(self.columns[i] == headers[i]);
+            debug_assert!(self.column_names[i] == headers[i]);
         }
         for result in rdr.records() {
             // The iterator yields Result<StringRecord, Error>, so we check the
@@ -435,10 +632,10 @@ impl WorkTable {
         Ok(())
     }
     pub fn sort_by_column(&mut self, column: &str) {
-        debug_assert!(self.index.is_none());
+        debug_assert!(self.primary_map.is_none());
         let column = self.get_column(column).expect("Column not found");
         let mut indices: Vec<usize> = (0..column.len()).collect();
-        indices.sort_by_key(|a| column.get::<Value>(*a));
+        indices.sort_by_key(|a| column.get_value(*a));
         for col in &mut self.column_values {
             // indices.iter().map(|i| col.get(i).unwrap()).collect();
             let new_columns = match col {
@@ -451,77 +648,173 @@ impl WorkTable {
             *col = new_columns;
         }
     }
-    pub fn get_rows(&self) -> impl Iterator<Item = RowView> {
-        let len = self.shape().0;
-        (0..len)
-            .map(|index| {
-                RowView {
-                    index,
-                    column_names: &self.columns,
-                    columns: &self.column_values,
+    pub fn iter(&self) -> impl DoubleEndedIterator<Item = RowView> {
+        let len = self.len();
+        (0..len).map(|index| RowView { index, table: self })
+    }
+    // returns a mutable iterator over rows
+    pub fn iter_mut(&mut self) -> impl DoubleEndedIterator<Item = RowViewMut> {
+        struct IterMut<'a> {
+            begin: usize,
+            end: usize,
+            table: *mut WorkTable,
+            phantom: std::marker::PhantomData<&'a mut WorkTable>,
+        }
+        impl<'a> Iterator for IterMut<'a> {
+            type Item = RowViewMut<'a>;
+            fn next(&mut self) -> Option<Self::Item> {
+                let table = unsafe { &mut *self.table };
+                // handle row removal
+                self.end = self.end.min(table.len());
+                if self.begin >= self.end {
+                    return None;
                 }
-            })
-
+                let row = RowViewMut {
+                    index: self.begin,
+                    table,
+                    // handle row removal
+                    begin: Some(&mut self.begin),
+                };
+                self.begin += 1;
+                Some(row)
+            }
+        }
+        impl<'a> DoubleEndedIterator for IterMut<'a> {
+            fn next_back(&mut self) -> Option<Self::Item> {
+                if self.end == 0 {
+                    return None;
+                }
+                self.end -= 1;
+                let table = unsafe { &mut *self.table };
+                Some(RowViewMut {
+                    index: self.end,
+                    table,
+                    begin: None,
+                })
+            }
+        }
+        IterMut {
+            begin: 0,
+            end: self.len(),
+            table: self,
+            phantom: std::marker::PhantomData,
+        }
     }
 }
+
 pub type SyncWorkTable = Arc<RwLock<WorkTable>>;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct RWorkTable<T> {
-    rows: Vec<T>,
+pub trait WorkTableField {
+    #[allow(private_bounds)]
+    type Type: IntoColumn;
+    const INDEX: usize;
+    const NAME: &'static str;
+    const PRIMARY: bool = false;
+}
+#[macro_export]
+macro_rules! field {
+    (
+        $index: expr, $f: ident: $ty: ty, $name: expr $(, primary = $indexed: expr)?
+    ) => {
+        pub struct $f;
+        impl WorkTableField for $f {
+            type Type = $ty;
+            const INDEX: usize = $index;
+            const NAME: &'static str = $name;
+            $(const PRIMARY: bool = $indexed;)? // optional
+        }
+    };
 }
 
-impl<T> RWorkTable<T> {
-    pub fn with_capacity(capacity: usize) -> Self {
-        Self {
-            rows: Vec::with_capacity(capacity),
-        }
-    }
-    pub fn first<R>(&self, f: impl Fn(&T) -> R) -> Option<R> {
-        self.rows.first().map(f)
-    }
-    pub fn rows(&self) -> &Vec<T> {
-        &self.rows
-    }
-    pub fn into_rows(self) -> Vec<T> {
-        self.rows
-    }
-    pub fn iter(&self) -> impl Iterator<Item = &T> {
-        self.rows.iter()
-    }
-    pub fn len(&self) -> usize {
-        self.rows.len()
-    }
-    pub fn is_empty(&self) -> bool {
-        self.rows.is_empty()
-    }
-    pub fn into_result(self) -> Option<T> {
-        self.rows.into_iter().next()
-    }
-    pub fn push(&mut self, row: T) {
-        self.rows.push(row);
-    }
-    pub fn map<R>(self, f: impl Fn(T) -> R) -> Vec<R> {
-        self.rows.into_iter().map(f).collect()
-    }
-    pub async fn map_async<R, F: Future<Output = Result<R>>>(
-        self,
-        f: impl Fn(T) -> F,
-    ) -> Result<Vec<R>> {
-        let mut futures = Vec::with_capacity(self.rows.len());
-        for row in self.rows {
-            futures.push(f(row).await?);
-        }
-        Ok(futures)
-    }
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-impl<T> IntoIterator for RWorkTable<T> {
-    type Item = T;
+    field!(0, PrimaryA: i64, "ia", primary = true);
+    field!(0, A: i64, "a");
+    field!(1, B: String, "b");
+    field!(2, C: f64, "c");
+    #[test]
+    fn test_worktable_insert() {
+        let mut table = WorkTable::new();
+        table.add_field(A);
+        table.add_field(B);
+        table.add_field(C);
+        table.add_row([1.into(), "a".into(), 1.0.into()]);
+        table.add_row([2.into(), "b".into(), 2.0.into()]);
+        table.add_row([3.into(), "c".into(), 3.0.into()]);
+        assert_eq!(table.shape(), (3, 3));
+        assert_eq!(table.index(0).index(A), &1);
+        assert_eq!(table.index(0).index(B), "a");
+        assert_eq!(table.index(0).index(C), &1.0);
+        assert_eq!(table.index(1).index(A), &2);
+        assert_eq!(table.index(1).index(B), "b");
+        assert_eq!(table.index(1).index(C), &2.0);
+        assert_eq!(table.index(2).index(A), &3);
+        assert_eq!(table.index(2).index(B), "c");
+        assert_eq!(table.index(2).index(C), &3.0);
+    }
+    #[test]
+    fn test_worktable_remove() {
+        let mut table = WorkTable::new();
 
-    type IntoIter = std::vec::IntoIter<Self::Item>;
+        table.add_field(A);
+        table.add_field(B);
+        table.add_field(C);
+        table.add_row([1.into(), "a".into(), 1.0.into()]);
+        table.add_row([2.into(), "b".into(), 2.0.into()]);
+        table.add_row([3.into(), "c".into(), 3.0.into()]);
+        table.index_mut(1).remove();
+        assert_eq!(table.shape(), (2, 3));
+        assert_eq!(table.index(0).index(A), &1);
+        assert_eq!(table.index(0).index(B), "a");
+        assert_eq!(table.index(0).index(C), &1.0);
+        assert_eq!(table.index(1).index(A), &3);
+        assert_eq!(table.index(1).index(B), "c");
+        assert_eq!(table.index(1).index(C), &3.0);
+    }
+    #[test]
+    fn test_worktable_update() {
+        let mut table = WorkTable::new();
+        table.add_field(A);
+        table.add_field(B);
+        table.add_field(C);
+        table.add_row([1.into(), "a".into(), 1.0.into()]);
+        table.add_row([2.into(), "b".into(), 2.0.into()]);
+        table.add_row([3.into(), "c".into(), 3.0.into()]);
+        *table.index_mut(1).index_mut(A) = 4;
+        table.index_mut(1).index_mut(B).push_str("b");
+        *table.index_mut(1).index_mut(C) = 4.0;
+        assert_eq!(table.shape(), (3, 3));
+        assert_eq!(table.index(0).index(A), &1);
+        assert_eq!(table.index(0).index(B), "a");
+        assert_eq!(table.index(0).index(C), &1.0);
+        assert_eq!(table.index(1).index(A), &4);
+        assert_eq!(table.index(1).index(B), "bb");
+        assert_eq!(table.index(1).index(C), &4.0);
+        assert_eq!(table.index(2).index(A), &3);
+        assert_eq!(table.index(2).index(B), "c");
+        assert_eq!(table.index(2).index(C), &3.0);
+    }
 
-    fn into_iter(self) -> Self::IntoIter {
-        self.rows.into_iter()
+    #[test]
+    fn test_worktable_index() {
+        let mut table = WorkTable::new();
+        table.add_field(PrimaryA);
+        table.add_field(B);
+        table.add_field(C);
+        table.add_row([1.into(), "a".into(), 1.0.into()]);
+        table.add_row([2.into(), "b".into(), 2.0.into()]);
+        table.add_row([3.into(), "c".into(), 3.0.into()]);
+        assert_eq!(table.shape(), (3, 3));
+        assert_eq!(table.get_by_primary(&1.into()).unwrap().index(A), &1);
+        assert_eq!(table.get_by_primary(&1.into()).unwrap().index(B), "a");
+        assert_eq!(table.get_by_primary(&1.into()).unwrap().index(C), &1.0);
+        assert_eq!(table.get_by_primary(&2.into()).unwrap().index(A), &2);
+        assert_eq!(table.get_by_primary(&2.into()).unwrap().index(B), "b");
+        assert_eq!(table.get_by_primary(&2.into()).unwrap().index(C), &2.0);
+        assert_eq!(table.get_by_primary(&3.into()).unwrap().index(A), &3);
+        assert_eq!(table.get_by_primary(&3.into()).unwrap().index(B), "c");
+        assert_eq!(table.get_by_primary(&3.into()).unwrap().index(C), &3.0);
     }
 }
