@@ -162,6 +162,19 @@ impl Column {
             }
         };
     }
+    pub fn clear(&mut self) {
+        match self {
+            Column::Int(x) => {
+                x.clear();
+            }
+            Column::String(x) => {
+                x.clear();
+            }
+            Column::Float(x) => {
+                x.clear();
+            }
+        };
+    }
 }
 
 struct ColumnIterator<'a> {

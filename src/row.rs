@@ -2,8 +2,8 @@ use std::mem::transmute;
 use std::ops::Deref;
 
 use crate::column::ColumnId;
+use crate::table::WorkTable;
 use crate::value::{Value, ValueRef, ValueRefMut};
-use crate::worktable::WorkTable;
 use crate::WorkTableField;
 
 #[derive(Clone)]
