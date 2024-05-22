@@ -2,3 +2,7 @@
 target
 # setting
 .vscode
+
+.idea
+
+Cargo.lock
