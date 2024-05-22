@@ -244,6 +244,11 @@ impl WorkTable {
             phantom: std::marker::PhantomData,
         }
     }
+    pub fn retain(&mut self, f: impl Fn(&RowViewMut) -> bool) {
+        self.iter_mut().filter(f).for_each(|row| {
+            row.remove();
+        });
+    }
 }
 
 pub type SyncWorkTable = Arc<RwLock<WorkTable>>;
