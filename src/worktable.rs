@@ -245,9 +245,16 @@ impl WorkTable {
         }
     }
     pub fn retain(&mut self, f: impl Fn(&RowViewMut) -> bool) {
-        self.iter_mut().filter(f).for_each(|row| {
+        // remove from reverse order is generally faster
+        self.iter_mut().rev().filter(|x| !f(x)).for_each(|row| {
             row.remove();
         });
+    }
+    pub fn clear(&mut self) {
+        self.column_values.iter_mut().for_each(|x| x.clear());
+        if let Some(primary_map) = &mut self.primary_map {
+            primary_map.clear();
+        }
     }
 }
 
