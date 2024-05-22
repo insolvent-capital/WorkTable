@@ -11,9 +11,9 @@ pub trait WorkTableField {
 #[macro_export]
 macro_rules! field {
     (
-        $index: expr, $f: ident: $ty: ty, $name: expr $(, primary = $indexed: expr)?
+        $index: expr, $v: vis $f: ident: $ty: ty, $name: expr $(, primary = $indexed: expr)?
     ) => {
-        pub struct $f;
+        $v struct $f;
         impl $crate::WorkTableField for $f {
             type Type = $ty;
             const INDEX: usize = $index;
