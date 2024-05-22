@@ -291,9 +291,9 @@ mod tests {
         table.add_field(A);
         table.add_field(B);
         table.add_field(C);
-        table.add_row([1.into(), "a".into(), 1.0.into()]);
-        table.add_row([2.into(), "b".into(), 2.0.into()]);
-        table.add_row([3.into(), "c".into(), 3.0.into()]);
+        table.push([1.into(), "a".into(), 1.0.into()]);
+        table.push([2.into(), "b".into(), 2.0.into()]);
+        table.push([3.into(), "c".into(), 3.0.into()]);
         table.index_mut(1).remove();
         assert_eq!(table.shape(), (2, 3));
         assert_eq!(table.index(0).index(A), &1);

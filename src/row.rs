@@ -1,9 +1,13 @@
+use std::mem::transmute;
+use std::ops::Deref;
+
 use crate::column::ColumnId;
 use crate::value::{Value, ValueRef, ValueRefMut};
 use crate::worktable::WorkTable;
 use crate::WorkTableField;
 
 #[derive(Clone)]
+#[repr(C)]
 pub struct RowView<'a> {
     pub index: usize,
     pub(crate) table: &'a WorkTable,
@@ -35,28 +39,31 @@ impl<'a> RowView<'a> {
             .collect()
     }
 }
+#[repr(C)]
 pub struct RowViewMut<'a> {
     pub(crate) index: usize,
     pub(crate) table: &'a mut WorkTable,
     pub(crate) begin: Option<*mut usize>,
 }
-impl<'a> RowViewMut<'a> {
-    #[allow(private_bounds)]
-    pub fn index<T>(&self, _field: T) -> &T::Type
-    where
-        T: WorkTableField,
-        for<'b> &'b T::Type: From<ValueRef<'b>>,
-    {
-        self.table.column_values[T::INDEX].get(self.index).unwrap()
+impl<'a> Deref for RowViewMut<'a> {
+    type Target = RowView<'a>;
+    fn deref(&self) -> &Self::Target {
+        // SAFETY: see as_view
+        unsafe { transmute(self) }
     }
-    #[allow(private_bounds)]
-    pub fn get<T: ?Sized>(&self, column: &str) -> Option<&T>
-    where
-        for<'b> &'b T: From<ValueRef<'b>>,
-    {
-        let column = self.table.columns_map.get(column)?;
+}
 
-        self.table.column_values[*column as usize].get(self.index)
+impl<'a> RowViewMut<'a> {
+    pub fn as_view(&self) -> &RowView {
+        // SAFETY: first 2 fields of RowViewMut and RowView are the same
+        // downgrades the write reference to read reference
+        unsafe { transmute(self) }
+    }
+    pub fn to_view(&self) -> RowView {
+        RowView {
+            index: self.index,
+            table: self.table,
+        }
     }
     #[allow(private_bounds)]
     pub fn index_mut<T>(&mut self, _field: T) -> &mut T::Type
@@ -117,14 +124,6 @@ impl<'a> RowViewMut<'a> {
             .column_values
             .iter_mut()
             .for_each(|x| x.swap_remove(self.index));
-    }
-    pub fn dump(&self) -> Vec<Value> {
-        self.table
-            .column_names
-            .iter()
-            .enumerate()
-            .map(|(i, _)| self.table.column_values[i].get_value(self.index).unwrap())
-            .collect()
     }
 }
 
