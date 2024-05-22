@@ -1,6 +1,7 @@
 use crate::column::ColumnId;
 use crate::value::{Value, ValueRef, ValueRefMut};
-use crate::worktable::{WorkTable, WorkTableField};
+use crate::worktable::WorkTable;
+use crate::WorkTableField;
 
 #[derive(Clone)]
 pub struct RowView<'a> {
@@ -124,5 +125,37 @@ impl<'a> RowViewMut<'a> {
             .enumerate()
             .map(|(i, _)| self.table.column_values[i].get_value(self.index).unwrap())
             .collect()
+    }
+}
+
+#[must_use = "RowInsertion::finish() must be called to insert to the table"]
+pub struct RowInsertion<'a> {
+    pub(crate) values: Vec<Value>,
+    pub(crate) table: &'a mut WorkTable,
+}
+impl RowInsertion<'_> {
+    pub fn set<F>(mut self, _field: F, value: F::Type) -> Self
+    where
+        F: WorkTableField,
+    {
+        self.values[F::INDEX] = value.into();
+        self
+    }
+    pub fn finish(self) {
+        let len = self.table.len();
+        self.table
+            .column_values
+            .iter_mut()
+            .zip(self.values.into_iter())
+            .for_each(|(x, y)| {
+                if matches!(y, Value::Null) {
+                    panic!("Cannot insert null value. check if your insertion is complete");
+                }
+                x.push(y)
+            });
+        if let Some(index_values) = &mut self.table.primary_map {
+            let index_value = self.table.column_values[0].get_value(len).unwrap();
+            index_values.insert(index_value, len);
+        }
     }
 }

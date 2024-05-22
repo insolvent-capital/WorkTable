@@ -8,7 +8,7 @@ use tokio::sync::RwLock;
 
 use crate::column::{Column, ColumnId};
 use crate::value::Value;
-use crate::{IntoColumn, RowView, RowViewMut};
+use crate::{IntoColumn, RowInsertion, RowView, RowViewMut, WorkTableField};
 
 pub struct WorkTable {
     pub(crate) column_names: Vec<String>,
@@ -65,7 +65,7 @@ impl WorkTable {
             self.set_primary();
         }
     }
-    pub fn add_row<const N: usize>(&mut self, row: [Value; N]) {
+    pub fn push<const N: usize>(&mut self, row: [Value; N]) {
         assert_eq!(self.column_values.len(), N);
         if let Some(primary_map) = &mut self.primary_map {
             let index = primary_map.len();
@@ -73,6 +73,13 @@ impl WorkTable {
         }
         for (i, column) in row.into_iter().enumerate() {
             self.column_values[i].push(column);
+        }
+    }
+
+    pub fn insert(&mut self) -> RowInsertion {
+        RowInsertion {
+            values: vec![Value::Null; self.column_values.len()],
+            table: self,
         }
     }
 
@@ -241,31 +248,10 @@ impl WorkTable {
 
 pub type SyncWorkTable = Arc<RwLock<WorkTable>>;
 
-pub trait WorkTableField {
-    #[allow(private_bounds)]
-    type Type: IntoColumn;
-    const INDEX: usize;
-    const NAME: &'static str;
-    const PRIMARY: bool = false;
-}
-#[macro_export]
-macro_rules! field {
-    (
-        $index: expr, $f: ident: $ty: ty, $name: expr $(, primary = $indexed: expr)?
-    ) => {
-        pub struct $f;
-        impl $crate::worktable::WorkTableField for $f {
-            type Type = $ty;
-            const INDEX: usize = $index;
-            const NAME: &'static str = $name;
-            $(const PRIMARY: bool = $indexed;)? // optional
-        }
-    };
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::field;
 
     field!(0, PrimaryA: i64, "ia", primary = true);
     field!(0, A: i64, "a");
@@ -277,9 +263,16 @@ mod tests {
         table.add_field(A);
         table.add_field(B);
         table.add_field(C);
-        table.add_row([1.into(), "a".into(), 1.0.into()]);
-        table.add_row([2.into(), "b".into(), 2.0.into()]);
-        table.add_row([3.into(), "c".into(), 3.0.into()]);
+
+        // stream API
+        table
+            .insert()
+            .set(A, 1)
+            .set(B, "a".to_string())
+            .set(C, 1.0)
+            .finish();
+        table.push([2.into(), "b".into(), 2.0.into()]);
+        table.push([3.into(), "c".into(), 3.0.into()]);
         assert_eq!(table.shape(), (3, 3));
         assert_eq!(table.index(0).index(A), &1);
         assert_eq!(table.index(0).index(B), "a");
@@ -316,9 +309,9 @@ mod tests {
         table.add_field(A);
         table.add_field(B);
         table.add_field(C);
-        table.add_row([1.into(), "a".into(), 1.0.into()]);
-        table.add_row([2.into(), "b".into(), 2.0.into()]);
-        table.add_row([3.into(), "c".into(), 3.0.into()]);
+        table.push([1.into(), "a".into(), 1.0.into()]);
+        table.push([2.into(), "b".into(), 2.0.into()]);
+        table.push([3.into(), "c".into(), 3.0.into()]);
         *table.index_mut(1).index_mut(A) = 4;
         table.index_mut(1).index_mut(B).push_str("b");
         *table.index_mut(1).index_mut(C) = 4.0;
@@ -340,9 +333,9 @@ mod tests {
         table.add_field(PrimaryA);
         table.add_field(B);
         table.add_field(C);
-        table.add_row([1.into(), "a".into(), 1.0.into()]);
-        table.add_row([2.into(), "b".into(), 2.0.into()]);
-        table.add_row([3.into(), "c".into(), 3.0.into()]);
+        table.push([1.into(), "a".into(), 1.0.into()]);
+        table.push([2.into(), "b".into(), 2.0.into()]);
+        table.push([3.into(), "c".into(), 3.0.into()]);
         assert_eq!(table.shape(), (3, 3));
         assert_eq!(table.get_by_primary(&1.into()).unwrap().index(A), &1);
         assert_eq!(table.get_by_primary(&1.into()).unwrap().index(B), "a");

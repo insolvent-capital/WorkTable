@@ -5,6 +5,7 @@ use std::hash::{Hash, Hasher};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Value {
+    Null,
     Int(i64),
     String(String),
     Float(f64),
@@ -44,6 +45,7 @@ impl Ord for Value {
 impl Hash for Value {
     fn hash<H: Hasher>(&self, state: &mut H) {
         match self {
+            Value::Null => 0.hash(state),
             Value::Int(x) => x.hash(state),
             Value::String(x) => x.hash(state),
             Value::Float(x) => x.to_bits().hash(state),
