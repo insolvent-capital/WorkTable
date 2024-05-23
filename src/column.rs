@@ -32,17 +32,14 @@ impl Column {
             (Column::Int(x), Value::Int(y)) => x.push(y),
             (Column::String(x), Value::String(y)) => x.push(y),
             (Column::Float(x), Value::Float(y)) => x.push(y),
-            _ => panic!("Cannot push column of different type"),
+            (this, value) => panic!(
+                "Cannot push column of different type: {:?} vs {:?}",
+                this.get_type(),
+                value
+            ),
         }
     }
-    pub fn extend(&mut self, value: impl Into<Column>) {
-        match (self, value.into()) {
-            (Column::Int(x), Column::Int(y)) => x.extend(y),
-            (Column::String(x), Column::String(y)) => x.extend(y),
-            (Column::Float(x), Column::Float(y)) => x.extend(y),
-            _ => panic!("Cannot push column of different type"),
-        }
-    }
+
     pub fn get_value(&self, index: usize) -> Option<Value> {
         let val = match self {
             Column::Int(x) => Value::Int(x.get(index)?.clone()),
