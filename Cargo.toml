@@ -1,3 +1,6 @@
+[workspace]
+members = ["codegen"]
+
 [package]
 name = "worktable"
 version = "0.3.0"
@@ -8,6 +11,7 @@ authors = ["PathScale"]
 
 [dependencies]
 eyre = "0.6"
+derive_more = { version = "1.0.0", features = ["from", "error", "display"] }
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
 serde = { version = "1", features = ["derive"] }

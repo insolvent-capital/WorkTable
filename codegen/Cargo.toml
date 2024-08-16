@@ -1,0 +1,16 @@
+[package]
+name = "worktable-codegen"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "worktable_codegen"
+path = "src/lib.rs"
+proc-macro = true
+
+[dependencies]
+worktable = {path = ".."}
+syn = { version = "2.0.74"}
+quote = "1.0.36"
+proc-macro2 = "1.0.86"
+regex = "1.10.6"
