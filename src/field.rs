@@ -119,3 +119,43 @@ macro_rules! field {
 //     }
 // }
 // }
+
+// {
+// worktable!(
+//     name: Price
+//     columns: {
+//         id: u64 primary key autoincrement,
+//         exchange: u8,
+//         level: u8,
+//         asks_price: f64,
+//         bids_price: f64,
+//         asks_qty: f64,
+//         bids_qty: f64,
+//         timestamp: u64,
+//     }
+//     queries: {
+//         select: {
+//             // similar to SELECT bids_price, bids_qty FROM price where exchange=$1
+//             BidsPriceQty("bids_price", "bids_qty") by "exchange" as bids_price_by_exchange, // name override
+//             // similar to SELECT bids_price, bids_qty FROM price where bids_price>$1
+//             BidsPriceQty("bids_price", "bids_qty") by "bids_price" > as bids_price_above,
+//             // similar to SELECT bids_price, bids_qty FROM price where timestamp>$1 and timestamp<$2
+//             BidsPriceQty("bids_price", "bids_qty") by "timestamp" > and "timestamp" < as bids_price_by_date,
+//         }
+//     }
+// );
+//
+// let price_table = PriceWorkTable::new();
+//
+// // Result is multiple rows.
+// // without override price_table.bids_price_qty_by_exchange()
+// let binance_orders: BidsPriceByExchange = price_table.bids_price_by_exchange(Exchange::BinanceSpot as u8);
+//
+// // Result is multiple rows.
+// // without override price_table.bids_price_qty_by_bids_price_more()
+// let binance_orders: BidsPriceAbove = price_table.bids_price_above(1000.0);
+//
+// // Result is still multiple rows.
+// // without override price_table.bids_price_qty_by_timestamp_more_and_timestamp_less()
+// let binance_orders: BidsPriceByDate = price_table.bids_price_by_date(123312341, 1234128345);
+// }
