@@ -10,10 +10,7 @@ fn test() {
         }
     );
 
-    let row = TestRow {
-        test: 1,
-        id: 1
-    };
+    let row = TestRow { test: 1, id: 1 };
 
     println!("{:?}", row);
 }

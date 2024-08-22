@@ -1,6 +1,6 @@
+use crate::parse_columns::Columns;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
-use crate::parse_columns::Columns;
 
 pub fn gen_row_def(columns: Columns, mut name: String) -> (TokenStream, Ident) {
     name.push_str("Row");
@@ -8,7 +8,10 @@ pub fn gen_row_def(columns: Columns, mut name: String) -> (TokenStream, Ident) {
     let struct_def = quote! {pub struct #ident};
 
     let pk_ident = columns.primary_key;
-    let pk_type = columns.columns_map.get(&pk_ident).expect("exist because ident exist");
+    let pk_type = columns
+        .columns_map
+        .get(&pk_ident)
+        .expect("exist because ident exist");
 
     let row_impl = quote! {
         impl worktable::TableRow<#pk_type> for #ident {
@@ -18,18 +21,25 @@ pub fn gen_row_def(columns: Columns, mut name: String) -> (TokenStream, Ident) {
         }
     };
 
-    let rows: Vec<_> = columns.columns_map.into_iter().map(|(name, type_)| {
-        quote! {#name: #type_,}
-    }).collect();
+    let rows: Vec<_> = columns
+        .columns_map
+        .into_iter()
+        .map(|(name, type_)| {
+            quote! {#name: #type_,}
+        })
+        .collect();
 
-    (quote! {
-        #[derive(Debug, Clone)]
-        #struct_def {
-            #(#rows)*
-        }
+    (
+        quote! {
+            #[derive(Debug, Clone)]
+            #struct_def {
+                #(#rows)*
+            }
 
-        #row_impl
-    }, ident)
+            #row_impl
+        },
+        ident,
+    )
 }
 
 #[cfg(test)]
@@ -53,6 +63,5 @@ mod tests {
 
         assert_eq!(row_name.to_string(), "TestRow");
         assert_eq!(row_def.to_string(), "")
-
     }
 }

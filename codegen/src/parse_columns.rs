@@ -3,9 +3,7 @@ use proc_macro2::{Delimiter, Ident, TokenStream, TokenTree};
 use std::collections::HashMap;
 use syn::spanned::Spanned as _;
 
-use crate::parse_punct::{
-    parse_colon, try_parse_comma,
-};
+use crate::parse_punct::{parse_colon, try_parse_comma};
 
 #[derive(Debug)]
 pub struct Columns {
@@ -234,7 +232,6 @@ mod tests {
 
         assert!(columns.is_err());
     }
-
 
     mod row {
         use super::*;

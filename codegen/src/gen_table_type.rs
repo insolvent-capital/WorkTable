@@ -20,7 +20,7 @@ mod tests {
 
     #[test]
     fn generates_name() {
-        let tokens = gen_table_def("Test".to_string(), "i64".to_string(),"TestRow".to_string());
+        let tokens = gen_table_def("Test".to_string(), "i64".to_string(), "TestRow".to_string());
         assert_eq!(
             tokens.to_string(),
             "type TestWorkTable < I > = worktable :: WorkTable < TestRow , i64 , I > ;"

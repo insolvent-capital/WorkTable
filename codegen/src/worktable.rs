@@ -12,7 +12,11 @@ pub fn expand(input: TokenStream) -> syn::Result<TokenStream> {
     let name = parse_name(&mut i, &input)?;
     let columns = parse_columns(&mut i, &input)?;
 
-    let pk_type = columns.columns_map.get(&columns.primary_key).expect("exists").clone();
+    let pk_type = columns
+        .columns_map
+        .get(&columns.primary_key)
+        .expect("exists")
+        .clone();
 
     let (row_def, row_ident) = gen_row_def(columns, name.clone());
     let table_def = gen_table_def(name, pk_type.to_string(), row_ident.to_string());
