@@ -2,12 +2,14 @@ mod data;
 mod link;
 mod r#type;
 
-use crate::in_memory::page::r#type::PageType;
-use crate::in_memory::space;
 use derive_more::{Display, From};
 use rkyv::{with::Skip, Archive, Deserialize, Serialize};
 
+use crate::in_memory::page::r#type::PageType;
+use crate::in_memory::space;
+
 pub use link::Link;
+pub use {data::Data, data::Hint as DataHint};
 
 // TODO: Move to config
 /// The size of a page. Header size and other parts are _included_ in this size.

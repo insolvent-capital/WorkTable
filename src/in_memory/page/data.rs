@@ -2,18 +2,47 @@ use std::marker::PhantomData;
 
 use derive_more::Display;
 use rkyv::ser::serializers::AllocSerializer;
-use rkyv::{with::Skip, Archive, Deserialize, Serialize, CheckBytes, Fallible};
+use rkyv::{with::Skip, Archive, Deserialize, Serialize, CheckBytes, Fallible, AlignedBytes};
 use rkyv::validation::validators::DefaultValidator;
-use crate::in_memory::page::{self, HEADER_LENGTH, INNER_PAGE_LENGTH, PAGE_SIZE};
+use crate::in_memory::page::{self, INNER_PAGE_LENGTH};
 
 /// Length of the [`Data`] page header.
 pub const DATA_HEADER_LENGTH: usize = 4;
 
-/// Length of the inner [`Data`] page part.
-pub const DATA_INNER_LENGTH: usize = INNER_PAGE_LENGTH - DATA_HEADER_LENGTH;
+/// Length of the [`Option<Hint>`].
+///
+/// ## Rkyv representation
+///
+/// Length of the value is 8 bytes and 4 bytes are added because of [`Option`].
+pub const OPTIONAL_HINT_LENGTH: usize = 12;
 
+/// Length of the inner [`Data`] page part.
+pub const DATA_INNER_LENGTH: usize = INNER_PAGE_LENGTH - DATA_HEADER_LENGTH - OPTIONAL_HINT_LENGTH;
+
+/// Hint can be used to save row size, it `Row` is sized. It can predict how much `Row`s can be saved on page.
+/// Also, it counts saved rows.
 #[derive(
     Archive, Copy, Clone, Deserialize, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize,
+)]
+pub struct Hint {
+    row_size: u32,
+    capacity: u16,
+    row_length: u16,
+}
+
+impl Hint {
+    pub fn from_row_size(size: usize) -> Self {
+        let capacity = DATA_INNER_LENGTH / size;
+        Self {
+            row_size: size as u32,
+            capacity: capacity as u16,
+            row_length: 0,
+        }
+    }
+}
+
+#[derive(
+    Archive, Copy, Clone, Deserialize, Debug, Serialize,
 )]
 pub struct Data<Row> {
     /// [`Id`] of the [`General`] page of this [`Data`].
@@ -28,10 +57,10 @@ pub struct Data<Row> {
 
     /// Optional size of the `Row` which stored on this [`Data`] page. If row
     /// is unsized (contains [`String`] etc.) row size will be `None`.
-    row_size: Option<u32>,
+    hint: Option<Hint>,
 
     /// Inner array of bytes where deserialized `Row`s will be stored.
-    inner_data: [u8; DATA_INNER_LENGTH],
+    inner_data: AlignedBytes<DATA_INNER_LENGTH>,
 
     /// `Row` phantom data.
     _phantom: PhantomData<Row>,
@@ -42,8 +71,8 @@ impl<Row> From<page::Empty> for Data<Row> {
         Self {
             id: e.page_id,
             free_offset: 0,
-            row_size: None,
-            inner_data: [0; PAGE_SIZE - HEADER_LENGTH - DATA_HEADER_LENGTH],
+            hint: None,
+            inner_data: AlignedBytes::default(),
             _phantom: PhantomData,
         }
     }
@@ -55,8 +84,8 @@ impl<Row> Data<Row> {
         Self {
             id,
             free_offset: 0,
-            row_size: None,
-            inner_data: [0; DATA_INNER_LENGTH],
+            hint: None,
+            inner_data: AlignedBytes::default(),
             _phantom: PhantomData,
         }
     }
@@ -65,20 +94,23 @@ impl<Row> Data<Row> {
     where
         Row: Archive + Serialize<AllocSerializer<N>>,
     {
-        if let Some(size) = self.row_size {
-            let left = INNER_PAGE_LENGTH as u32 - self.free_offset;
-            if size > left {
-                return Err(ExecutionError::PageIsFull { need: size, left });
+        if let Some(hint) = self.hint {
+            let left = DATA_INNER_LENGTH as u32 - self.free_offset;
+            if hint.row_size > left {
+                return Err(ExecutionError::PageIsFull { need: hint.row_size, left });
             }
         }
 
         let bytes = rkyv::to_bytes(row).map_err(|_| ExecutionError::SerializeError)?;
         let length = bytes.len() as u32;
-        if self.row_size.is_none() {
-            self.row_size = Some(bytes.len() as u32);
+        if self.hint.is_none() {
+            self.hint = Some(Hint::from_row_size(bytes.len()));
         }
 
         let offset = self.free_offset;
+        if let Some(hint) = &mut self.hint {
+            hint.row_length += 1
+        }
         self.free_offset = self.free_offset + length;
 
         self.inner_data[offset as usize..][..length as usize].copy_from_slice(bytes.as_slice());
@@ -129,7 +161,7 @@ pub enum ExecutionError {
 mod tests {
     use rkyv::{Archive, Deserialize, Serialize};
 
-    use crate::in_memory::page::data::{Data, INNER_PAGE_LENGTH};
+    use crate::in_memory::page::data::{Data, Hint, INNER_PAGE_LENGTH, OPTIONAL_HINT_LENGTH};
 
     #[derive(
         Archive, Copy, Clone, Deserialize, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize,
@@ -150,20 +182,30 @@ mod tests {
     }
 
     #[test]
+    fn hint_length_valid() {
+        let data = Some(Hint::from_row_size(20));
+        let bytes = rkyv::to_bytes::<_, 16>(&data).unwrap();
+
+        assert_eq!(bytes.len(), OPTIONAL_HINT_LENGTH)
+    }
+
+    #[test]
     fn data_page_save_row() {
         let mut page = Data::<TestRow>::new(1.into());
         let row = TestRow { a: 10, b: 20 };
 
-        let link = page.save_row::<8>(&row).unwrap();
+        let link = page.save_row::<16>(&row).unwrap();
         assert_eq!(link.page_id, page.id);
         assert_eq!(link.length, 16);
         assert_eq!(link.offset, 0);
 
         assert_eq!(page.free_offset, link.length);
-        assert_eq!(page.row_size, Some(link.length));
+        let mut hint = Hint::from_row_size(link.length as usize);
+        hint.row_length = 1;
+        assert_eq!(page.hint, Some(hint));
 
         let bytes = &page.inner_data[link.offset as usize..link.length as usize];
-        let archived = rkyv::check_archived_root::<TestRow>(&bytes[..]).unwrap();
+        let archived = rkyv::check_archived_root::<TestRow>(bytes).unwrap();
         assert_eq!(archived, &row)
     }
 
