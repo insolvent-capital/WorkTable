@@ -1,7 +1,7 @@
-use proc_macro2::token_stream;
-use proc_macro2::{TokenStream, TokenTree};
 use std::iter::Peekable;
 use syn::spanned::Spanned;
+
+use proc_macro2::{TokenStream, TokenTree};
 
 /// Parses '{' from [`TokenStream`].
 pub fn parse_left_curly_brace(

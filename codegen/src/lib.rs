@@ -1,8 +1,4 @@
-mod gen_row_type;
-mod gen_table_type;
-mod parse_columns;
-mod parse_name;
-mod parse_punct;
+
 mod worktable;
 
 use proc_macro::TokenStream;

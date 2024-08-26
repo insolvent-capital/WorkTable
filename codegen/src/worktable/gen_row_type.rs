@@ -1,4 +1,5 @@
-use crate::parse_columns::Columns;
+use crate::worktable::parse_columns::Columns;
+
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
@@ -47,7 +48,7 @@ mod tests {
     use proc_macro2::TokenStream;
     use quote::quote;
 
-    use crate::parse_columns::parse_columns;
+    use crate::worktable::parse_columns::parse_columns;
 
     use super::gen_row_def;
 

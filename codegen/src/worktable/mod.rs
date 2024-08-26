@@ -1,10 +1,16 @@
-use proc_macro2::{TokenStream, TokenTree};
+use proc_macro2::TokenStream;
 use quote::quote;
 
-use crate::gen_row_type::gen_row_def;
-use crate::gen_table_type::gen_table_def;
-use crate::parse_columns::parse_columns;
-use crate::parse_name::parse_name;
+use gen_row_type::gen_row_def;
+use gen_table_type::gen_table_def;
+use parse_columns::parse_columns;
+use parse_name::parse_name;
+
+mod gen_row_type;
+mod gen_table_type;
+mod parse_columns;
+mod parse_name;
+mod parse_punct;
 
 pub fn expand(input: TokenStream) -> syn::Result<TokenStream> {
     let mut i = input.clone().into_iter();

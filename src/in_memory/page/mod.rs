@@ -96,9 +96,7 @@ impl Empty {
 
 #[cfg(test)]
 mod tests {
-    use crate::in_memory::page::{
-        self, r#type::PageType, GeneralHeader, HEADER_LENGTH, INNER_PAGE_LENGTH, PAGE_SIZE,
-    };
+    use crate::in_memory::page::{self, r#type::PageType, GeneralHeader, HEADER_LENGTH, INNER_PAGE_LENGTH, PAGE_SIZE};
 
     fn get_general_header() -> GeneralHeader {
         GeneralHeader {
@@ -126,8 +124,19 @@ mod tests {
     }
 
     #[test]
-    fn general_page_valid() {
+    fn general_empty_page_valid() {
         let page = get_general_page();
+        let bytes = rkyv::to_bytes::<_, 4096>(&page).unwrap();
+
+        assert_eq!(bytes.len(), PAGE_SIZE)
+    }
+
+    #[test]
+    fn general_data_page_valid() {
+        let page = page::General {
+            header: get_general_header(),
+            inner: page::Data::<()>::new(1.into())
+        };
         let bytes = rkyv::to_bytes::<_, 4096>(&page).unwrap();
 
         assert_eq!(bytes.len(), PAGE_SIZE)

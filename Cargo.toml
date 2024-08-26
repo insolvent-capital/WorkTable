@@ -19,3 +19,4 @@ serde_json = "1"
 smart-default = {version = "0.7.1"}
 rkyv = {version = "0.7.45", features = ["validation"]}
 csv = "1"
+once_cell = {version = "1.19.0"}

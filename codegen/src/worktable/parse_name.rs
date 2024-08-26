@@ -2,7 +2,7 @@ use proc_macro2::token_stream;
 use proc_macro2::{TokenStream, TokenTree};
 use syn::spanned::Spanned as _;
 
-use crate::parse_punct::{parse_colon, parse_comma};
+use crate::worktable::parse_punct::{parse_colon, parse_comma};
 
 pub fn parse_name(iter: &mut token_stream::IntoIter, input: &TokenStream) -> syn::Result<String> {
     let ident = iter.next().ok_or(syn::Error::new(
