@@ -7,7 +7,7 @@ use rkyv::ser::serializers::AllocSerializer;
 use rkyv::{with::{Skip, Unsafe}, Archive, Deserialize, Serialize, CheckBytes, Fallible, AlignedBytes};
 use rkyv::validation::validators::DefaultValidator;
 use smart_default::SmartDefault;
-
+use performance_measurement_codegen::performance_measurement;
 use crate::in_memory::page::{self, INNER_PAGE_LENGTH};
 
 /// Length of the [`Data`] page header.
@@ -90,6 +90,7 @@ impl<Row> Data<Row> {
         }
     }
 
+    #[performance_measurement(prefix_name = "DataRow")]
     pub fn save_row<const N: usize>(&self, row: &Row) -> Result<page::Link, ExecutionError>
     where
         Row: Archive + Serialize<AllocSerializer<N>>,
@@ -123,6 +124,7 @@ impl<Row> Data<Row> {
         Ok(link)
     }
 
+    #[performance_measurement(prefix_name = "DataRow")]
     pub fn get_row_ref<'a>(&'a self, link: page::Link) -> Result<&'a <Row as Archive>::Archived, ExecutionError>
     where Row: Archive,
           <Row as Archive>::Archived: CheckBytes<DefaultValidator<'a>>
@@ -136,6 +138,7 @@ impl<Row> Data<Row> {
         rkyv::check_archived_root::<Row>(&bytes[..]).map_err(|_| ExecutionError::DeserializeError)
     }
 
+    #[performance_measurement(prefix_name = "DataRow")]
     pub fn get_row<'a>(&'a self, link: page::Link) -> Result<Row, ExecutionError>
     where Row: Archive,
           <Row as Archive>::Archived: CheckBytes<DefaultValidator<'a>> + Deserialize<Row, rkyv::Infallible>,

@@ -1,0 +1,8 @@
+[package]
+name = "performance_measurement"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+lazy_static = {version = "1.5.0"}
+derive_more = {version = "1.0.0", features = ["display"]}

@@ -1,5 +1,5 @@
 [workspace]
-members = ["codegen"]
+members = ["codegen", "performance_measurement",  "performance_measurement/codegen"]
 
 [package]
 name = "worktable"
@@ -20,3 +20,5 @@ smart-default = {version = "0.7.1"}
 rkyv = {version = "0.7.45", features = ["validation"]}
 csv = "1"
 once_cell = {version = "1.19.0"}
+performance_measurement_codegen = {path = "performance_measurement/codegen"}
+performance_measurement = {path = "performance_measurement"}

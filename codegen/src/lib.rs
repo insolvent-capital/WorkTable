@@ -1,6 +1,7 @@
 
 mod worktable;
 
+use syn::spanned::Spanned;
 use proc_macro::TokenStream;
 
 #[proc_macro]
