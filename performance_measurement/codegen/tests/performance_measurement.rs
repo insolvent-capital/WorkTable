@@ -1,4 +1,4 @@
-use performance_measurement::performance_measurement;
+use performance_measurement_codegen::performance_measurement;
 
 #[performance_measurement(prefix_name = "MeasureMe")]
 fn measure_me() {
@@ -6,7 +6,7 @@ fn measure_me() {
 }
 
 #[performance_measurement(prefix_name = "MeasureMe")]
-fn count(a: u64, b: u64) -> u64 {
+pub fn count(a: u64, b: u64) -> u64 {
     a + b
 }
 

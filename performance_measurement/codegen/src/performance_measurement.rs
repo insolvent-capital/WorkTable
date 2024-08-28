@@ -20,6 +20,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
     let fn_block = &input_fn.block;
 
     let fn_sig = &input_fn.sig;
+    let fn_vis = &input_fn.vis;
 
     let mut attr = parse_attr(attr)?;
 
@@ -30,7 +31,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
     let fn_name = Literal::string(format!("{}::{}", attr.name, fn_name.to_string()).as_str());
 
     Ok(quote! {
-        #fn_sig {
+        #fn_vis #fn_sig {
             let start = performance_measurement::PerformanceProfiler::get_now();
             let res = #fn_block;
             performance_measurement::PerformanceProfiler::store_measurement(#fn_name, start.elapsed());

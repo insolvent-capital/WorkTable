@@ -9,12 +9,13 @@ use crate::in_memory::page::r#type::PageType;
 use crate::in_memory::space;
 
 pub use link::Link;
-pub use {data::Data, data::Hint as DataHint};
+pub use {data::Data, data::Hint as DataHint, data::ExecutionError as DataExecutionError};
+pub use data::DATA_INNER_LENGTH;
 
 // TODO: Move to config
 /// The size of a page. Header size and other parts are _included_ in this size.
 /// That's exact page size.
-pub const PAGE_SIZE: usize = 4096;
+pub const PAGE_SIZE: usize = 4096 * 4;
 
 /// Length of [`GeneralHeader`].
 ///
@@ -52,6 +53,12 @@ pub const INNER_PAGE_LENGTH: usize = PAGE_SIZE - HEADER_LENGTH;
     Serialize,
 )]
 pub struct Id(u32);
+
+impl From<Id> for usize {
+    fn from(value: Id) -> Self {
+        value.0 as usize
+    }
+}
 
 /// Header that appears on every page before page's data.
 #[derive(
