@@ -110,9 +110,19 @@ impl<Row, const DATA_LENGTH: usize> DataPages<Row, DATA_LENGTH> {
           <GeneralRow<Row> as Archive>::Archived: Deserialize<GeneralRow<Row>, rkyv::Infallible>,
     {
         let pages = self.pages.read().unwrap();
-        let page = pages.get::<usize>(link.page_id.into()).ok_or(ExecutionError::PageNotFound(link.page_id))?.clone();
+        let page = pages.get::<usize>(link.page_id.into()).ok_or(ExecutionError::PageNotFound(link.page_id))?;
         let gen_row = page.get_row(link).map_err(ExecutionError::DataPageError)?;
         Ok(gen_row.inner)
+    }
+
+    pub unsafe fn update<const N: usize>(&self, row: Row, link: Link) -> Result<Link, ExecutionError>
+    where
+        Row: Archive + Serialize<AllocSerializer<N>>,
+    {
+        let pages = self.pages.read().unwrap();
+        let page = pages.get::<usize>(link.page_id.into()).ok_or(ExecutionError::PageNotFound(link.page_id))?;
+        let gen_row = GeneralRow::from_inner(row);
+        page.save_row_by_link(&gen_row, link).map_err(ExecutionError::DataPageError)
     }
 }
 
@@ -131,7 +141,7 @@ mod tests {
     use std::time::Instant;
 
     use rkyv::{Archive, Deserialize, Serialize};
-
+    use worktable_codegen::WorktableRow;
     use crate::in_memory::pages::DataPages;
 
     #[derive(
@@ -163,6 +173,20 @@ mod tests {
 
     #[test]
     fn select() {
+        let pages = DataPages::<TestRow>::new();
+
+        let row = TestRow {
+            a: 10,
+            b: 20,
+        };
+        let link = pages.insert::<24>(row).unwrap();
+        let res = pages.select(link).unwrap();
+
+        assert_eq!(res, row)
+    }
+
+    #[test]
+    fn update() {
         let pages = DataPages::<TestRow>::new();
 
         let row = TestRow {

@@ -1,9 +1,5 @@
 #![feature(core_intrinsics)]
 
-// mod column;
-// mod field;
-// mod new_row;
-// mod new_table;
 mod in_memory;
 mod row;
 mod table;
@@ -15,4 +11,4 @@ mod table;
 // pub use field::*;
 pub use row::*;
 pub use table::*;
-// pub use value::*;
+

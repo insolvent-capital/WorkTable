@@ -6,7 +6,7 @@ use derive_more::{Display, Error};
 use rkyv::ser::serializers::AllocSerializer;
 use rkyv::{with::{Skip, Unsafe}, Archive, Deserialize, Serialize, Fallible, AlignedBytes};
 use smart_default::SmartDefault;
-use performance_measurement_codegen::performance_measurement;
+
 use crate::in_memory::page::{self, INNER_PAGE_LENGTH};
 
 /// Length of the [`Data`] page header.

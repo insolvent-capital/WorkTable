@@ -21,5 +21,6 @@ rkyv = {version = "0.7.45"}
 csv = "1"
 once_cell = { version = "1.19.0"}
 lockfree = { version = "0.5.1"}
+worktable_codegen = {path = "codegen"}
 performance_measurement_codegen = {path = "performance_measurement/codegen"}
 performance_measurement = {path = "performance_measurement"}
