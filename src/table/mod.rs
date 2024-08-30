@@ -6,27 +6,32 @@ use rkyv::ser::serializers::AllocSerializer;
 use crate::in_memory::DataPages;
 use crate::in_memory::page::Link;
 use crate::{TableIndex, TableRow};
+use crate::primary_key::{PrimaryKeyGenerator, TablePrimaryKey};
 
-pub struct WorkTable<Row, Pk, I = ()>
-where Pk: Clone + Minimum + Ord + Send + Sync + 'static,
+pub struct WorkTable<Row, Pk, I = (), PkGen = <Pk as TablePrimaryKey>::Generator>
+where Pk: Clone + Minimum + Ord + TablePrimaryKey + Send + Sync + 'static,
 {
     data: DataPages<Row>,
 
     pk_map: ConcurrentMap<Pk, Link>,
 
     indexes: I,
+
+    pk_gen: PkGen,
 }
 
 // Manual implementations to avoid unneeded trait bounds.
 impl<Row, Pk, I> Default for WorkTable<Row, Pk, I>
-where Pk: Clone + Minimum + Ord + Send + Sync + 'static,
+where Pk: Clone + Minimum + Ord + TablePrimaryKey + Send + Sync + 'static,
         I: Default,
+        <Pk as TablePrimaryKey>::Generator: Default
 {
     fn default() -> Self {
         Self {
             data: DataPages::new(),
             pk_map: ConcurrentMap::new(),
             indexes: I::default(),
+            pk_gen: Default::default(),
         }
     }
 }
@@ -34,8 +39,13 @@ where Pk: Clone + Minimum + Ord + Send + Sync + 'static,
 impl<Row, Pk, I> WorkTable<Row, Pk, I>
 where
     Row: TableRow<Pk>,
-    Pk: Clone + Minimum + Ord + Send + Sync + 'static,
+    Pk: Clone + Minimum + Ord + TablePrimaryKey + Send + Sync + 'static,
+    <Pk as TablePrimaryKey>::Generator: PrimaryKeyGenerator<Pk>
 {
+    pub fn get_next_pk(&self) -> Pk {
+        self.pk_gen.next()
+    }
+
 
     /// Selects `Row` from table identified with provided primary key. Returns `None` if no value presented.
     pub fn select(&self, pk: Pk) -> Option<Row>
@@ -96,7 +106,7 @@ mod tests {
     fn insert() {
         let table = TestWorkTable::default();
         let row = TestRow {
-            id: 1,
+            id: table.get_next_pk(),
             test: 1,
             exchnage: "test".to_string()
         };
@@ -111,7 +121,7 @@ mod tests {
     fn select_by_test() {
         let table = TestWorkTable::default();
         let row = TestRow {
-            id: 1,
+            id: table.get_next_pk(),
             test: 1,
             exchnage: "test".to_string()
         };

@@ -4,6 +4,7 @@ pub mod in_memory;
 mod row;
 mod table;
 mod index;
+mod primary_key;
 
 // mod ty;
 // mod value;
