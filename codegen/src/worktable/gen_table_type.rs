@@ -9,7 +9,22 @@ use crate::worktable::parse_columns::Columns;
 pub fn gen_table_def(name: &String, pk_type: &Ident, row_type: &Ident, index_type: &Ident) -> (TokenStream, Ident) {
     let ident = get_table_name(&name);
     (quote! {
-        type #ident = WorkTable<#row_type, #pk_type, #index_type>;
+        #[derive(Debug, Default, Clone)]
+        pub struct #ident(WorkTable<#row_type, #pk_type, #index_type>);
+
+        impl #ident {
+            pub fn select(&self, pk: #pk_type) -> Option<#row_type> {
+                self.0.select(pk)
+            }
+
+            pub fn insert<const ROW_SIZE_HINT: usize>(&self, row: #row_type) -> Result<#pk_type, WorkTableError> {
+                self.0.insert::<ROW_SIZE_HINT>(row)
+            }
+
+            pub fn get_next_pk(&self) -> #pk_type {
+                self.0.get_next_pk()
+            }
+        }
     }, ident)
 }
 
@@ -21,8 +36,8 @@ pub fn gen_table_index_impl(columns: Columns, table_ident: &Ident, row_ident: &I
 
          quote! {
              pub fn #fn_name(&self, by: #type_) -> Option<#row_ident> {
-                 let link = self.indexes.#field_ident.get(&by)?;
-                 self.data.select(link).ok()
+                 let link = self.0.indexes.#field_ident.get(&by)?;
+                 self.0.data.select(link).ok()
              }
          }
     }).collect::<Vec<_>>();

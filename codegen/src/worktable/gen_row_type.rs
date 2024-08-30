@@ -27,7 +27,7 @@ pub fn gen_row_def(columns: Columns, mut name: String) -> (TokenStream, Ident) {
         .columns_map
         .into_iter()
         .map(|(name, type_)| {
-            quote! {#name: #type_,}
+            quote! {pub #name: #type_,}
         })
         .collect();
 

@@ -22,14 +22,14 @@ pub fn gen_type_def(columns: Columns, name: &String) -> (TokenStream, Ident) {
             columns.columns_map.get(&i).clone(),
         ))
         .map(|(i, t)| {
-            quote! {#i: concurrent_map::ConcurrentMap<#t, Link>}
+            quote! {#i: ConcurrentMap<#t, Link>}
         })
         .collect::<Vec<_>>();
 
     let ident = Ident::new(format!("{name}Index").as_str(), Span::mixed_site());
     let struct_def = quote! {pub struct #ident};
     (quote! {
-        #[derive(Debug, Default)]
+        #[derive(Debug, Default, Clone)]
         #struct_def {
             #(#index_rows),*
         }
@@ -78,7 +78,7 @@ mod tests {
         let (res, i) = gen_type_def(columns, &"Test".to_string());
 
         assert_eq!(i.to_string(), "TestIndex".to_string());
-        assert_eq!(res.to_string(), "# [derive (Debug , Default)] pub struct TestIndex { test_index : concurrent_map :: ConcurrentMap < u64 , Link > }")
+        assert_eq!(res.to_string(), "# [derive (Debug , Default)] pub struct TestIndex { test_index : ConcurrentMap < u64 , Link > }")
     }
 
     #[test]

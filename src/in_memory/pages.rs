@@ -12,6 +12,7 @@ use crate::in_memory::page;
 use crate::in_memory::page::{DATA_INNER_LENGTH, DataExecutionError, Link};
 use crate::in_memory::row::GeneralRow;
 
+#[derive(Debug)]
 pub struct DataPages<Row, const DATA_LENGTH: usize = DATA_INNER_LENGTH> {
     /// Pages vector. Currently, not lock free.
     pages: RwLock<Vec<Arc<page::Data<GeneralRow<Row>, DATA_LENGTH>>>>,
@@ -128,10 +129,11 @@ impl<Row, const DATA_LENGTH: usize> DataPages<Row, DATA_LENGTH> {
     }
 }
 
-#[derive(Debug, Display, From)]
+#[derive(Debug, Display, Error, From)]
 pub enum ExecutionError {
     DataPageError(DataExecutionError),
-    PageNotFound(page::Id)
+
+    PageNotFound(#[error(not(source))] page::Id)
 }
 
 #[cfg(test)]
