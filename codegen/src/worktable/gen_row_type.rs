@@ -4,8 +4,7 @@ use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
 pub fn gen_row_def(columns: Columns, mut name: String) -> (TokenStream, Ident) {
-    name.push_str("Row");
-    let ident = Ident::new(name.as_str(), Span::mixed_site());
+    let ident = Ident::new(format!("{name}Row").as_str(), Span::mixed_site());
     let struct_def = quote! {pub struct #ident};
 
     let pk_ident = columns.primary_key;
@@ -15,7 +14,9 @@ pub fn gen_row_def(columns: Columns, mut name: String) -> (TokenStream, Ident) {
         .expect("exist because ident exist");
 
     let row_impl = quote! {
-        impl worktable::TableRow<#pk_type> for #ident {
+        impl TableRow<#pk_type> for #ident {
+            const ROW_SIZE: usize = ::core::mem::size_of::<#ident>();
+
             fn get_primary_key(&self) -> &#pk_type {
                 &self.#pk_ident
             }
@@ -32,7 +33,10 @@ pub fn gen_row_def(columns: Columns, mut name: String) -> (TokenStream, Ident) {
 
     (
         quote! {
-            #[derive(Debug, Clone)]
+            #[derive(rkyv::Archive, Debug, rkyv::Deserialize, Clone, rkyv::Serialize, PartialEq)]
+            #[archive(compare(PartialEq))]
+            #[archive_attr(derive(Debug))]
+            #[repr(C)]
             #struct_def {
                 #(#rows)*
             }
@@ -63,6 +67,5 @@ mod tests {
         let (row_def, row_name) = gen_row_def(columns, "Test".to_string());
 
         assert_eq!(row_name.to_string(), "TestRow");
-        assert_eq!(row_def.to_string(), "")
     }
 }

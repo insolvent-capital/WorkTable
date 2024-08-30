@@ -4,12 +4,12 @@ use quote::quote;
 use syn::spanned::Spanned;
 
 pub fn expand(input: TokenStream) -> syn::Result<TokenStream> {
-    let input_struct = match syn::parse2::<syn::ItemStruct>(input.clone()) {
-        Ok(data) => data,
-        Err(err) => {
-            return Err(syn::Error::new(input.span(), err.to_string()));
-        }
-    };
+    // let input_struct = match syn::parse2::<syn::ItemStruct>(input.clone()) {
+    //     Ok(data) => data,
+    //     Err(err) => {
+    //         return Err(syn::Error::new(input.span(), err.to_string()));
+    //     }
+    // };
 
 
     Ok(quote! {}.into())
