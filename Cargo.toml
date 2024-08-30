@@ -7,6 +7,9 @@ version = "0.3.0"
 edition = "2021"
 authors = ["PathScale"]
 
+[features]
+perf_measurements = ["dep:performance_measurement", "dep:performance_measurement_codegen"]
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -18,10 +21,11 @@ tracing = "0.1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 smart-default = {version = "0.7.1"}
-rkyv = {version = "0.7.45"}
+rkyv = {version = "0.7.42"}
 csv = "1"
 once_cell = { version = "1.19.0"}
 lockfree = { version = "0.5.1"}
 worktable_codegen = {path = "codegen"}
-performance_measurement_codegen = {path = "performance_measurement/codegen"}
-performance_measurement = {path = "performance_measurement"}
+
+performance_measurement_codegen = {path = "performance_measurement/codegen", optional = true}
+performance_measurement = {path = "performance_measurement", optional = true}

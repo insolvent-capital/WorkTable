@@ -6,6 +6,8 @@ use derive_more::{Display, Error};
 use rkyv::ser::serializers::AllocSerializer;
 use rkyv::{with::{Skip, Unsafe}, Archive, Deserialize, Serialize, Fallible, AlignedBytes};
 use smart_default::SmartDefault;
+
+#[cfg(feature = "perf_measurements")]
 use performance_measurement_codegen::performance_measurement;
 use crate::in_memory::page::{self, INNER_PAGE_LENGTH};
 
@@ -89,7 +91,7 @@ impl<Row, const DATA_LENGTH: usize> Data<Row, DATA_LENGTH> {
         }
     }
 
-    //#[performance_measurement(prefix_name = "DataRow")]
+    #[cfg_attr(feature = "perf_measurements", performance_measurement(prefix_name = "DataRow"))]
     pub fn save_row<const N: usize>(&self, row: &Row) -> Result<page::Link, ExecutionError>
     where
         Row: Archive + Serialize<AllocSerializer<N>>,

@@ -5,6 +5,8 @@ use derive_more::{Display, Error, From};
 use lockfree::stack::Stack;
 use rkyv::{Archive, Deserialize, Serialize};
 use rkyv::ser::serializers::AllocSerializer;
+
+#[cfg(feature = "perf_measurements")]
 use performance_measurement_codegen::performance_measurement;
 use crate::in_memory::page;
 use crate::in_memory::page::{DATA_INNER_LENGTH, DataExecutionError, Link};
