@@ -36,8 +36,9 @@ pub fn gen_table_index_impl(columns: Columns, table_ident: &Ident, row_ident: &I
 
          quote! {
              pub fn #fn_name(&self, by: #type_) -> Option<#row_ident> {
-                 let link = self.0.indexes.#field_ident.get(&by)?;
-                 self.0.data.select(link).ok()
+                 let guard = Guard::new();
+                 let link = self.0.indexes.#field_ident.peek(&by, &guard)?;
+                 self.0.data.select(*link).ok()
              }
          }
     }).collect::<Vec<_>>();

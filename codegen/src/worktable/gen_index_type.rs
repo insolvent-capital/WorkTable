@@ -22,7 +22,7 @@ pub fn gen_type_def(columns: Columns, name: &String) -> (TokenStream, Ident) {
             columns.columns_map.get(&i).clone(),
         ))
         .map(|(i, t)| {
-            quote! {#i: ConcurrentMap<#t, Link>}
+            quote! {#i: TreeIndex<#t, Link>}
         })
         .collect::<Vec<_>>();
 

@@ -14,7 +14,6 @@ perf_measurements = ["dep:performance_measurement", "dep:performance_measurement
 
 [dependencies]
 eyre = "0.6"
-concurrent-map = "5.0.33"
 derive_more = { version = "1.0.0", features = ["from", "error", "display"] }
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
@@ -26,6 +25,7 @@ csv = "1"
 once_cell = { version = "1.19.0"}
 lockfree = { version = "0.5.1"}
 worktable_codegen = {path = "codegen"}
+scc = "2.1.16"
 
 performance_measurement_codegen = {path = "performance_measurement/codegen", optional = true}
 performance_measurement = {path = "performance_measurement", optional = true}

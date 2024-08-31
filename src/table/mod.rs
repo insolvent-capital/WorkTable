@@ -1,21 +1,22 @@
 use std::sync::Arc;
+
 use derive_more::{Display, Error, From};
-use concurrent_map::{ConcurrentMap, Minimum};
+use scc::tree_index::TreeIndex;
 use rkyv::{Archive, Deserialize, Serialize};
 use rkyv::ser::serializers::AllocSerializer;
-
-use crate::in_memory::{page, DataPages};
+use scc::ebr::Guard;
+use crate::in_memory::DataPages;
 use crate::in_memory::page::Link;
 use crate::{in_memory, TableIndex, TableRow};
 use crate::primary_key::{PrimaryKeyGenerator, TablePrimaryKey};
 
 #[derive(Debug)]
 pub struct WorkTable<Row, Pk, I = (), PkGen = <Pk as TablePrimaryKey>::Generator>
-where Pk: Clone + Minimum + Ord + TablePrimaryKey + Send + Sync + 'static,
+where Pk: Clone + Ord + 'static
 {
     pub data: Arc<DataPages<Row>>,
 
-    pk_map: ConcurrentMap<Pk, Link>,
+    pk_map: TreeIndex<Pk, Link>,
 
     pub indexes: I,
 
@@ -23,7 +24,7 @@ where Pk: Clone + Minimum + Ord + TablePrimaryKey + Send + Sync + 'static,
 }
 
 impl<Row, Pk, I> Clone for WorkTable<Row, Pk, I>
-where Pk: Clone + Minimum + Ord + TablePrimaryKey + Send + Sync + 'static,
+where Pk: Clone + Ord + TablePrimaryKey,
       I: Clone,
 {
     fn clone(&self) -> Self {
@@ -38,14 +39,14 @@ where Pk: Clone + Minimum + Ord + TablePrimaryKey + Send + Sync + 'static,
 
 // Manual implementations to avoid unneeded trait bounds.
 impl<Row, Pk, I> Default for WorkTable<Row, Pk, I>
-where Pk: Clone + Minimum + Ord + TablePrimaryKey + Send + Sync + 'static,
+where Pk: Clone + Ord + TablePrimaryKey,
         I: Default,
         <Pk as TablePrimaryKey>::Generator: Default
 {
     fn default() -> Self {
         Self {
             data: Arc::new(DataPages::new()),
-            pk_map: ConcurrentMap::new(),
+            pk_map: TreeIndex::new(),
             indexes: I::default(),
             pk_gen: Arc::new(Default::default()),
         }
@@ -55,7 +56,7 @@ where Pk: Clone + Minimum + Ord + TablePrimaryKey + Send + Sync + 'static,
 impl<Row, Pk, I, PkGen> WorkTable<Row, Pk, I, PkGen>
 where
     Row: TableRow<Pk>,
-    Pk: Clone + Minimum + Ord + TablePrimaryKey + Send + Sync + 'static,
+    Pk: Clone + Ord + TablePrimaryKey ,
     PkGen: PrimaryKeyGenerator<Pk>
 {
     pub fn get_next_pk(&self) -> Pk {
@@ -69,8 +70,9 @@ where
         Row: Archive,
         <Row as Archive>::Archived:Deserialize<Row, rkyv::Infallible>,
     {
-        let link = self.pk_map.get(&pk)?;
-        self.data.select(link).ok()
+        let guard = Guard::new();
+        let link = self.pk_map.peek(&pk, &guard)?;
+        self.data.select(*link).ok()
     }
 
     pub fn insert<const ROW_SIZE_HINT: usize>(&self, row: Row) -> Result<Pk, WorkTableError>
@@ -81,7 +83,7 @@ where
     {
         let pk = row.get_primary_key().clone();
         let link = self.data.insert::<ROW_SIZE_HINT>(row.clone()).map_err(WorkTableError::PagesError)?;
-        self.pk_map.insert(pk.clone(), link);
+        let _ = self.pk_map.insert(pk.clone(), link);
         self.indexes.save_row(row, link);
 
         Ok(pk)
