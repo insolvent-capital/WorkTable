@@ -1,5 +1,3 @@
-#![feature(core_intrinsics)]
-
 pub mod in_memory;
 mod row;
 mod table;
