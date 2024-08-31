@@ -5,6 +5,8 @@ use scc::tree_index::TreeIndex;
 use rkyv::{Archive, Deserialize, Serialize};
 use rkyv::ser::serializers::AllocSerializer;
 use scc::ebr::Guard;
+#[cfg(feature = "perf_measurements")]
+use performance_measurement_codegen::performance_measurement;
 use crate::in_memory::DataPages;
 use crate::in_memory::page::Link;
 use crate::{in_memory, TableIndex, TableRow};
@@ -65,6 +67,7 @@ where
 
 
     /// Selects `Row` from table identified with provided primary key. Returns `None` if no value presented.
+    #[cfg_attr(feature = "perf_measurements", performance_measurement(prefix_name = "WorkTable"))]
     pub fn select(&self, pk: Pk) -> Option<Row>
     where
         Row: Archive,
@@ -75,6 +78,7 @@ where
         self.data.select(*link).ok()
     }
 
+    #[cfg_attr(feature = "perf_measurements", performance_measurement(prefix_name = "WorkTable"))]
     pub fn insert<const ROW_SIZE_HINT: usize>(&self, row: Row) -> Result<Pk, WorkTableError>
     where
         Row: Archive + Serialize<AllocSerializer<ROW_SIZE_HINT>> + Clone,
@@ -108,8 +112,12 @@ pub enum WorkTableError {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+    use std::thread;
+    use std::time::Instant;
+    use performance_measurement::PerformanceProfiler;
     use worktable_codegen::worktable;
-
+    use crate::in_memory::DataPages;
     use crate::prelude::*;
 
     worktable! (
@@ -120,6 +128,34 @@ mod tests {
             exchnage: String index
         }
     );
+
+    #[test]
+    fn bench() {
+        let table = TestWorkTable::default();
+
+        let mut v = Vec::with_capacity(10000);
+
+        for i in 0..10000 {
+            let row = TestRow {
+                id: table.get_next_pk(),
+                test: i + 1,
+                exchnage: "XD".to_string()
+            };
+
+            let a = table.insert::<24>(row).expect("TODO: panic message");
+            v.push(a)
+        }
+
+        for a in v {
+            table.select(a).expect("TODO: panic message");
+        }
+
+        let s = PerformanceProfiler::get_state();
+
+        for v in s {
+            println!("{}", v.val())
+        }
+    }
 
     #[test]
     fn insert() {

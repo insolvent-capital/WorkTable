@@ -43,7 +43,7 @@ impl<Row, const DATA_LENGTH: usize> DataPages<Row, DATA_LENGTH> {
         }
     }
 
-    //#[performance_measurement(prefix_name = "DataPages")]
+    #[cfg_attr(feature = "perf_measurements", performance_measurement(prefix_name = "DataPages"))]
     pub fn insert<const N: usize>(&self, row: Row) -> Result<Link, ExecutionError>
     where
         Row: Archive + Serialize<AllocSerializer<N>>,
@@ -108,6 +108,7 @@ impl<Row, const DATA_LENGTH: usize> DataPages<Row, DATA_LENGTH> {
         }
     }
 
+    #[cfg_attr(feature = "perf_measurements", performance_measurement(prefix_name = "DataPages"))]
     pub fn select(&self, link: Link) -> Result<Row, ExecutionError>
     where Row: Archive,
           <GeneralRow<Row> as Archive>::Archived: Deserialize<GeneralRow<Row>, rkyv::Infallible>,

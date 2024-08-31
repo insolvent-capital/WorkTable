@@ -128,7 +128,7 @@ impl<Row, const DATA_LENGTH: usize> Data<Row, DATA_LENGTH> {
         Ok(link)
     }
 
-    //#[performance_measurement(prefix_name = "DataRow")]
+    #[cfg_attr(feature = "perf_measurements", performance_measurement(prefix_name = "DataRow"))]
     pub unsafe fn save_row_by_link<const N: usize>(&self, row: &Row, link: page::Link) -> Result<page::Link, ExecutionError>
     where
         Row: Archive + Serialize<AllocSerializer<N>>,
@@ -152,7 +152,7 @@ impl<Row, const DATA_LENGTH: usize> Data<Row, DATA_LENGTH> {
         Ok(link)
     }
 
-    //#[performance_measurement(prefix_name = "DataRow")]
+    #[cfg_attr(feature = "perf_measurements", performance_measurement(prefix_name = "DataRow"))]
     pub fn get_row_ref(&self, link: page::Link) -> Result<&<Row as Archive>::Archived, ExecutionError>
     where Row: Archive
     {
@@ -165,7 +165,7 @@ impl<Row, const DATA_LENGTH: usize> Data<Row, DATA_LENGTH> {
         Ok(unsafe { rkyv::archived_root::<Row>(&bytes[..]) })
     }
 
-    //#[performance_measurement(prefix_name = "DataRow")]
+    #[cfg_attr(feature = "perf_measurements", performance_measurement(prefix_name = "DataRow"))]
     pub fn get_row(&self, link: page::Link) -> Result<Row, ExecutionError>
     where Row: Archive,
           <Row as Archive>::Archived:Deserialize<Row, rkyv::Infallible>,

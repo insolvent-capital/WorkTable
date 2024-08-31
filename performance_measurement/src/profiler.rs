@@ -58,7 +58,10 @@ impl PerformanceProfiler {
             global_performance_measurements.insert(function_name, m);
 
         };
+    }
 
+    pub fn get_state<'a>() -> &'a Map<&'static str, PerformanceMeasurement> {
+        &GLOBAL_PERFORMANCE_MEASUREMENTS
     }
 
     pub fn get_now() -> Instant {
