@@ -34,7 +34,7 @@ impl Generator {
 
         self.row_name = Some(ident);
         quote! {
-            #[derive(rkyv::Archive, Debug, rkyv::Deserialize, Clone, rkyv::Serialize, PartialEq)]
+            #[derive(rkyv::Archive, Debug, rkyv::Deserialize, Clone, rkyv::Serialize, PartialEq, Eq, Hash)]
             #[archive(compare(PartialEq))]
             #[archive_attr(derive(Debug))]
             #[repr(C)]

@@ -87,8 +87,8 @@ where
     {
         let pk = row.get_primary_key().clone();
         let link = self.data.insert::<ROW_SIZE_HINT>(row.clone()).map_err(WorkTableError::PagesError)?;
-        let _ = self.pk_map.insert(pk.clone(), link);
-        self.indexes.save_row(row, link);
+        let _ = self.pk_map.insert(pk.clone(), link).map_err(|_| WorkTableError::AlreadyExists)?;
+        self.indexes.save_row(row, link)?;
 
         Ok(pk)
     }
@@ -107,6 +107,7 @@ where
 #[derive(Debug, Display, Error, From)]
 pub enum WorkTableError {
     NotFound,
+    AlreadyExists,
     PagesError(in_memory::PagesExecutionError)
 }
 
@@ -125,7 +126,7 @@ mod tests {
         },
         indexes: {
             test_idx: test,
-            exchnage_idx: exchange
+            exchnage_idx: exchange unique,
         }
     );
 
@@ -167,6 +168,37 @@ mod tests {
     }
 
     #[test]
+    fn insert_same() {
+        let table = TestWorkTable::default();
+        let row = TestRow {
+            id: table.get_next_pk(),
+            test: 1,
+            exchange: "test".to_string()
+        };
+        let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let res = table.insert::<{ TestRow::ROW_SIZE }>(row.clone());
+        assert!(res.is_err())
+    }
+
+    #[test]
+    fn insert_exchange_same() {
+        let table = TestWorkTable::default();
+        let row = TestRow {
+            id: table.get_next_pk(),
+            test: 1,
+            exchange: "test".to_string()
+        };
+        let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let row = TestRow {
+            id: table.get_next_pk(),
+            test: 2,
+            exchange: "test".to_string()
+        };
+        let res = table.insert::<{ TestRow::ROW_SIZE }>(row.clone());
+        assert!(res.is_err())
+    }
+
+    #[test]
     fn select_by_test() {
         let table = TestWorkTable::default();
         let row = TestRow {
@@ -175,11 +207,36 @@ mod tests {
             exchange: "test".to_string()
         };
         let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
-        let selected_row = table.select_by_test(1).unwrap();
+        let selected_rows = table.select_by_test(1).unwrap();
 
-        assert_eq!(selected_row, row);
-        assert!(table.select_by_test(2).is_none())
+        assert_eq!(selected_rows.len(), 1);
+        assert!(selected_rows.contains(&row));
+        assert!(table.select_by_test(2).is_err())
     }
+
+    #[test]
+    fn select_multiple_by_test() {
+        let table = TestWorkTable::default();
+        let row = TestRow {
+            id: table.get_next_pk(),
+            test: 1,
+            exchange: "test".to_string()
+        };
+        let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let row_next = TestRow {
+            id: table.get_next_pk(),
+            test: 1,
+            exchange: "test".to_string()
+        };
+        let pk = table.insert::<{ TestRow::ROW_SIZE }>(row_next.clone()).unwrap();
+        let selected_rows = table.select_by_test(1).unwrap();
+
+        assert_eq!(selected_rows.len(), 2);
+        assert!(selected_rows.contains(&row));
+        assert!(selected_rows.contains(&row_next));
+        assert!(table.select_by_test(2).is_err())
+    }
+
 
     #[test]
     fn select_by_name() {
@@ -193,6 +250,6 @@ mod tests {
         let selected_row = table.select_by_exchange("test".to_string()).unwrap();
 
         assert_eq!(selected_row, row);
-        assert!(table.select_by_exchangeaa("2".to_string()).is_none())
+        assert!(table.select_by_exchange("2".to_string()).is_none())
     }
 }

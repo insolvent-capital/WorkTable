@@ -1,6 +1,8 @@
+use std::collections::HashMap;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use crate::worktable::generator::Generator;
+use crate::worktable::model::Index;
 
 impl Generator {
     /// Generates type alias for new [`WorkTable`].
@@ -36,26 +38,12 @@ impl Generator {
     }
 
     pub fn gen_table_index_impl(&mut self) -> syn::Result<TokenStream> {
-        println!("{:?}", &self.columns.indexes);
-        println!("{:?}", &self.columns.columns_map);
-
         let fn_defs = self.columns.indexes.iter().map(|(i, idx)| {
-            let type_ = self.columns.columns_map.get(&i).ok_or(syn::Error::new(
-                i.span(),
-                "Row not found",
-            ))?;
-            let fn_name = Ident::new(format!("select_by_{i}").as_str(), Span::mixed_site());
-            let field_ident = &idx.name;
-
-            let row_ident = self.row_name.clone().unwrap();
-
-            Ok(quote! {
-                pub fn #fn_name(&self, by: #type_) -> Option<#row_ident> {
-                    let guard = Guard::new();
-                    let link = self.0.indexes.#field_ident.peek(&by, &guard)?;
-                    self.0.data.select(*link).ok()
-                }
-            })
+            if idx.is_unique {
+                Self::gen_unique_index_fn(i, idx, &self.columns.columns_map, self.row_name.clone().unwrap())
+            } else {
+                Self::gen_non_unique_index_fn(i, idx, &self.columns.columns_map, self.row_name.clone().unwrap())
+            }
         }).collect::<Result<Vec<_>, syn::Error>>()?;
 
         let table_ident = self.table_name.clone().unwrap();
@@ -64,6 +52,49 @@ impl Generator {
                 #(#fn_defs)*
             }
         })
+    }
+
+    fn gen_unique_index_fn(i: &Ident, idx: &Index, columns_map: &HashMap<Ident, Ident>, row_ident: Ident) -> syn::Result<TokenStream> {
+        let type_ = columns_map.get(&i).ok_or(syn::Error::new(
+            i.span(),
+            "Row not found",
+        ))?;
+        let fn_name = Ident::new(format!("select_by_{i}").as_str(), Span::mixed_site());
+        let field_ident = &idx.name;
+
+        Ok(quote! {
+                pub fn #fn_name(&self, by: #type_) -> Option<#row_ident> {
+                    let guard = Guard::new();
+                    let link = self.0.indexes.#field_ident.peek(&by, &guard)?;
+                    self.0.data.select(*link).ok()
+                }
+            })
+    }
+
+    fn gen_non_unique_index_fn(i: &Ident, idx: &Index, columns_map: &HashMap<Ident, Ident>, row_ident: Ident) -> syn::Result<TokenStream> {
+        let type_ = columns_map.get(&i).ok_or(syn::Error::new(
+            i.span(),
+            "Row not found",
+        ))?;
+        let fn_name = Ident::new(format!("select_by_{i}").as_str(), Span::mixed_site());
+        let field_ident = &idx.name;
+
+        Ok(quote! {
+                pub fn #fn_name(&self, by: #type_) -> Result<std::collections::HashSet<#row_ident>, WorkTableError> {
+                    {
+                        let guard = Guard::new();
+                        self.0.indexes.#field_ident
+                            .peek(&by, &guard)
+                            .ok_or(WorkTableError::NotFound)?
+                            .iter()
+                            .map(|l| *l.as_ref())
+                            .collect::<Vec<_>>()
+                    }.iter().map(|link| {
+                        self.0.data.select(*link).map_err(WorkTableError::PagesError)
+                    })
+                    .collect()
+                }
+            })
     }
 }
 

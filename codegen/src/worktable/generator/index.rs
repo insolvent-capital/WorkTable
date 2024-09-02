@@ -18,12 +18,17 @@ impl Generator {
         let name = &self.name;
         let index_rows = self.columns.indexes
             .iter()
-            .map(|(i, inx)| (
-                &inx.name,
+            .map(|(i, idx)| (
+                idx.is_unique,
+                &idx.name,
                 self.columns.columns_map.get(&i).clone(),
             ))
-            .map(|(i, t)| {
-                quote! {#i: TreeIndex<#t, Link>}
+            .map(|(unique, i, t)| {
+                if unique {
+                    quote! {#i: TreeIndex<#t, Link>}
+                } else {
+                    quote! {#i: TreeIndex<#t, std::sync::Arc<LockFreeSet<Link>>>}
+                }
             })
             .collect::<Vec<_>>();
 
@@ -43,8 +48,23 @@ impl Generator {
             .iter()
             .map(|(i, idx)| {
                 let index_field_name = &idx.name;
-                quote! {
-                    self.#index_field_name.insert(row.#i, link);
+                if idx.is_unique {
+                    quote! {
+                        self.#index_field_name.insert(row.#i, link).map_err(|_| WorkTableError::AlreadyExists)?;
+                    }
+                } else {
+                    quote! {
+                        let guard = Guard::new();
+                        if let Some(set) = self.#index_field_name.peek(&row.#i, &guard) {
+                            set.insert(link);
+                        } else {
+                            let set = LockFreeSet::new();
+                            set.insert(link);
+                            self.#index_field_name
+                                .insert(row.#i, std::sync::Arc::new(set))
+                                .map_err(|_| WorkTableError::AlreadyExists)?;
+                        }
+                    }
                 }
             }).collect::<Vec<_>>();
 
@@ -53,8 +73,10 @@ impl Generator {
 
         quote! {
             impl TableIndex<#row_type_name> for #index_type_name {
-                fn save_row(&self, row: #row_type_name, link: Link) {
+                fn save_row(&self, row: #row_type_name, link: Link) -> Result<(), WorkTableError>{
                     #(#index_rows)*
+
+                    Ok(())
                 }
             }
         }
