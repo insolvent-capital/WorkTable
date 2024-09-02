@@ -112,20 +112,20 @@ pub enum WorkTableError {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-    use std::thread;
-    use std::time::Instant;
-    use performance_measurement::PerformanceProfiler;
     use worktable_codegen::worktable;
-    use crate::in_memory::DataPages;
+
     use crate::prelude::*;
 
     worktable! (
         name: Test,
         columns: {
             id: u64 primary_key,
-            test: i64 index,
-            exchnage: String index
+            test: i64,
+            exchange: String
+        },
+        indexes: {
+            test_idx: test,
+            exchnage_idx: exchange
         }
     );
 
@@ -139,7 +139,7 @@ mod tests {
             let row = TestRow {
                 id: table.get_next_pk(),
                 test: i + 1,
-                exchnage: "XD".to_string()
+                exchange: "XD".to_string()
             };
 
             let a = table.insert::<24>(row).expect("TODO: panic message");
@@ -149,12 +149,6 @@ mod tests {
         for a in v {
             table.select(a).expect("TODO: panic message");
         }
-
-        let s = PerformanceProfiler::get_state();
-
-        for v in s {
-            println!("{}", v.val())
-        }
     }
 
     #[test]
@@ -163,7 +157,7 @@ mod tests {
         let row = TestRow {
             id: table.get_next_pk(),
             test: 1,
-            exchnage: "test".to_string()
+            exchange: "test".to_string()
         };
         let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
         let selected_row = table.select(pk).unwrap();
@@ -178,7 +172,7 @@ mod tests {
         let row = TestRow {
             id: table.get_next_pk(),
             test: 1,
-            exchnage: "test".to_string()
+            exchange: "test".to_string()
         };
         let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
         let selected_row = table.select_by_test(1).unwrap();
@@ -193,12 +187,12 @@ mod tests {
         let row = TestRow {
             id: table.get_next_pk(),
             test: 1,
-            exchnage: "test".to_string()
+            exchange: "test".to_string()
         };
         let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
-        let selected_row = table.select_by_exchnage("test".to_string()).unwrap();
+        let selected_row = table.select_by_exchange("test".to_string()).unwrap();
 
         assert_eq!(selected_row, row);
-        assert!(table.select_by_exchnage("2".to_string()).is_none())
+        assert!(table.select_by_exchangeaa("2".to_string()).is_none())
     }
 }

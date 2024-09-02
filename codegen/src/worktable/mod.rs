@@ -1,44 +1,58 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 
-use gen_row_type::gen_row_def;
-use gen_table_type::gen_table_def;
-use parse_columns::parse_columns;
-use parse_name::parse_name;
-use crate::worktable::gen_index_type::{gen_impl_def, gen_index_def};
-use crate::worktable::gen_table_type::gen_table_index_impl;
+mod parser;
+mod generator;
+mod model;
 
-mod gen_row_type;
-mod gen_table_type;
-mod parse_columns;
-mod parse_name;
-mod parse_punct;
-mod gen_index_type;
+pub use parser::Parser;
+use crate::worktable::generator::Generator;
 
 pub fn expand(input: TokenStream) -> syn::Result<TokenStream> {
-    let mut i = input.clone().into_iter();
+    let mut parser = Parser::new( input);
 
-    let name = parse_name(&mut i, &input)?;
-    let columns = parse_columns(&mut i, &input)?;
+    let name = parser.parse_name()?;
+    let mut columns = parser.parse_columns()?;
+    let indexes = parser.parse_indexes()?;
+    columns.indexes = indexes;
 
-    let pk_type = columns
-        .columns_map
-        .get(&columns.primary_key)
-        .expect("exists")
-        .clone();
+    let mut generator = Generator::new(name, columns);
 
-    let (row_def, row_ident) = gen_row_def(columns.clone(), name.clone());
-    let (index_def, index_ident) = gen_index_def(columns.clone(), &name, &row_ident);
-    let (table_def, table_ident) = gen_table_def(&name, &pk_type, &row_ident, &index_ident);
-    let table_index_impl = gen_table_index_impl(columns, &table_ident, &row_ident);
+    let pk_def = generator.gen_pk_def();
+    let row_def = generator.gen_row_def();
+    let index_def = generator.gen_index_def();
+    let table_def = generator.gen_table_def();
+    let table_index_impl = generator.gen_table_index_impl()?;
 
     Ok(TokenStream::from(quote! {
+        #pk_def
         #row_def
-
         #index_def
-
         #table_def
-
         #table_index_impl
     }))
+}
+
+#[cfg(test)]
+mod test {
+    use quote::quote;
+    use crate::worktable::expand;
+
+    #[test]
+    fn test() {
+        let tokens = quote! {
+            name: Test,
+        columns: {
+            id: u64 primary_key,
+            test: i64,
+            exchnage: String
+        },
+        indexes: {
+            test_idx: test,
+            exchnage_idx: exchange
+        }
+        };
+
+        let res = expand(tokens).unwrap();
+    }
 }
