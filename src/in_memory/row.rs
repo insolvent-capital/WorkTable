@@ -1,6 +1,20 @@
+use std::fmt::Debug;
 use std::sync::atomic::AtomicBool;
 
 use rkyv::{Archive, Deserialize, Serialize};
+
+/// Common trait for the `Row`s that can be stored on the [`Data`] page.
+///
+/// [`Data`]: crate::in_memory::page::Data
+pub trait StorableRow {
+    type WrappedRow: Archive + Debug;
+}
+
+pub trait RowWrapper<Inner> {
+    fn get_inner(self) -> Inner;
+
+    fn from_inner(inner: Inner) -> Self;
+}
 
 /// General `Row` wrapper that is used to append general data for every `Inner`
 /// `Row`.
@@ -13,21 +27,16 @@ pub struct GeneralRow<Inner> {
     pub deleted: AtomicBool,
 }
 
-impl<Inner> GeneralRow<Inner> {
+impl<Inner> RowWrapper<Inner> for GeneralRow<Inner> {
+    fn get_inner(self) -> Inner {
+        self.inner
+    }
+
     /// Creates new [`GeneralRow`] from `Inner`.
-    pub fn from_inner(inner: Inner) -> Self {
+    fn from_inner(inner: Inner) -> Self {
         Self {
             inner,
             deleted: AtomicBool::new(false)
         }
     }
-}
-
-
-/// Common trait for the `Row`s that can be stored on the [`Data`] page.
-///
-/// [`Data`]: crate::in_memory::page::Data
-pub trait StorableRow {
-    /// Indicator if `Row` is sized.
-    fn is_sized() -> bool;
 }

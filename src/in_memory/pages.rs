@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicI32, AtomicU32, AtomicU64, Ordering};
 
@@ -10,12 +11,14 @@ use rkyv::ser::serializers::AllocSerializer;
 use performance_measurement_codegen::performance_measurement;
 use crate::in_memory::page;
 use crate::in_memory::page::{DATA_INNER_LENGTH, DataExecutionError, Link};
-use crate::in_memory::row::GeneralRow;
+use crate::in_memory::row::{GeneralRow, RowWrapper, StorableRow};
 
 #[derive(Debug)]
-pub struct DataPages<Row, const DATA_LENGTH: usize = DATA_INNER_LENGTH> {
+pub struct DataPages<Row, const DATA_LENGTH: usize = DATA_INNER_LENGTH>
+where Row: StorableRow
+{
     /// Pages vector. Currently, not lock free.
-    pages: RwLock<Vec<Arc<page::Data<GeneralRow<Row>, DATA_LENGTH>>>>,
+    pages: RwLock<Vec<Arc<page::Data<<Row as StorableRow>::WrappedRow, DATA_LENGTH>>>>,
 
     /// Stack with empty [`Link`]s. It stores [`Link`]s of rows that was deleted.
     empty_links: Stack<Link>,
@@ -31,7 +34,10 @@ pub struct DataPages<Row, const DATA_LENGTH: usize = DATA_INNER_LENGTH> {
     current_page: AtomicU32,
 }
 
-impl<Row, const DATA_LENGTH: usize> DataPages<Row, DATA_LENGTH> {
+impl<Row, const DATA_LENGTH: usize> DataPages<Row, DATA_LENGTH>
+where Row: StorableRow,
+      <Row as StorableRow>::WrappedRow: RowWrapper<Row>
+{
     pub fn new() -> Self {
         Self {
             pages: RwLock::new(vec![Arc::new(page::Data::new(0.into()))]),
@@ -47,12 +53,13 @@ impl<Row, const DATA_LENGTH: usize> DataPages<Row, DATA_LENGTH> {
     pub fn insert<const N: usize>(&self, row: Row) -> Result<Link, ExecutionError>
     where
         Row: Archive + Serialize<AllocSerializer<N>>,
+        <Row as StorableRow>::WrappedRow: Archive + Serialize<AllocSerializer<N>>,
     {
         if let Some(link) = self.empty_links.pop() {
             todo!()
         }
 
-        let general_row = GeneralRow::from_inner(row);
+        let general_row = <Row as StorableRow>::WrappedRow::from_inner(row);
 
         let (link, tried_page) = {
             let pages = self.pages.read().unwrap();
@@ -81,9 +88,10 @@ impl<Row, const DATA_LENGTH: usize> DataPages<Row, DATA_LENGTH> {
         Ok(res)
     }
 
-    fn retry_insert<const N: usize>(&self, general_row: GeneralRow<Row>) -> Result<Link, ExecutionError>
+    fn retry_insert<const N: usize>(&self, general_row: <Row as StorableRow>::WrappedRow) -> Result<Link, ExecutionError>
     where
         Row: Archive + Serialize<AllocSerializer<N>>,
+        <Row as StorableRow>::WrappedRow: Archive + Serialize<AllocSerializer<N>>,
     {
         let pages = self.pages.read().unwrap();
         let current_page = self.current_page.load(Ordering::Relaxed);
@@ -111,21 +119,22 @@ impl<Row, const DATA_LENGTH: usize> DataPages<Row, DATA_LENGTH> {
     #[cfg_attr(feature = "perf_measurements", performance_measurement(prefix_name = "DataPages"))]
     pub fn select(&self, link: Link) -> Result<Row, ExecutionError>
     where Row: Archive,
-          <GeneralRow<Row> as Archive>::Archived: Deserialize<GeneralRow<Row>, rkyv::Infallible>,
+          <<Row as StorableRow>::WrappedRow as Archive>::Archived: Deserialize<<Row as StorableRow>::WrappedRow, rkyv::de::deserializers::SharedDeserializeMap>,
     {
         let pages = self.pages.read().unwrap();
         let page = pages.get::<usize>(link.page_id.into()).ok_or(ExecutionError::PageNotFound(link.page_id))?;
         let gen_row = page.get_row(link).map_err(ExecutionError::DataPageError)?;
-        Ok(gen_row.inner)
+        Ok(gen_row.get_inner())
     }
 
     pub unsafe fn update<const N: usize>(&self, row: Row, link: Link) -> Result<Link, ExecutionError>
     where
         Row: Archive + Serialize<AllocSerializer<N>>,
+        <Row as StorableRow>::WrappedRow: Archive + Serialize<AllocSerializer<N>>,
     {
         let pages = self.pages.read().unwrap();
         let page = pages.get::<usize>(link.page_id.into()).ok_or(ExecutionError::PageNotFound(link.page_id))?;
-        let gen_row = GeneralRow::from_inner(row);
+        let gen_row = <Row as StorableRow>::WrappedRow::from_inner(row);
         page.save_row_by_link(&gen_row, link).map_err(ExecutionError::DataPageError)
     }
 }
@@ -146,8 +155,9 @@ mod tests {
     use std::time::Instant;
 
     use rkyv::{Archive, Deserialize, Serialize};
-    use worktable_codegen::WorktableRow;
     use crate::in_memory::pages::DataPages;
+    use crate::in_memory::row::GeneralRow;
+    use crate::in_memory::StorableRow;
 
     #[derive(
         Archive, Copy, Clone, Deserialize, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize,
@@ -157,6 +167,10 @@ mod tests {
     struct TestRow {
         a: u64,
         b: u64,
+    }
+    
+    impl StorableRow for TestRow {
+        type WrappedRow = GeneralRow<TestRow>;
     }
 
     #[test]

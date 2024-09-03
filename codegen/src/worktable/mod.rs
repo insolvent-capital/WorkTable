@@ -20,6 +20,8 @@ pub fn expand(input: TokenStream) -> syn::Result<TokenStream> {
 
     let pk_def = generator.gen_pk_def();
     let row_def = generator.gen_row_def();
+    let wrapper_def = generator.gen_wrapper_def();
+    let wrapper_impl = generator.gen_wrapper_impl();
     let index_def = generator.gen_index_def();
     let table_def = generator.gen_table_def();
     let table_index_impl = generator.gen_table_index_impl()?;
@@ -27,6 +29,8 @@ pub fn expand(input: TokenStream) -> syn::Result<TokenStream> {
     Ok(TokenStream::from(quote! {
         #pk_def
         #row_def
+        #wrapper_def
+        #wrapper_impl
         #index_def
         #table_def
         #table_index_impl

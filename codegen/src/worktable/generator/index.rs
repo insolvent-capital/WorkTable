@@ -68,8 +68,8 @@ impl Generator {
                 }
             }).collect::<Vec<_>>();
 
-        let row_type_name = &self.row_name.clone().unwrap();
-        let index_type_name = &self.index_name.clone().unwrap();
+        let row_type_name = self.row_name.as_ref().unwrap();
+        let index_type_name = self.index_name.as_ref().unwrap();
 
         quote! {
             impl TableIndex<#row_type_name> for #index_type_name {

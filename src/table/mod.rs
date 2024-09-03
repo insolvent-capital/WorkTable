@@ -7,14 +7,15 @@ use rkyv::ser::serializers::AllocSerializer;
 use scc::ebr::Guard;
 #[cfg(feature = "perf_measurements")]
 use performance_measurement_codegen::performance_measurement;
-use crate::in_memory::DataPages;
+use crate::in_memory::{DataPages, RowWrapper, StorableRow};
 use crate::in_memory::page::Link;
 use crate::{in_memory, TableIndex, TableRow};
 use crate::primary_key::{PrimaryKeyGenerator, TablePrimaryKey};
 
 #[derive(Debug)]
 pub struct WorkTable<Row, Pk, I = (), PkGen = <Pk as TablePrimaryKey>::Generator>
-where Pk: Clone + Ord + 'static
+where Pk: Clone + Ord + 'static,
+        Row: StorableRow
 {
     pub data: Arc<DataPages<Row>>,
 
@@ -28,6 +29,7 @@ where Pk: Clone + Ord + 'static
 impl<Row, Pk, I> Clone for WorkTable<Row, Pk, I>
 where Pk: Clone + Ord + TablePrimaryKey,
       I: Clone,
+      Row: StorableRow,
 {
     fn clone(&self) -> Self {
         Self {
@@ -43,7 +45,9 @@ where Pk: Clone + Ord + TablePrimaryKey,
 impl<Row, Pk, I> Default for WorkTable<Row, Pk, I>
 where Pk: Clone + Ord + TablePrimaryKey,
         I: Default,
-        <Pk as TablePrimaryKey>::Generator: Default
+        <Pk as TablePrimaryKey>::Generator: Default,
+        Row: StorableRow,
+        <Row as StorableRow>::WrappedRow: RowWrapper<Row>
 {
     fn default() -> Self {
         Self {
@@ -58,8 +62,10 @@ where Pk: Clone + Ord + TablePrimaryKey,
 impl<Row, Pk, I, PkGen> WorkTable<Row, Pk, I, PkGen>
 where
     Row: TableRow<Pk>,
-    Pk: Clone + Ord + TablePrimaryKey ,
-    PkGen: PrimaryKeyGenerator<Pk>
+    Pk: Clone + Ord + TablePrimaryKey,
+    PkGen: PrimaryKeyGenerator<Pk>,
+    Row: StorableRow,
+    <Row as StorableRow>::WrappedRow: RowWrapper<Row>
 {
     pub fn get_next_pk(&self) -> Pk {
         self.pk_gen.next()
@@ -71,7 +77,7 @@ where
     pub fn select(&self, pk: Pk) -> Option<Row>
     where
         Row: Archive,
-        <Row as Archive>::Archived:Deserialize<Row, rkyv::Infallible>,
+        <<Row as StorableRow>::WrappedRow as Archive>::Archived: Deserialize<<Row as StorableRow>::WrappedRow, rkyv::de::deserializers::SharedDeserializeMap>,
     {
         let guard = Guard::new();
         let link = self.pk_map.peek(&pk, &guard)?;
@@ -82,6 +88,7 @@ where
     pub fn insert<const ROW_SIZE_HINT: usize>(&self, row: Row) -> Result<Pk, WorkTableError>
     where
         Row: Archive + Serialize<AllocSerializer<ROW_SIZE_HINT>> + Clone,
+        <Row as StorableRow>::WrappedRow: Archive + Serialize<AllocSerializer<ROW_SIZE_HINT>>,
         Pk: Clone,
         I: TableIndex<Row>
     {
@@ -125,8 +132,8 @@ mod tests {
             exchange: String
         },
         indexes: {
-            test_idx: test,
-            exchnage_idx: exchange unique,
+            test_idx: test unique,
+            exchnage_idx: exchange,
         }
     );
 
@@ -191,12 +198,52 @@ mod tests {
         let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
         let row = TestRow {
             id: table.get_next_pk(),
-            test: 2,
+            test: 1,
             exchange: "test".to_string()
         };
         let res = table.insert::<{ TestRow::ROW_SIZE }>(row.clone());
         assert!(res.is_err())
     }
+
+    #[test]
+    fn select_by_exchange() {
+        let table = TestWorkTable::default();
+        let row = TestRow {
+            id: table.get_next_pk(),
+            test: 1,
+            exchange: "test".to_string()
+        };
+        let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let selected_rows = table.select_by_exchange("test".to_string()).unwrap();
+
+        assert_eq!(selected_rows.len(), 1);
+        assert!(selected_rows.contains(&row));
+        assert!(table.select_by_exchange("test1".to_string()).is_err())
+    }
+
+    #[test]
+    fn select_multiple_by_exchange() {
+        let table = TestWorkTable::default();
+        let row = TestRow {
+            id: table.get_next_pk(),
+            test: 1,
+            exchange: "test".to_string()
+        };
+        let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let row_next = TestRow {
+            id: table.get_next_pk(),
+            test: 2,
+            exchange: "test".to_string()
+        };
+        let pk = table.insert::<{ TestRow::ROW_SIZE }>(row_next.clone()).unwrap();
+        let selected_rows = table.select_by_exchange("test".to_string()).unwrap();
+
+        assert_eq!(selected_rows.len(), 2);
+        assert!(selected_rows.contains(&row));
+        assert!(selected_rows.contains(&row_next));
+        assert!(table.select_by_exchange("test1".to_string()).is_err())
+    }
+
 
     #[test]
     fn select_by_test() {
@@ -207,49 +254,9 @@ mod tests {
             exchange: "test".to_string()
         };
         let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
-        let selected_rows = table.select_by_test(1).unwrap();
-
-        assert_eq!(selected_rows.len(), 1);
-        assert!(selected_rows.contains(&row));
-        assert!(table.select_by_test(2).is_err())
-    }
-
-    #[test]
-    fn select_multiple_by_test() {
-        let table = TestWorkTable::default();
-        let row = TestRow {
-            id: table.get_next_pk(),
-            test: 1,
-            exchange: "test".to_string()
-        };
-        let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
-        let row_next = TestRow {
-            id: table.get_next_pk(),
-            test: 1,
-            exchange: "test".to_string()
-        };
-        let pk = table.insert::<{ TestRow::ROW_SIZE }>(row_next.clone()).unwrap();
-        let selected_rows = table.select_by_test(1).unwrap();
-
-        assert_eq!(selected_rows.len(), 2);
-        assert!(selected_rows.contains(&row));
-        assert!(selected_rows.contains(&row_next));
-        assert!(table.select_by_test(2).is_err())
-    }
-
-
-    #[test]
-    fn select_by_name() {
-        let table = TestWorkTable::default();
-        let row = TestRow {
-            id: table.get_next_pk(),
-            test: 1,
-            exchange: "test".to_string()
-        };
-        let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
-        let selected_row = table.select_by_exchange("test".to_string()).unwrap();
+        let selected_row = table.select_by_test(1).unwrap();
 
         assert_eq!(selected_row, row);
-        assert!(table.select_by_exchange("2".to_string()).is_none())
+        assert!(table.select_by_test(2).is_none())
     }
 }

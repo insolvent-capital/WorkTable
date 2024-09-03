@@ -168,10 +168,11 @@ impl<Row, const DATA_LENGTH: usize> Data<Row, DATA_LENGTH> {
     #[cfg_attr(feature = "perf_measurements", performance_measurement(prefix_name = "DataRow"))]
     pub fn get_row(&self, link: page::Link) -> Result<Row, ExecutionError>
     where Row: Archive,
-          <Row as Archive>::Archived:Deserialize<Row, rkyv::Infallible>,
+          <Row as Archive>::Archived: Deserialize<Row, rkyv::de::deserializers::SharedDeserializeMap>,
     {
         let archived = self.get_row_ref(link)?;
-        archived.deserialize(&mut rkyv::Infallible).map_err(|_| ExecutionError::DeserializeError)
+        let mut map = rkyv::de::deserializers::SharedDeserializeMap::new();
+        archived.deserialize(&mut map).map_err(|_| ExecutionError::DeserializeError)
     }
 }
 

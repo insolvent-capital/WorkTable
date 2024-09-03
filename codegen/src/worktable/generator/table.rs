@@ -1,6 +1,8 @@
 use std::collections::HashMap;
+
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
+
 use crate::worktable::generator::Generator;
 use crate::worktable::model::Index;
 
@@ -13,9 +15,9 @@ impl Generator {
         let ident = Ident::new(format!("{}WorkTable", name).as_str(), Span::mixed_site());
         self.table_name = Some(ident.clone());
 
-        let row_type = self.row_name.clone().unwrap();
-        let pk_type = self.pk.clone().unwrap().ident;
-        let index_type = self.index_name.clone().unwrap();
+        let row_type = self.row_name.as_ref().unwrap();
+        let pk_type = &self.pk.as_ref().unwrap().ident;
+        let index_type = self.index_name.as_ref().unwrap();
 
         quote! {
             #[derive(Debug, Default, Clone)]
@@ -97,34 +99,3 @@ impl Generator {
             })
     }
 }
-
-// #[cfg(test)]
-// mod tests {
-//     use proc_macro2::{Ident, Span, TokenStream};
-//     use quote::quote;
-//     use crate::worktable::generator::Generator;
-//     use crate::worktable::Parser;
-//
-//     #[test]
-//     fn generates_name() {
-//         let tokens = TokenStream::from(quote! {columns: {
-//             id: i64 primary_key,
-//             test: u64,
-//         }});
-//         let mut parser = Parser::new(tokens);
-//         let columns = parser.parse_columns().unwrap();
-//
-//         let ident = Ident::new("Test", Span::call_site());
-//         let mut generator = Generator::new(ident, columns);
-//         generator.gen_pk_def();
-//         generator.gen_row_def();
-//         generator.gen_index_def();
-//
-//         let tokens = generator.gen_table_def();
-//         assert_eq!(generator.table_name.unwrap().to_string(), "TestWorkTable".to_string());
-//         assert_eq!(
-//             tokens.to_string(),
-//             "type TestWorkTable = WorkTable < TestRow , i64 , TestIndex > ;"
-//         )
-//     }
-// }

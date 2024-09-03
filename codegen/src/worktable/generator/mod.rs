@@ -2,6 +2,7 @@ mod index;
 mod row;
 mod table;
 mod primary_key;
+mod wrapper;
 
 use proc_macro2::Ident;
 
@@ -11,6 +12,7 @@ pub struct Generator {
     name: Ident,
     table_name: Option<Ident>,
     row_name: Option<Ident>,
+    wrapper_name: Option<Ident>,
     index_name: Option<Ident>,
     pk: Option<PrimaryKey>,
 
@@ -23,6 +25,7 @@ impl Generator {
             name,
             table_name: None,
             row_name: None,
+            wrapper_name: None,
             index_name: None,
             pk: None,
             columns
