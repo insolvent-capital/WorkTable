@@ -163,6 +163,26 @@ where
         page.save_row_by_link(&gen_row, link)
             .map_err(ExecutionError::DataPageError)
     }
+
+    pub unsafe fn update_with<O>(
+        &self,
+        link: Link,
+        op: O
+    ) -> Result<(), ExecutionError>
+    where O: Fn(&mut <<Row as StorableRow>::WrappedRow as Archive>::Archived)
+    {
+        let pages = self.pages.read().unwrap();
+        let page = pages
+            .get::<usize>(link.page_id.into())
+            .ok_or(ExecutionError::PageNotFound(link.page_id))?;
+
+        let row = page.get_mut_row_ref(link)
+            .map_err(ExecutionError::DataPageError)?
+            .get_unchecked_mut();
+        op(row);
+
+        Ok(())
+    }
 }
 
 #[derive(Debug, Display, Error, From)]
@@ -243,7 +263,22 @@ mod tests {
         let link = pages.insert::<16>(row).unwrap();
         let res = pages.insert::<24>(row);
 
-        println!("{:?}", res)
+        assert!(res.is_ok())
+    }
+
+    #[test]
+    fn update_with() {
+        let pages = DataPages::<TestRow>::new();
+
+        let row = TestRow { a: 10, b: 20 };
+        let link = pages.insert::<16>(row).unwrap();
+        let update = |row: &mut <GeneralRow<TestRow> as Archive>::Archived| {
+            row.inner.a = 20
+        };
+        unsafe { pages.update_with(link, update).unwrap(); }
+        let res = pages.select(link).unwrap();
+
+        assert_eq!(TestRow { a: 20, b: 20 }, res)
     }
 
     #[test]

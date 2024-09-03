@@ -1,5 +1,6 @@
 use std::cell::UnsafeCell;
 use std::marker::PhantomData;
+use std::pin::Pin;
 use std::sync::atomic::{AtomicI32, AtomicU16, AtomicU32, Ordering};
 
 use derive_more::{Display, Error};
@@ -170,6 +171,22 @@ impl<Row, const DATA_LENGTH: usize> Data<Row, DATA_LENGTH> {
             .copy_from_slice(bytes.as_slice());
 
         Ok(link)
+    }
+
+    pub unsafe fn get_mut_row_ref(
+        &self,
+        link: page::Link,
+    ) -> Result<Pin<&mut <Row as Archive>::Archived>, ExecutionError>
+    where
+        Row: Archive,
+    {
+        if link.offset > self.free_offset.load(Ordering::Relaxed) {
+            return Err(ExecutionError::DeserializeError);
+        }
+
+        let inner_data = unsafe { &mut *self.inner_data.get() };
+        let bytes = &mut inner_data[link.offset as usize..(link.offset + link.length) as usize];
+        Ok(unsafe { rkyv::archived_root_mut::<Row>(Pin::new(&mut bytes[..])) })
     }
 
     #[cfg_attr(

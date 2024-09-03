@@ -3,6 +3,7 @@ mod index;
 mod primary_key;
 mod row;
 mod table;
+pub mod lock;
 
 // mod ty;
 // mod value;

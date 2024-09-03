@@ -44,14 +44,10 @@ impl Parser {
             }
         };
         let mut parser = Parser::new(tt);
-
         let mut rows = Vec::new();
-        let mut ind = true;
-
-        while ind {
+        while parser.has_next() {
             let row = parser.parse_row()?;
             rows.push(row);
-            ind = parser.has_next()
         }
 
         self.try_parse_comma()?;

@@ -20,7 +20,7 @@ impl Generator {
         let index_type = self.index_name.as_ref().unwrap();
 
         quote! {
-            #[derive(Debug, Default, Clone)]
+            #[derive(Debug, Default)]
             pub struct #ident(WorkTable<#row_type, #pk_type, #index_type>);
 
             impl #ident {

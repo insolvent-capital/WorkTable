@@ -12,6 +12,7 @@ use crate::in_memory::page::Link;
 use crate::in_memory::{DataPages, RowWrapper, StorableRow};
 use crate::primary_key::{PrimaryKeyGenerator, TablePrimaryKey};
 use crate::{in_memory, TableIndex, TableRow};
+use crate::lock::LockMap;
 
 #[derive(Debug)]
 pub struct WorkTable<Row, Pk, I = (), PkGen = <Pk as TablePrimaryKey>::Generator>
@@ -19,29 +20,15 @@ where
     Pk: Clone + Ord + 'static,
     Row: StorableRow,
 {
-    pub data: Arc<DataPages<Row>>,
+    pub data: DataPages<Row>,
 
     pk_map: TreeIndex<Pk, Link>,
 
     pub indexes: I,
 
-    pk_gen: Arc<PkGen>,
-}
+    pk_gen: PkGen,
 
-impl<Row, Pk, I> Clone for WorkTable<Row, Pk, I>
-where
-    Pk: Clone + Ord + TablePrimaryKey,
-    I: Clone,
-    Row: StorableRow,
-{
-    fn clone(&self) -> Self {
-        Self {
-            data: self.data.clone(),
-            pk_map: self.pk_map.clone(),
-            indexes: self.indexes.clone(),
-            pk_gen: self.pk_gen.clone(),
-        }
-    }
+    lock_map: LockMap
 }
 
 // Manual implementations to avoid unneeded trait bounds.
@@ -55,10 +42,11 @@ where
 {
     fn default() -> Self {
         Self {
-            data: Arc::new(DataPages::new()),
+            data: DataPages::new(),
             pk_map: TreeIndex::new(),
             indexes: I::default(),
-            pk_gen: Arc::new(Default::default()),
+            pk_gen: Default::default(),
+            lock_map: LockMap::new(),
         }
     }
 }

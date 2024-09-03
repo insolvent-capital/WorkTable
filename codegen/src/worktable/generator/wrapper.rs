@@ -14,7 +14,7 @@ impl Generator {
             .map(|(i, _)| {
                 let name = Ident::new(format!("{i}_lock").as_str(), Span::mixed_site());
                 quote! {
-                    #name: std::sync::Arc<std::sync::atomic::AtomicBool>,
+                    #name: std::sync::Arc<std::sync::atomic::AtomicU16>,
                 }
             })
             .collect::<Vec<_>>();
