@@ -1,8 +1,8 @@
 pub mod in_memory;
-mod row;
-mod table;
 mod index;
 mod primary_key;
+mod row;
+mod table;
 
 // mod ty;
 // mod value;
@@ -16,8 +16,11 @@ pub use table::*;
 pub use worktable_codegen::worktable;
 
 pub mod prelude {
-    pub use crate::{TableIndex, WorkTable, in_memory::page::Link, TableRow, primary_key::PrimaryKeyGenerator, WorkTableError};
-    pub use crate::in_memory::{StorableRow, RowWrapper};
-    pub use scc::{tree_index::TreeIndex, ebr::Guard};
+    pub use crate::in_memory::{RowWrapper, StorableRow};
+    pub use crate::{
+        in_memory::page::Link, primary_key::PrimaryKeyGenerator, TableIndex, TableRow, WorkTable,
+        WorkTableError,
+    };
     pub use lockfree::set::Set as LockFreeSet;
+    pub use scc::{ebr::Guard, tree_index::TreeIndex};
 }

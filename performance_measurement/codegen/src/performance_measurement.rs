@@ -1,5 +1,4 @@
-
-use proc_macro2::{Ident, Literal, token_stream, TokenStream, TokenTree};
+use proc_macro2::{token_stream, Ident, Literal, TokenStream, TokenTree};
 use quote::quote;
 use syn::spanned::Spanned;
 
@@ -27,7 +26,6 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
     let mut test_sig = input_fn.sig.clone();
     test_sig.ident = Ident::new(format!("__{}", test_sig.ident).as_str(), item.span());
 
-
     let fn_name = Literal::string(format!("{}::{}", attr.name, fn_name.to_string()).as_str());
 
     Ok(quote! {
@@ -46,31 +44,35 @@ pub fn parse_attr(attr: TokenStream) -> syn::Result<PerformanceMeasurementAttr> 
 
     let name = parse_name(&mut i, &attr)?;
 
-    Ok(PerformanceMeasurementAttr {
-        name
-    })
+    Ok(PerformanceMeasurementAttr { name })
 }
 
 pub fn parse_name(iter: &mut token_stream::IntoIter, attr: &TokenStream) -> syn::Result<String> {
-    let name_field = iter.next().ok_or(syn::Error::new(attr.span(), "Expected `prefix_name` field"))?;
+    let name_field = iter
+        .next()
+        .ok_or(syn::Error::new(attr.span(), "Expected `prefix_name` field"))?;
     if let TokenTree::Ident(field) = name_field {
         if field.to_string() != "prefix_name".to_string() {
-            return Err(syn::Error::new(attr.span(), "Expected `prefix_name` field"))
+            return Err(syn::Error::new(attr.span(), "Expected `prefix_name` field"));
         };
     } else {
-        return Err(syn::Error::new(attr.span(), "Expected `prefix_name` field"))
+        return Err(syn::Error::new(attr.span(), "Expected `prefix_name` field"));
     }
 
-    let eq = iter.next().ok_or(syn::Error::new(attr.span(), "Expected `=`"))?;
+    let eq = iter
+        .next()
+        .ok_or(syn::Error::new(attr.span(), "Expected `=`"))?;
     if let TokenTree::Punct(eq) = eq {
         if eq.to_string() != "=".to_string() {
-            return Err(syn::Error::new(attr.span(), "Expected `=`"))
+            return Err(syn::Error::new(attr.span(), "Expected `=`"));
         };
     } else {
-        return Err(syn::Error::new(attr.span(), "Expected `=`"))
+        return Err(syn::Error::new(attr.span(), "Expected `=`"));
     }
 
-    let name = iter.next().ok_or(syn::Error::new(attr.span(), "Expected name itself"))?;
+    let name = iter
+        .next()
+        .ok_or(syn::Error::new(attr.span(), "Expected name itself"))?;
     if let TokenTree::Literal(name) = name {
         Ok(name.to_string().replace('"', ""))
     } else {

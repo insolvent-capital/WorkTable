@@ -24,7 +24,8 @@ impl Generator {
             }
         };
 
-        let rows: Vec<_> = self.columns
+        let rows: Vec<_> = self
+            .columns
             .columns_map
             .iter()
             .map(|(name, type_)| {

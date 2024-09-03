@@ -36,7 +36,7 @@ impl<Inner> RowWrapper<Inner> for GeneralRow<Inner> {
     fn from_inner(inner: Inner) -> Self {
         Self {
             inner,
-            deleted: AtomicBool::new(false)
+            deleted: AtomicBool::new(false),
         }
     }
 }

@@ -1,8 +1,8 @@
-use std::collections::HashMap;
-use proc_macro2::{Delimiter, Ident, TokenTree};
-use syn::spanned::Spanned;
 use crate::worktable::model::Index;
 use crate::worktable::Parser;
+use proc_macro2::{Delimiter, Ident, TokenTree};
+use std::collections::HashMap;
+use syn::spanned::Spanned;
 
 impl Parser {
     pub fn parse_indexes(&mut self) -> syn::Result<HashMap<Ident, Index>> {
@@ -13,10 +13,7 @@ impl Parser {
 
         if let TokenTree::Ident(ident) = ident {
             if ident.to_string().as_str() != "indexes" {
-                return Err(syn::Error::new(
-                    ident.span(),
-                    "Expected `indexes` field",
-                ));
+                return Err(syn::Error::new(ident.span(), "Expected `indexes` field"));
             }
         } else {
             return Err(syn::Error::new(
@@ -67,10 +64,7 @@ impl Parser {
         let ident = if let TokenTree::Ident(ident) = ident {
             ident
         } else {
-            return Err(syn::Error::new(
-                ident.span(),
-                "Expected index name",
-            ));
+            return Err(syn::Error::new(ident.span(), "Expected index name"));
         };
 
         self.parse_colon()?;
@@ -82,10 +76,7 @@ impl Parser {
         let row_name = if let TokenTree::Ident(row_name) = row_name {
             row_name
         } else {
-            return Err(syn::Error::new(
-                row_name.span(),
-                "Expected row name",
-            ));
+            return Err(syn::Error::new(row_name.span(), "Expected row name"));
         };
 
         let is_unique = if let Some(tt) = self.input_iter.peek() {
@@ -116,20 +107,23 @@ impl Parser {
 
         self.try_parse_comma()?;
 
-        Ok((row_name.clone(), Index {
-            name: ident,
-            field: row_name,
-            is_unique,
-        }))
+        Ok((
+            row_name.clone(),
+            Index {
+                name: ident,
+                field: row_name,
+                is_unique,
+            },
+        ))
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use proc_macro2::{Ident, Span, TokenStream};
-    use quote::quote;
     use crate::worktable::model::Index;
     use crate::worktable::Parser;
+    use proc_macro2::{Ident, Span, TokenStream};
+    use quote::quote;
 
     #[test]
     fn test_indexes_parse() {
@@ -144,16 +138,22 @@ mod tests {
         let columns = columns.unwrap();
 
         let ident = Ident::new("id_idx", Span::mixed_site());
-        assert_eq!(columns.get(&ident), Some(&Index {
-            name: ident,
-            field: Ident::new("id", Span::mixed_site()),
-            is_unique: true,
-        }));
+        assert_eq!(
+            columns.get(&ident),
+            Some(&Index {
+                name: ident,
+                field: Ident::new("id", Span::mixed_site()),
+                is_unique: true,
+            })
+        );
         let ident = Ident::new("test_idx", Span::mixed_site());
-        assert_eq!(columns.get(&ident), Some(&Index {
-            name: ident,
-            field: Ident::new("test", Span::mixed_site()),
-            is_unique: false,
-        }));
+        assert_eq!(
+            columns.get(&ident),
+            Some(&Index {
+                name: ident,
+                field: Ident::new("test", Span::mixed_site()),
+                is_unique: false,
+            })
+        );
     }
 }

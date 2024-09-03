@@ -30,8 +30,8 @@ impl Columns {
             if row.is_primary_key {
                 if let Some(_) = pk {
                     return Err(syn::Error::new(
-                    input.span(),
-                    "Only one primary key column allowed",
+                        input.span(),
+                        "Only one primary key column allowed",
                     ));
                 } else {
                     pk = Some(row.name)

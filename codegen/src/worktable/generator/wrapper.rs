@@ -7,12 +7,16 @@ impl Generator {
     pub fn gen_wrapper_def(&mut self) -> TokenStream {
         let name = &self.name;
         let row_name = self.row_name.as_ref().unwrap();
-        let row_locks = self.columns.columns_map.iter().map(|(i, _)| {
-            let name = Ident::new(format!("{i}_lock").as_str(), Span::mixed_site());
-            quote! {
-                #name: std::sync::Arc<std::sync::atomic::AtomicBool>,
-            }
-        })
+        let row_locks = self
+            .columns
+            .columns_map
+            .iter()
+            .map(|(i, _)| {
+                let name = Ident::new(format!("{i}_lock").as_str(), Span::mixed_site());
+                quote! {
+                    #name: std::sync::Arc<std::sync::atomic::AtomicBool>,
+                }
+            })
             .collect::<Vec<_>>();
 
         let wrapper_name = Ident::new(format!("{name}Wrapper").as_str(), Span::mixed_site());
@@ -40,12 +44,16 @@ impl Generator {
             }
         };
 
-        let row_defaults = self.columns.columns_map.iter().map(|(i, _)| {
-            let name = Ident::new(format!("{i}_lock").as_str(), Span::mixed_site());
-            quote! {
-                #name: std::sync::Arc::new(Default::default()),
-            }
-        })
+        let row_defaults = self
+            .columns
+            .columns_map
+            .iter()
+            .map(|(i, _)| {
+                let name = Ident::new(format!("{i}_lock").as_str(), Span::mixed_site());
+                quote! {
+                    #name: std::sync::Arc::new(Default::default()),
+                }
+            })
             .collect::<Vec<_>>();
 
         let wrapper_impl = quote! {

@@ -1,5 +1,5 @@
-use syn::spanned::Spanned;
 use proc_macro2::{TokenStream, TokenTree};
+use syn::spanned::Spanned;
 
 use crate::worktable::parser::Parser;
 

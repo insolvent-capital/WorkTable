@@ -16,13 +16,17 @@ impl Generator {
 
     fn gen_type_def(&mut self) -> TokenStream {
         let name = &self.name;
-        let index_rows = self.columns.indexes
+        let index_rows = self
+            .columns
+            .indexes
             .iter()
-            .map(|(i, idx)| (
-                idx.is_unique,
-                &idx.name,
-                self.columns.columns_map.get(&i).clone(),
-            ))
+            .map(|(i, idx)| {
+                (
+                    idx.is_unique,
+                    &idx.name,
+                    self.columns.columns_map.get(&i).clone(),
+                )
+            })
             .map(|(unique, i, t)| {
                 if unique {
                     quote! {#i: TreeIndex<#t, Link>}
@@ -113,7 +117,10 @@ mod tests {
 
         let res = generator.gen_type_def();
 
-        assert_eq!(generator.index_name.unwrap().to_string(), "TestIndex".to_string());
+        assert_eq!(
+            generator.index_name.unwrap().to_string(),
+            "TestIndex".to_string()
+        );
         assert_eq!(res.to_string(), "# [derive (Debug , Default , Clone)] pub struct TestIndex { test_idx : TreeIndex < u64 , Link > }")
     }
 

@@ -1,9 +1,7 @@
 use performance_measurement_codegen::performance_measurement;
 
 #[performance_measurement(prefix_name = "MeasureMe")]
-fn measure_me() {
-
-}
+fn measure_me() {}
 
 #[performance_measurement(prefix_name = "MeasureMe")]
 pub fn count(a: u64, b: u64) -> u64 {
@@ -11,7 +9,7 @@ pub fn count(a: u64, b: u64) -> u64 {
 }
 
 struct Test {
-    a: u64
+    a: u64,
 }
 
 impl Test {
@@ -21,16 +19,13 @@ impl Test {
     }
 }
 
-
 #[test]
 fn test() {
     count(1, 2);
     count(2, 3);
     count(4, 5);
 
-    let t = Test {
-        a: 1
-    };
+    let t = Test { a: 1 };
 
     t.test(2);
     t.test(3);

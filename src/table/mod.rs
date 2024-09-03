@@ -1,21 +1,23 @@
 use std::sync::Arc;
 
 use derive_more::{Display, Error, From};
-use scc::tree_index::TreeIndex;
-use rkyv::{Archive, Deserialize, Serialize};
-use rkyv::ser::serializers::AllocSerializer;
-use scc::ebr::Guard;
 #[cfg(feature = "perf_measurements")]
 use performance_measurement_codegen::performance_measurement;
-use crate::in_memory::{DataPages, RowWrapper, StorableRow};
+use rkyv::ser::serializers::AllocSerializer;
+use rkyv::{Archive, Deserialize, Serialize};
+use scc::ebr::Guard;
+use scc::tree_index::TreeIndex;
+
 use crate::in_memory::page::Link;
-use crate::{in_memory, TableIndex, TableRow};
+use crate::in_memory::{DataPages, RowWrapper, StorableRow};
 use crate::primary_key::{PrimaryKeyGenerator, TablePrimaryKey};
+use crate::{in_memory, TableIndex, TableRow};
 
 #[derive(Debug)]
 pub struct WorkTable<Row, Pk, I = (), PkGen = <Pk as TablePrimaryKey>::Generator>
-where Pk: Clone + Ord + 'static,
-        Row: StorableRow
+where
+    Pk: Clone + Ord + 'static,
+    Row: StorableRow,
 {
     pub data: Arc<DataPages<Row>>,
 
@@ -27,9 +29,10 @@ where Pk: Clone + Ord + 'static,
 }
 
 impl<Row, Pk, I> Clone for WorkTable<Row, Pk, I>
-where Pk: Clone + Ord + TablePrimaryKey,
-      I: Clone,
-      Row: StorableRow,
+where
+    Pk: Clone + Ord + TablePrimaryKey,
+    I: Clone,
+    Row: StorableRow,
 {
     fn clone(&self) -> Self {
         Self {
@@ -43,11 +46,12 @@ where Pk: Clone + Ord + TablePrimaryKey,
 
 // Manual implementations to avoid unneeded trait bounds.
 impl<Row, Pk, I> Default for WorkTable<Row, Pk, I>
-where Pk: Clone + Ord + TablePrimaryKey,
-        I: Default,
-        <Pk as TablePrimaryKey>::Generator: Default,
-        Row: StorableRow,
-        <Row as StorableRow>::WrappedRow: RowWrapper<Row>
+where
+    Pk: Clone + Ord + TablePrimaryKey,
+    I: Default,
+    <Pk as TablePrimaryKey>::Generator: Default,
+    Row: StorableRow,
+    <Row as StorableRow>::WrappedRow: RowWrapper<Row>,
 {
     fn default() -> Self {
         Self {
@@ -65,36 +69,50 @@ where
     Pk: Clone + Ord + TablePrimaryKey,
     PkGen: PrimaryKeyGenerator<Pk>,
     Row: StorableRow,
-    <Row as StorableRow>::WrappedRow: RowWrapper<Row>
+    <Row as StorableRow>::WrappedRow: RowWrapper<Row>,
 {
     pub fn get_next_pk(&self) -> Pk {
         self.pk_gen.next()
     }
 
-
     /// Selects `Row` from table identified with provided primary key. Returns `None` if no value presented.
-    #[cfg_attr(feature = "perf_measurements", performance_measurement(prefix_name = "WorkTable"))]
+    #[cfg_attr(
+        feature = "perf_measurements",
+        performance_measurement(prefix_name = "WorkTable")
+    )]
     pub fn select(&self, pk: Pk) -> Option<Row>
     where
         Row: Archive,
-        <<Row as StorableRow>::WrappedRow as Archive>::Archived: Deserialize<<Row as StorableRow>::WrappedRow, rkyv::de::deserializers::SharedDeserializeMap>,
+        <<Row as StorableRow>::WrappedRow as Archive>::Archived: Deserialize<
+            <Row as StorableRow>::WrappedRow,
+            rkyv::de::deserializers::SharedDeserializeMap,
+        >,
     {
         let guard = Guard::new();
         let link = self.pk_map.peek(&pk, &guard)?;
         self.data.select(*link).ok()
     }
 
-    #[cfg_attr(feature = "perf_measurements", performance_measurement(prefix_name = "WorkTable"))]
+    #[cfg_attr(
+        feature = "perf_measurements",
+        performance_measurement(prefix_name = "WorkTable")
+    )]
     pub fn insert<const ROW_SIZE_HINT: usize>(&self, row: Row) -> Result<Pk, WorkTableError>
     where
         Row: Archive + Serialize<AllocSerializer<ROW_SIZE_HINT>> + Clone,
         <Row as StorableRow>::WrappedRow: Archive + Serialize<AllocSerializer<ROW_SIZE_HINT>>,
         Pk: Clone,
-        I: TableIndex<Row>
+        I: TableIndex<Row>,
     {
         let pk = row.get_primary_key().clone();
-        let link = self.data.insert::<ROW_SIZE_HINT>(row.clone()).map_err(WorkTableError::PagesError)?;
-        let _ = self.pk_map.insert(pk.clone(), link).map_err(|_| WorkTableError::AlreadyExists)?;
+        let link = self
+            .data
+            .insert::<ROW_SIZE_HINT>(row.clone())
+            .map_err(WorkTableError::PagesError)?;
+        let _ = self
+            .pk_map
+            .insert(pk.clone(), link)
+            .map_err(|_| WorkTableError::AlreadyExists)?;
         self.indexes.save_row(row, link)?;
 
         Ok(pk)
@@ -115,7 +133,7 @@ where
 pub enum WorkTableError {
     NotFound,
     AlreadyExists,
-    PagesError(in_memory::PagesExecutionError)
+    PagesError(in_memory::PagesExecutionError),
 }
 
 #[cfg(test)]
@@ -147,7 +165,7 @@ mod tests {
             let row = TestRow {
                 id: table.get_next_pk(),
                 test: i + 1,
-                exchange: "XD".to_string()
+                exchange: "XD".to_string(),
             };
 
             let a = table.insert::<24>(row).expect("TODO: panic message");
@@ -165,7 +183,7 @@ mod tests {
         let row = TestRow {
             id: table.get_next_pk(),
             test: 1,
-            exchange: "test".to_string()
+            exchange: "test".to_string(),
         };
         let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
         let selected_row = table.select(pk).unwrap();
@@ -180,7 +198,7 @@ mod tests {
         let row = TestRow {
             id: table.get_next_pk(),
             test: 1,
-            exchange: "test".to_string()
+            exchange: "test".to_string(),
         };
         let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
         let res = table.insert::<{ TestRow::ROW_SIZE }>(row.clone());
@@ -193,13 +211,13 @@ mod tests {
         let row = TestRow {
             id: table.get_next_pk(),
             test: 1,
-            exchange: "test".to_string()
+            exchange: "test".to_string(),
         };
         let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
         let row = TestRow {
             id: table.get_next_pk(),
             test: 1,
-            exchange: "test".to_string()
+            exchange: "test".to_string(),
         };
         let res = table.insert::<{ TestRow::ROW_SIZE }>(row.clone());
         assert!(res.is_err())
@@ -211,7 +229,7 @@ mod tests {
         let row = TestRow {
             id: table.get_next_pk(),
             test: 1,
-            exchange: "test".to_string()
+            exchange: "test".to_string(),
         };
         let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
         let selected_rows = table.select_by_exchange("test".to_string()).unwrap();
@@ -227,15 +245,17 @@ mod tests {
         let row = TestRow {
             id: table.get_next_pk(),
             test: 1,
-            exchange: "test".to_string()
+            exchange: "test".to_string(),
         };
         let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
         let row_next = TestRow {
             id: table.get_next_pk(),
             test: 2,
-            exchange: "test".to_string()
+            exchange: "test".to_string(),
         };
-        let pk = table.insert::<{ TestRow::ROW_SIZE }>(row_next.clone()).unwrap();
+        let pk = table
+            .insert::<{ TestRow::ROW_SIZE }>(row_next.clone())
+            .unwrap();
         let selected_rows = table.select_by_exchange("test".to_string()).unwrap();
 
         assert_eq!(selected_rows.len(), 2);
@@ -244,14 +264,13 @@ mod tests {
         assert!(table.select_by_exchange("test1".to_string()).is_err())
     }
 
-
     #[test]
     fn select_by_test() {
         let table = TestWorkTable::default();
         let row = TestRow {
             id: table.get_next_pk(),
             test: 1,
-            exchange: "test".to_string()
+            exchange: "test".to_string(),
         };
         let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
         let selected_row = table.select_by_test(1).unwrap();

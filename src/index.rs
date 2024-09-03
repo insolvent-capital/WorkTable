@@ -1,8 +1,7 @@
 use crate::in_memory::page::Link;
 use crate::WorkTableError;
 
-pub trait TableIndex<Row>
-{
+pub trait TableIndex<Row> {
     fn save_row(&self, row: Row, link: Link) -> Result<(), WorkTableError>;
 }
 

@@ -1,21 +1,22 @@
 use std::fmt::Debug;
-use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicI32, AtomicU32, AtomicU64, Ordering};
+use std::sync::{Arc, RwLock};
 
 use derive_more::{Display, Error, From};
 use lockfree::stack::Stack;
-use rkyv::{Archive, Deserialize, Serialize};
 use rkyv::ser::serializers::AllocSerializer;
+use rkyv::{Archive, Deserialize, Serialize};
 
+use crate::in_memory::page;
+use crate::in_memory::page::{DataExecutionError, Link, DATA_INNER_LENGTH};
+use crate::in_memory::row::{GeneralRow, RowWrapper, StorableRow};
 #[cfg(feature = "perf_measurements")]
 use performance_measurement_codegen::performance_measurement;
-use crate::in_memory::page;
-use crate::in_memory::page::{DATA_INNER_LENGTH, DataExecutionError, Link};
-use crate::in_memory::row::{GeneralRow, RowWrapper, StorableRow};
 
 #[derive(Debug)]
 pub struct DataPages<Row, const DATA_LENGTH: usize = DATA_INNER_LENGTH>
-where Row: StorableRow
+where
+    Row: StorableRow,
 {
     /// Pages vector. Currently, not lock free.
     pages: RwLock<Vec<Arc<page::Data<<Row as StorableRow>::WrappedRow, DATA_LENGTH>>>>,
@@ -35,8 +36,9 @@ where Row: StorableRow
 }
 
 impl<Row, const DATA_LENGTH: usize> DataPages<Row, DATA_LENGTH>
-where Row: StorableRow,
-      <Row as StorableRow>::WrappedRow: RowWrapper<Row>
+where
+    Row: StorableRow,
+    <Row as StorableRow>::WrappedRow: RowWrapper<Row>,
 {
     pub fn new() -> Self {
         Self {
@@ -45,11 +47,14 @@ where Row: StorableRow,
             row_size_hint: AtomicI32::new(-1),
             row_count: AtomicU64::new(0),
             last_page_id: AtomicU32::new(0),
-            current_page: AtomicU32::new(0)
+            current_page: AtomicU32::new(0),
         }
     }
 
-    #[cfg_attr(feature = "perf_measurements", performance_measurement(prefix_name = "DataPages"))]
+    #[cfg_attr(
+        feature = "perf_measurements",
+        performance_measurement(prefix_name = "DataPages")
+    )]
     pub fn insert<const N: usize>(&self, row: Row) -> Result<Link, ExecutionError>
     where
         Row: Archive + Serialize<AllocSerializer<N>>,
@@ -72,7 +77,7 @@ where Row: StorableRow,
             Ok(link) => {
                 self.row_count.fetch_add(1, Ordering::Relaxed);
                 link
-            },
+            }
             Err(e) => {
                 return if let DataExecutionError::PageIsFull { .. } = e {
                     if tried_page == self.current_page.load(Ordering::Relaxed) {
@@ -88,7 +93,10 @@ where Row: StorableRow,
         Ok(res)
     }
 
-    fn retry_insert<const N: usize>(&self, general_row: <Row as StorableRow>::WrappedRow) -> Result<Link, ExecutionError>
+    fn retry_insert<const N: usize>(
+        &self,
+        general_row: <Row as StorableRow>::WrappedRow,
+    ) -> Result<Link, ExecutionError>
     where
         Row: Archive + Serialize<AllocSerializer<N>>,
         <Row as StorableRow>::WrappedRow: Archive + Serialize<AllocSerializer<N>>,
@@ -97,7 +105,9 @@ where Row: StorableRow,
         let current_page = self.current_page.load(Ordering::Relaxed);
         let page = &pages[current_page as usize];
 
-        let res = page.save_row::<N>(&general_row).map_err(ExecutionError::DataPageError);
+        let res = page
+            .save_row::<N>(&general_row)
+            .map_err(ExecutionError::DataPageError);
         if let Ok(link) = res {
             self.row_count.fetch_add(1, Ordering::Relaxed);
             Ok(link)
@@ -116,26 +126,42 @@ where Row: StorableRow,
         }
     }
 
-    #[cfg_attr(feature = "perf_measurements", performance_measurement(prefix_name = "DataPages"))]
+    #[cfg_attr(
+        feature = "perf_measurements",
+        performance_measurement(prefix_name = "DataPages")
+    )]
     pub fn select(&self, link: Link) -> Result<Row, ExecutionError>
-    where Row: Archive,
-          <<Row as StorableRow>::WrappedRow as Archive>::Archived: Deserialize<<Row as StorableRow>::WrappedRow, rkyv::de::deserializers::SharedDeserializeMap>,
+    where
+        Row: Archive,
+        <<Row as StorableRow>::WrappedRow as Archive>::Archived: Deserialize<
+            <Row as StorableRow>::WrappedRow,
+            rkyv::de::deserializers::SharedDeserializeMap,
+        >,
     {
         let pages = self.pages.read().unwrap();
-        let page = pages.get::<usize>(link.page_id.into()).ok_or(ExecutionError::PageNotFound(link.page_id))?;
+        let page = pages
+            .get::<usize>(link.page_id.into())
+            .ok_or(ExecutionError::PageNotFound(link.page_id))?;
         let gen_row = page.get_row(link).map_err(ExecutionError::DataPageError)?;
         Ok(gen_row.get_inner())
     }
 
-    pub unsafe fn update<const N: usize>(&self, row: Row, link: Link) -> Result<Link, ExecutionError>
+    pub unsafe fn update<const N: usize>(
+        &self,
+        row: Row,
+        link: Link,
+    ) -> Result<Link, ExecutionError>
     where
         Row: Archive + Serialize<AllocSerializer<N>>,
         <Row as StorableRow>::WrappedRow: Archive + Serialize<AllocSerializer<N>>,
     {
         let pages = self.pages.read().unwrap();
-        let page = pages.get::<usize>(link.page_id.into()).ok_or(ExecutionError::PageNotFound(link.page_id))?;
+        let page = pages
+            .get::<usize>(link.page_id.into())
+            .ok_or(ExecutionError::PageNotFound(link.page_id))?;
         let gen_row = <Row as StorableRow>::WrappedRow::from_inner(row);
-        page.save_row_by_link(&gen_row, link).map_err(ExecutionError::DataPageError)
+        page.save_row_by_link(&gen_row, link)
+            .map_err(ExecutionError::DataPageError)
     }
 }
 
@@ -143,21 +169,21 @@ where Row: StorableRow,
 pub enum ExecutionError {
     DataPageError(DataExecutionError),
 
-    PageNotFound(#[error(not(source))] page::Id)
+    PageNotFound(#[error(not(source))] page::Id),
 }
 
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
-    use std::sync::{Arc, RwLock};
     use std::sync::atomic::Ordering;
+    use std::sync::{Arc, RwLock};
     use std::thread;
     use std::time::Instant;
 
-    use rkyv::{Archive, Deserialize, Serialize};
     use crate::in_memory::pages::DataPages;
     use crate::in_memory::row::GeneralRow;
     use crate::in_memory::StorableRow;
+    use rkyv::{Archive, Deserialize, Serialize};
 
     #[derive(
         Archive, Copy, Clone, Deserialize, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize,
@@ -168,7 +194,7 @@ mod tests {
         a: u64,
         b: u64,
     }
-    
+
     impl StorableRow for TestRow {
         type WrappedRow = GeneralRow<TestRow>;
     }
@@ -177,10 +203,7 @@ mod tests {
     fn insert() {
         let pages = DataPages::<TestRow>::new();
 
-        let row = TestRow {
-            a: 10,
-            b: 20,
-        };
+        let row = TestRow { a: 10, b: 20 };
         let link = pages.insert::<24>(row).unwrap();
 
         assert_eq!(link.page_id, 0.into());
@@ -194,10 +217,7 @@ mod tests {
     fn select() {
         let pages = DataPages::<TestRow>::new();
 
-        let row = TestRow {
-            a: 10,
-            b: 20,
-        };
+        let row = TestRow { a: 10, b: 20 };
         let link = pages.insert::<24>(row).unwrap();
         let res = pages.select(link).unwrap();
 
@@ -208,10 +228,7 @@ mod tests {
     fn update() {
         let pages = DataPages::<TestRow>::new();
 
-        let row = TestRow {
-            a: 10,
-            b: 20,
-        };
+        let row = TestRow { a: 10, b: 20 };
         let link = pages.insert::<24>(row).unwrap();
         let res = pages.select(link).unwrap();
 
@@ -222,10 +239,7 @@ mod tests {
     fn insert_full() {
         let pages = DataPages::<TestRow, 24>::new();
 
-        let row = TestRow {
-            a: 10,
-            b: 20,
-        };
+        let row = TestRow { a: 10, b: 20 };
         let link = pages.insert::<16>(row).unwrap();
         let res = pages.insert::<24>(row);
 
@@ -244,10 +258,7 @@ mod tests {
             let pages_shared = pages.clone();
             let h = thread::spawn(move || {
                 for i in 0..1000 {
-                    let row = TestRow {
-                        a: i,
-                        b: j * i + 1,
-                    };
+                    let row = TestRow { a: i, b: j * i + 1 };
 
                     pages_shared.insert::<24>(row);
                 }
@@ -277,10 +288,7 @@ mod tests {
             let pages_shared = pages.clone();
             let h = thread::spawn(move || {
                 for i in 0..1000 {
-                    let row = TestRow {
-                        a: i,
-                        b: j * i + 1,
-                    };
+                    let row = TestRow { a: i, b: j * i + 1 };
 
                     let mut pages = pages_shared.write().unwrap();
                     pages.insert(row);
@@ -311,10 +319,7 @@ mod tests {
             let pages_shared = pages.clone();
             let h = thread::spawn(move || {
                 for i in 0..1000 {
-                    let row = TestRow {
-                        a: i,
-                        b: j * i + 1,
-                    };
+                    let row = TestRow { a: i, b: j * i + 1 };
 
                     let mut pages = pages_shared.write().unwrap();
                     pages.push(row);

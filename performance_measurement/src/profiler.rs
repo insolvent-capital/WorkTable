@@ -1,7 +1,7 @@
-use std::{cmp, f64};
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
+use std::{cmp, f64};
 
 use derive_more::Display;
 use lazy_static::lazy_static;
@@ -13,7 +13,13 @@ lazy_static! {
 }
 
 #[derive(Copy, Clone, Debug, Display)]
-#[display("{}, max={:.6} min={:.6} avg={:.6}", name, max_duration, min_duration, avg_duration)]
+#[display(
+    "{}, max={:.6} min={:.6} avg={:.6}",
+    name,
+    max_duration,
+    min_duration,
+    avg_duration
+)]
 pub struct PerformanceMeasurement {
     pub name: &'static str,
 
@@ -38,7 +44,8 @@ impl PerformanceProfiler {
 
         if let Some(guard) = global_performance_measurements.get(function_name) {
             let v = guard.val();
-            let avg = ((v.avg_duration * v.measurement_count as f64) + duration_ms) / (v.measurement_count + 1) as f64;
+            let avg = ((v.avg_duration * v.measurement_count as f64) + duration_ms)
+                / (v.measurement_count + 1) as f64;
             let m = PerformanceMeasurement {
                 name: v.name,
                 min_duration: f64::min(v.min_duration, duration_ms),
@@ -48,15 +55,14 @@ impl PerformanceProfiler {
             };
             global_performance_measurements.insert(function_name, m);
         } else {
-            let m =  PerformanceMeasurement {
+            let m = PerformanceMeasurement {
                 name: function_name,
                 max_duration: duration_ms,
                 min_duration: duration_ms,
                 avg_duration: duration_ms,
-                measurement_count: 1
+                measurement_count: 1,
             };
             global_performance_measurements.insert(function_name, m);
-
         };
     }
 

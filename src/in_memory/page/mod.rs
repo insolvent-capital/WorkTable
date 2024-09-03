@@ -8,9 +8,9 @@ use rkyv::{with::Skip, Archive, Deserialize, Serialize};
 use crate::in_memory::page::r#type::PageType;
 use crate::in_memory::space;
 
-pub use link::Link;
-pub use {data::Data, data::Hint as DataHint, data::ExecutionError as DataExecutionError};
 pub use data::DATA_INNER_LENGTH;
+pub use link::Link;
+pub use {data::Data, data::ExecutionError as DataExecutionError, data::Hint as DataHint};
 
 // TODO: Move to config
 /// The size of a page. Header size and other parts are _included_ in this size.
@@ -103,7 +103,9 @@ impl Empty {
 
 #[cfg(test)]
 mod tests {
-    use crate::in_memory::page::{self, r#type::PageType, GeneralHeader, HEADER_LENGTH, INNER_PAGE_LENGTH, PAGE_SIZE};
+    use crate::in_memory::page::{
+        self, r#type::PageType, GeneralHeader, HEADER_LENGTH, INNER_PAGE_LENGTH, PAGE_SIZE,
+    };
 
     fn get_general_header() -> GeneralHeader {
         GeneralHeader {
@@ -142,7 +144,7 @@ mod tests {
     fn general_data_page_valid() {
         let page = page::General {
             header: get_general_header(),
-            inner: page::Data::<()>::new(1.into())
+            inner: page::Data::<()>::new(1.into()),
         };
         let bytes = rkyv::to_bytes::<_, 4096>(&page).unwrap();
 

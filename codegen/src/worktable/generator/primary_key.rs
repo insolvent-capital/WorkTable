@@ -1,21 +1,25 @@
-use proc_macro2::{Ident, Span, TokenStream};
-use quote::quote;
 use crate::worktable::generator::Generator;
 use crate::worktable::model::PrimaryKey;
+use proc_macro2::{Ident, Span, TokenStream};
+use quote::quote;
 
 impl Generator {
     pub fn gen_pk_def(&mut self) -> TokenStream {
         let name = &self.name;
         let ident = Ident::new(format!("{name}PrimaryKey").as_str(), Span::mixed_site());
-        let type_ = self.columns.columns_map.get(&self.columns.primary_key).unwrap();
+        let type_ = self
+            .columns
+            .columns_map
+            .get(&self.columns.primary_key)
+            .unwrap();
 
         let struct_def = quote! {
-                pub type #ident = #type_;
-            };
+            pub type #ident = #type_;
+        };
         self.pk = Some(PrimaryKey {
             ident,
             field: self.columns.primary_key.clone(),
-            type_: type_.clone()
+            type_: type_.clone(),
         });
 
         struct_def
@@ -63,6 +67,9 @@ mod tests {
         let pk_def = generator.gen_pk_def();
 
         assert_eq!(generator.pk.unwrap().ident.to_string(), "TestPrimaryKey");
-        assert_eq!(pk_def.to_string(), "pub type TestPrimaryKey = (i64 , u64) ;");
+        assert_eq!(
+            pk_def.to_string(),
+            "pub type TestPrimaryKey = (i64 , u64) ;"
+        );
     }
 }

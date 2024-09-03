@@ -26,7 +26,8 @@ impl Parser {
 
         self.parse_colon()?;
 
-        let name = self.input_iter
+        let name = self
+            .input_iter
             .next()
             .ok_or(syn::Error::new(self.input.span(), "Expected token."))?;
         let name = if let TokenTree::Ident(name) = name {

@@ -1,15 +1,15 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 
-mod parser;
 mod generator;
 mod model;
+mod parser;
 
-pub use parser::Parser;
 use crate::worktable::generator::Generator;
+pub use parser::Parser;
 
 pub fn expand(input: TokenStream) -> syn::Result<TokenStream> {
-    let mut parser = Parser::new( input);
+    let mut parser = Parser::new(input);
 
     let name = parser.parse_name()?;
     let mut columns = parser.parse_columns()?;
@@ -39,8 +39,8 @@ pub fn expand(input: TokenStream) -> syn::Result<TokenStream> {
 
 #[cfg(test)]
 mod test {
-    use quote::quote;
     use crate::worktable::expand;
+    use quote::quote;
 
     #[test]
     fn test() {

@@ -4,5 +4,5 @@ use proc_macro2::Ident;
 pub struct Index {
     pub name: Ident,
     pub field: Ident,
-    pub is_unique: bool
+    pub is_unique: bool,
 }
