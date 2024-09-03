@@ -1,10 +1,13 @@
-use proc_macro2::TokenTree;
+use std::collections::HashMap;
+
+use proc_macro2::{Ident, TokenTree};
 use syn::spanned::Spanned;
-use crate::worktable_query::model::Operation;
-use crate::worktable_query::Parser;
+
+use crate::worktable::model::Operation;
+use crate::worktable::Parser;
 
 impl Parser {
-    pub fn parse_updates(&mut self) -> syn::Result<Vec<Operation>> {
+    pub fn parse_updates(&mut self) -> syn::Result<HashMap<Ident, Operation>> {
         let ident = self.input_iter.next().ok_or(syn::Error::new(
             self.input.span(),
             "Expected `update` field in declaration",
@@ -31,10 +34,16 @@ impl Parser {
         ))?;
         if let TokenTree::Group(ops) = ops {
             let mut parser = Parser::new(ops.stream());
-            let mut ops = Vec::new();
+            let mut ops = HashMap::new();
             while parser.has_next() {
                 let row = parser.parse_operation()?;
-                ops.push(row);
+                if ops.get(&row.name).is_some() {
+                    return Err(syn::Error::new(
+                        row.name.span(),
+                        "Non-unique query name",
+                    ));
+                }
+                ops.insert(row.name.clone(), row);
                 parser.try_parse_comma()?
             }
             Ok(ops)
@@ -49,8 +58,10 @@ impl Parser {
 
 #[cfg(test)]
 mod tests {
+    use proc_macro2::{Ident, Span};
     use quote::quote;
-    use crate::worktable_query::Parser;
+
+    use crate::worktable::Parser;
 
     #[test]
     fn test_update() {
@@ -64,7 +75,7 @@ mod tests {
         let ops = parser.parse_updates().unwrap();
 
         assert_eq!(ops.len(), 2);
-        let op = &ops[0];
+        let op = ops.get(&Ident::new("TestQuery", Span::mixed_site())).unwrap();
 
         assert_eq!(op.name, "TestQuery");
         assert_eq!(op.columns.len(), 2);

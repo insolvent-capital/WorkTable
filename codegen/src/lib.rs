@@ -1,5 +1,4 @@
 mod worktable;
-mod worktable_query;
 
 use proc_macro::TokenStream;
 use syn::spanned::Spanned;

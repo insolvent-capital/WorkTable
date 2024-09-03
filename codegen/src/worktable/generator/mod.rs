@@ -3,10 +3,11 @@ mod primary_key;
 mod row;
 mod table;
 mod wrapper;
+mod queries;
 
 use proc_macro2::Ident;
 
-use crate::worktable::model::{Columns, PrimaryKey};
+use crate::worktable::model::{Columns, PrimaryKey, Queries};
 
 pub struct Generator {
     name: Ident,
@@ -15,6 +16,7 @@ pub struct Generator {
     wrapper_name: Option<Ident>,
     index_name: Option<Ident>,
     pk: Option<PrimaryKey>,
+    pub queries: Option<Queries>,
 
     columns: Columns,
 }
@@ -28,6 +30,7 @@ impl Generator {
             wrapper_name: None,
             index_name: None,
             pk: None,
+            queries: None,
             columns,
         }
     }

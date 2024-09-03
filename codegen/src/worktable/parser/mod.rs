@@ -2,6 +2,7 @@ mod columns;
 mod index;
 mod name;
 mod punct;
+pub mod queries;
 
 use proc_macro2::TokenStream;
 use std::iter::Peekable;

@@ -1,3 +1,4 @@
+
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
@@ -44,6 +45,29 @@ impl Generator {
             }
         };
 
+        let row_sums = self
+            .columns
+            .columns_map
+            .iter()
+            .map(|(i, _)| {
+                let name = Ident::new(format!("{i}_lock").as_str(), Span::mixed_site());
+                quote! {
+                    self.#name.get()
+                }
+            })
+            .collect::<Vec<_>>();
+
+        let archived_wrapper = Ident::new(format!("Archived{}", &wrapper_name).as_str(), Span::mixed_site());
+        let archived_impl = quote! {
+            impl #archived_wrapper {
+                pub fn is_locked(&self) -> bool {
+                    let sum =
+                    #(#row_sums)+*;
+                    sum == 0
+                }
+            }
+        };
+
         let row_defaults = self
             .columns
             .columns_map
@@ -73,6 +97,7 @@ impl Generator {
         };
 
         quote! {
+            #archived_impl
             #storable_impl
             #wrapper_impl
         }

@@ -13,10 +13,18 @@ pub fn expand(input: TokenStream) -> syn::Result<TokenStream> {
 
     let name = parser.parse_name()?;
     let mut columns = parser.parse_columns()?;
-    let indexes = parser.parse_indexes()?;
-    columns.indexes = indexes;
+    if parser.has_next() {
+        let indexes = parser.parse_indexes()?;
+        columns.indexes = indexes;
+    }
+    let queries = if parser.has_next() {
+        Some(parser.parse_queries()?)
+    } else {
+        None
+    };
 
     let mut generator = Generator::new(name, columns);
+    generator.queries = queries;
 
     let pk_def = generator.gen_pk_def();
     let row_def = generator.gen_row_def();
@@ -25,6 +33,7 @@ pub fn expand(input: TokenStream) -> syn::Result<TokenStream> {
     let index_def = generator.gen_index_def();
     let table_def = generator.gen_table_def();
     let table_index_impl = generator.gen_table_index_impl()?;
+    let query_types_def = generator.gen_result_types_def()?;
 
     Ok(TokenStream::from(quote! {
         #pk_def
@@ -34,6 +43,7 @@ pub fn expand(input: TokenStream) -> syn::Result<TokenStream> {
         #index_def
         #table_def
         #table_index_impl
+        #query_types_def
     }))
 }
 

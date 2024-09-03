@@ -141,6 +141,11 @@ mod tests {
             test_idx: test unique,
             exchnage_idx: exchange,
         }
+        queries: {
+            update: {
+                TestByExchange(test) by exchange,
+            }
+        }
     );
 
     #[test]

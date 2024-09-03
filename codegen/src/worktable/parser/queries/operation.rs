@@ -1,8 +1,8 @@
 use proc_macro2::{Ident, TokenTree};
 use syn::spanned::Spanned;
 
-use crate::worktable_query::model::Operation;
-use crate::worktable_query::parser::Parser;
+use crate::worktable::model::Operation;
+use crate::worktable::parser::Parser;
 
 impl Parser {
     pub fn parse_operation(&mut self) -> syn::Result<Operation> {
@@ -97,7 +97,7 @@ impl Parser {
 mod tests {
     use quote::quote;
 
-    use crate::worktable_query::parser::Parser;
+    use crate::worktable::parser::Parser;
 
     #[test]
     fn test_operation() {

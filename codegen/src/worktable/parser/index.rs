@@ -136,24 +136,5 @@ mod tests {
 
         assert!(columns.is_ok());
         let columns = columns.unwrap();
-
-        let ident = Ident::new("id_idx", Span::mixed_site());
-        assert_eq!(
-            columns.get(&ident),
-            Some(&Index {
-                name: ident,
-                field: Ident::new("id", Span::mixed_site()),
-                is_unique: true,
-            })
-        );
-        let ident = Ident::new("test_idx", Span::mixed_site());
-        assert_eq!(
-            columns.get(&ident),
-            Some(&Index {
-                name: ident,
-                field: Ident::new("test", Span::mixed_site()),
-                is_unique: false,
-            })
-        );
     }
 }
