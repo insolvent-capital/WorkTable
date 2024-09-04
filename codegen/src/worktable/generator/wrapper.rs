@@ -15,7 +15,7 @@ impl Generator {
             .map(|(i, _)| {
                 let name = Ident::new(format!("{i}_lock").as_str(), Span::mixed_site());
                 quote! {
-                    #name: std::sync::Arc<std::sync::atomic::AtomicU16>,
+                    #name: u16,
                 }
             })
             .collect::<Vec<_>>();
@@ -28,7 +28,7 @@ impl Generator {
             pub struct #wrapper_name {
                 inner: #row_name,
 
-                is_deleted: std::sync::Arc<std::sync::atomic::AtomicBool>,
+                is_deleted: bool,
 
                 #(#row_locks)*
             }
@@ -52,7 +52,7 @@ impl Generator {
             .map(|(i, _)| {
                 let name = Ident::new(format!("{i}_lock").as_str(), Span::mixed_site());
                 quote! {
-                    self.#name.get()
+                    self.#name
                 }
             })
             .collect::<Vec<_>>();
@@ -75,7 +75,7 @@ impl Generator {
             .map(|(i, _)| {
                 let name = Ident::new(format!("{i}_lock").as_str(), Span::mixed_site());
                 quote! {
-                    #name: std::sync::Arc::new(Default::default()),
+                    #name: Default::default(),
                 }
             })
             .collect::<Vec<_>>();
@@ -89,7 +89,7 @@ impl Generator {
                 fn from_inner(inner: #row_name) -> Self {
                     Self {
                         inner,
-                        is_deleted: std::sync::Arc::new(Default::default()),
+                        is_deleted: Default::default(),
                         #(#row_defaults)*
                     }
                 }

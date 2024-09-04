@@ -147,6 +147,44 @@ where
         Ok(gen_row.get_inner())
     }
 
+    #[cfg_attr(
+        feature = "perf_measurements",
+        performance_measurement(prefix_name = "DataPages")
+    )]
+    pub fn with_ref<Op, Res>(&self, link: Link, op: Op) -> Result<Res, ExecutionError>
+    where
+        Row: Archive,
+        Op: Fn(&<<Row as StorableRow>::WrappedRow as Archive>::Archived) -> Res
+    {
+        let pages = self.pages.read().unwrap();
+        let page = pages
+            .get::<usize>(link.page_id.into())
+            .ok_or(ExecutionError::PageNotFound(link.page_id))?;
+        let gen_row = page.get_row_ref(link).map_err(ExecutionError::DataPageError)?;
+        let res = op(gen_row);
+        Ok(res)
+    }
+
+    #[cfg_attr(
+        feature = "perf_measurements",
+        performance_measurement(prefix_name = "DataPages")
+    )]
+    pub unsafe fn with_mut_ref<Op, Res>(&self, link: Link, op: Op) -> Result<Res, ExecutionError>
+    where
+        Row: Archive,
+        Op: Fn(&mut <<Row as StorableRow>::WrappedRow as Archive>::Archived) -> Res
+    {
+        let pages = self.pages.read().unwrap();
+        let page = pages
+            .get::<usize>(link.page_id.into())
+            .ok_or(ExecutionError::PageNotFound(link.page_id))?;
+        let gen_row = page.get_mut_row_ref(link)
+            .map_err(ExecutionError::DataPageError)?
+            .get_unchecked_mut();
+        let res = op(gen_row);
+        Ok(res)
+    }
+
     pub unsafe fn update<const N: usize>(
         &self,
         row: Row,
@@ -163,26 +201,6 @@ where
         let gen_row = <Row as StorableRow>::WrappedRow::from_inner(row);
         page.save_row_by_link(&gen_row, link)
             .map_err(ExecutionError::DataPageError)
-    }
-
-    pub unsafe fn update_with<O>(
-        &self,
-        link: Link,
-        op: O
-    ) -> Result<(), ExecutionError>
-    where O: Fn(&mut <<Row as StorableRow>::WrappedRow as Archive>::Archived)
-    {
-        let pages = self.pages.read().unwrap();
-        let page = pages
-            .get::<usize>(link.page_id.into())
-            .ok_or(ExecutionError::PageNotFound(link.page_id))?;
-
-        let row = page.get_mut_row_ref(link)
-            .map_err(ExecutionError::DataPageError)?
-            .get_unchecked_mut();
-        op(row);
-
-        Ok(())
     }
 }
 
@@ -207,7 +225,6 @@ mod tests {
     use crate::in_memory::row::GeneralRow;
     use crate::in_memory::StorableRow;
     use rkyv::{Archive, Deserialize, Serialize};
-    use crate::prelude::ArchivedRow;
 
     #[derive(
         Archive, Copy, Clone, Deserialize, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize,
@@ -268,21 +285,6 @@ mod tests {
         let res = pages.insert::<24>(row);
 
         assert!(res.is_ok())
-    }
-
-    #[test]
-    fn update_with() {
-        let pages = DataPages::<TestRow>::new();
-
-        let row = TestRow { a: 10, b: 20 };
-        let link = pages.insert::<16>(row).unwrap();
-        let update = |row: &mut <GeneralRow<TestRow> as Archive>::Archived| {
-            row.inner.a = 20
-        };
-        unsafe { pages.update_with(link, update).unwrap(); }
-        let res = pages.select(link).unwrap();
-
-        assert_eq!(TestRow { a: 20, b: 20 }, res)
     }
 
     #[test]

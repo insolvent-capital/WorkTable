@@ -135,6 +135,7 @@ mod tests {
         columns: {
             id: u64 primary_key,
             test: i64,
+            another: u64,
             exchange: String
         },
         indexes: {
@@ -143,7 +144,8 @@ mod tests {
         }
         queries: {
             update: {
-                TestByExchange(test) by exchange,
+                AnotherByExchange(another) by exchange,
+                AnotherByTest(another) by test,
             }
         }
     );
@@ -158,6 +160,7 @@ mod tests {
             let row = TestRow {
                 id: table.get_next_pk(),
                 test: i + 1,
+                another: 1,
                 exchange: "XD".to_string(),
             };
 
@@ -176,6 +179,7 @@ mod tests {
         let row = TestRow {
             id: table.get_next_pk(),
             test: 1,
+            another: 1,
             exchange: "test".to_string(),
         };
         let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
@@ -191,6 +195,7 @@ mod tests {
         let row = TestRow {
             id: table.get_next_pk(),
             test: 1,
+            another: 1,
             exchange: "test".to_string(),
         };
         let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
@@ -204,12 +209,14 @@ mod tests {
         let row = TestRow {
             id: table.get_next_pk(),
             test: 1,
+            another: 1,
             exchange: "test".to_string(),
         };
         let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
         let row = TestRow {
             id: table.get_next_pk(),
             test: 1,
+            another: 1,
             exchange: "test".to_string(),
         };
         let res = table.insert::<{ TestRow::ROW_SIZE }>(row.clone());
@@ -222,6 +229,7 @@ mod tests {
         let row = TestRow {
             id: table.get_next_pk(),
             test: 1,
+            another: 1,
             exchange: "test".to_string(),
         };
         let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
@@ -238,12 +246,14 @@ mod tests {
         let row = TestRow {
             id: table.get_next_pk(),
             test: 1,
+            another: 1,
             exchange: "test".to_string(),
         };
         let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
         let row_next = TestRow {
             id: table.get_next_pk(),
             test: 2,
+            another: 1,
             exchange: "test".to_string(),
         };
         let _ = table
@@ -263,6 +273,7 @@ mod tests {
         let row = TestRow {
             id: table.get_next_pk(),
             test: 1,
+            another: 1,
             exchange: "test".to_string(),
         };
         let _ = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
@@ -278,12 +289,14 @@ mod tests {
         let row1 = TestRow {
             id: table.get_next_pk(),
             test: 1,
+            another: 1,
             exchange: "test".to_string(),
         };
         let _ = table.insert::<{ TestRow::ROW_SIZE }>(row1.clone()).unwrap();
         let row2 = TestRow {
             id: table.get_next_pk(),
             test: 2,
+            another: 1,
             exchange: "test".to_string(),
         };
         let _ = table.insert::<{ TestRow::ROW_SIZE }>(row2.clone()).unwrap();
@@ -293,5 +306,71 @@ mod tests {
         assert_eq!(all.len(), 2);
         assert_eq!(&all[0], &row1);
         assert_eq!(&all[1], &row2)
+    }
+
+    #[tokio::test]
+    async fn test_update_by_non_unique() {
+        let table = TestWorkTable::default();
+        let row1 = TestRow {
+            id: table.get_next_pk(),
+            test: 1,
+            another: 1,
+            exchange: "test".to_string(),
+        };
+        let _ = table.insert::<{ TestRow::ROW_SIZE }>(row1.clone()).unwrap();
+        let row2 = TestRow {
+            id: table.get_next_pk(),
+            test: 2,
+            another: 1,
+            exchange: "test".to_string(),
+        };
+        let _ = table.insert::<{ TestRow::ROW_SIZE }>(row2.clone()).unwrap();
+
+        let row = AnotherByExchangeQuery {
+            another: 3
+        };
+        table.update_another_by_exchange(row, "test".to_string()).await.unwrap();
+
+        let all = table.select_all().unwrap();
+
+        assert_eq!(all.len(), 2);
+        assert_eq!(&all[0], &TestRow {
+            id: 0,
+            test: 1,
+            another: 3,
+            exchange: "test".to_string(),
+        });
+        assert_eq!(&all[1], &TestRow {
+            id: 1,
+            test: 2,
+            another: 3,
+            exchange: "test".to_string(),
+        })
+    }
+
+    #[tokio::test]
+    async fn test_update_by_unique() {
+        let table = TestWorkTable::default();
+        let row = TestRow {
+            id: table.get_next_pk(),
+            test: 1,
+            another: 1,
+            exchange: "test".to_string(),
+        };
+        let _ = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+
+        let row = AnotherByTestQuery {
+            another: 3
+        };
+        table.update_another_by_test(row, 1).await.unwrap();
+
+        let row = table.select_by_test(1).unwrap();
+
+        assert_eq!(row, TestRow {
+            id: 0,
+            test: 1,
+            another: 3,
+            exchange: "test".to_string(),
+        })
     }
 }

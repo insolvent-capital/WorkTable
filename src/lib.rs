@@ -20,7 +20,7 @@ pub mod prelude {
     pub use crate::in_memory::{RowWrapper, StorableRow, ArchivedRow};
     pub use crate::{
         in_memory::page::Link, primary_key::PrimaryKeyGenerator, TableIndex, TableRow, WorkTable,
-        WorkTableError,
+        WorkTableError, lock::Lock
     };
     pub use lockfree::set::Set as LockFreeSet;
     pub use scc::{ebr::Guard, tree_index::TreeIndex};

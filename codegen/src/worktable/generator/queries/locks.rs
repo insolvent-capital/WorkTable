@@ -17,8 +17,8 @@ impl Generator {
                 let checks = q.updates.get(name).expect("exists").columns.iter().map(|col| {
                     let col = Ident::new(format!("{}_lock", col).as_str(), Span::mixed_site());
                     quote! {
-                        if self.#col.get() != &0 {
-                            return Some(*self.#col.get());
+                        if self.#col != 0 {
+                            return Some(self.#col);
                         }
                     }
                 }).collect::<Vec<_>>();
@@ -27,7 +27,7 @@ impl Generator {
                 let locks = q.updates.get(name).expect("exists").columns.iter().map(|col| {
                     let col = Ident::new(format!("{}_lock", col).as_str(), Span::mixed_site());
                     quote! {
-                        *self.map_unchecked_mut(|s| &mut s.#col).get_pin_mut_unchecked().get_unchecked_mut() =  id;
+                        self.#col = id;
                     }
                 }).collect::<Vec<_>>();
 
@@ -35,7 +35,7 @@ impl Generator {
                 let unlocks = q.updates.get(name).expect("exists").columns.iter().map(|col| {
                     let col = Ident::new(format!("{}_lock", col).as_str(), Span::mixed_site());
                     quote! {
-                        *self.map_unchecked_mut(|s| &mut s.#col).get_pin_mut_unchecked().get_unchecked_mut() =  0;
+                        self.#col = 0;
                     }
                 }).collect::<Vec<_>>();
 
@@ -43,23 +43,23 @@ impl Generator {
                 let verify = q.updates.get(name).expect("exists").columns.iter().map(|col| {
                     let col = Ident::new(format!("{}_lock", col).as_str(), Span::mixed_site());
                     quote! {
-                        if self.#col.get() != &id {
+                        if self.#col != id {
                             return false;
                         }
                     }
                 }).collect::<Vec<_>>();
 
                 quote! {
-                    pub fn #check_ident(&self, id: u16) -> Option<u16> {
+                    pub fn #check_ident(&self) -> Option<u16> {
                         #(#checks)*
                         None
                     }
 
-                    pub unsafe fn #lock_ident(self: core::pin::Pin<&mut Self>, id: u16) {
+                    pub unsafe fn #lock_ident(&mut self, id: u16) {
                         #(#locks)*
                     }
 
-                    pub unsafe fn #unlock_ident(self: core::pin::Pin<&mut Self>) {
+                    pub unsafe fn #unlock_ident(&mut self) {
                         #(#unlocks)*
                     }
 

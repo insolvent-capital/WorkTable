@@ -5,12 +5,13 @@ use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::task::{Context, Poll};
 
+use derive_more::From;
 use futures::task::AtomicWaker;
 use rkyv::{Archive, Deserialize, Serialize};
 
 pub use set::LockMap;
 
-#[derive(Archive, Clone, Copy, Deserialize, Debug, Eq, Hash, Ord, Serialize, PartialEq, PartialOrd)]
+#[derive(Archive, Clone, Copy, Deserialize, Debug, Eq, From, Hash, Ord, Serialize, PartialEq, PartialOrd)]
 pub struct LockId(u16);
 
 #[derive(Debug)]
@@ -20,7 +21,7 @@ pub struct Lock {
     waker: AtomicWaker
 }
 
-impl Future for Lock {
+impl Future for &Lock {
     type Output = ();
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {

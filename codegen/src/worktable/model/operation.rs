@@ -1,6 +1,6 @@
 use proc_macro2::Ident;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Operation {
     pub name: Ident,
     pub columns: Vec<Ident>,
