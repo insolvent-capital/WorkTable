@@ -23,7 +23,7 @@ where
 {
     pub data: DataPages<Row>,
 
-    pk_map: TreeIndex<Pk, Link>,
+    pub pk_map: TreeIndex<Pk, Link>,
 
     pub indexes: I,
 
