@@ -5,11 +5,6 @@ use crate::worktable::generator::Generator;
 impl Generator {
     pub fn gen_query_select_impl(&mut self) -> syn::Result<TokenStream> {
         let select_all = self.gen_select_all();
-        let _ = if let Some(q) = &self.queries {
-            Ok(quote! {})
-        } else {
-            Ok(quote! {})
-        }?;
 
         let table_ident = self.table_name.as_ref().unwrap();
         Ok(quote! {
