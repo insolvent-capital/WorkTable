@@ -4,18 +4,19 @@ use crate::worktable::generator::Generator;
 
 impl Generator {
     pub fn gen_query_select_impl(&mut self) -> syn::Result<TokenStream> {
-        if let Some(q) = &self.queries {
-            let select_all = self.gen_select_all();
-
-            let table_ident = self.table_name.as_ref().unwrap();
-            Ok(quote! {
-                impl #table_ident {
-                    #select_all
-                }
-            })
+        let select_all = self.gen_select_all();
+        let _ = if let Some(q) = &self.queries {
+            Ok(quote! {})
         } else {
             Ok(quote! {})
-        }
+        }?;
+
+        let table_ident = self.table_name.as_ref().unwrap();
+        Ok(quote! {
+            impl #table_ident {
+                #select_all
+            }
+        })
     }
 
     fn gen_select_all(&mut self) -> TokenStream {
