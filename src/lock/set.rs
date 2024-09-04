@@ -25,7 +25,7 @@ impl LockMap {
     }
 
     pub fn get(&self, id: &LockId) -> Option<Arc<Lock>> {
-        self.set.get(&id).map(|v| {
+        self.set.get(id).map(|v| {
             v.val().clone()
         })
     }

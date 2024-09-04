@@ -98,8 +98,7 @@ where
             .data
             .insert::<ROW_SIZE_HINT>(row.clone())
             .map_err(WorkTableError::PagesError)?;
-        let _ = self
-            .pk_map
+        self.pk_map
             .insert(pk.clone(), link)
             .map_err(|_| WorkTableError::AlreadyExists)?;
         self.indexes.save_row(row, link)?;
@@ -247,7 +246,7 @@ mod tests {
             test: 2,
             exchange: "test".to_string(),
         };
-        let pk = table
+        let _ = table
             .insert::<{ TestRow::ROW_SIZE }>(row_next.clone())
             .unwrap();
         let selected_rows = table.select_by_exchange("test".to_string()).unwrap();
@@ -266,10 +265,33 @@ mod tests {
             test: 1,
             exchange: "test".to_string(),
         };
-        let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let _ = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
         let selected_row = table.select_by_test(1).unwrap();
 
         assert_eq!(selected_row, row);
         assert!(table.select_by_test(2).is_none())
+    }
+
+    #[test]
+    fn select_all_test() {
+        let table = TestWorkTable::default();
+        let row1 = TestRow {
+            id: table.get_next_pk(),
+            test: 1,
+            exchange: "test".to_string(),
+        };
+        let _ = table.insert::<{ TestRow::ROW_SIZE }>(row1.clone()).unwrap();
+        let row2 = TestRow {
+            id: table.get_next_pk(),
+            test: 2,
+            exchange: "test".to_string(),
+        };
+        let _ = table.insert::<{ TestRow::ROW_SIZE }>(row2.clone()).unwrap();
+
+        let all = table.select_all().unwrap();
+
+        assert_eq!(all.len(), 2);
+        assert_eq!(&all[0], &row1);
+        assert_eq!(&all[1], &row2)
     }
 }
