@@ -105,7 +105,7 @@ impl Generator {
         let field_ident = &idx.name;
 
         Ok(quote! {
-            pub fn #fn_name(&self, by: #type_) -> Result<std::collections::HashSet<#row_ident>, WorkTableError> {
+            pub fn #fn_name(&self, by: #type_) -> Result<Vec<#row_ident>, WorkTableError> {
                 {
                     let guard = Guard::new();
                     self.0.indexes.#field_ident
