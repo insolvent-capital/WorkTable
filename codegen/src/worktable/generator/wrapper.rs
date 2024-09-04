@@ -59,8 +59,8 @@ impl Generator {
 
         let archived_wrapper = Ident::new(format!("Archived{}", &wrapper_name).as_str(), Span::mixed_site());
         let archived_impl = quote! {
-            impl #archived_wrapper {
-                pub fn is_locked(&self) -> bool {
+            impl ArchivedRow for #archived_wrapper {
+                fn is_locked(&self) -> bool {
                     let sum =
                     #(#row_sums)+*;
                     sum == 0

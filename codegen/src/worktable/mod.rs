@@ -34,6 +34,7 @@ pub fn expand(input: TokenStream) -> syn::Result<TokenStream> {
     let table_def = generator.gen_table_def();
     let table_index_impl = generator.gen_table_index_impl()?;
     let query_types_def = generator.gen_result_types_def()?;
+    let query_locks_impls = generator.gen_query_locks_impl()?;
 
     Ok(TokenStream::from(quote! {
         #pk_def
@@ -44,6 +45,7 @@ pub fn expand(input: TokenStream) -> syn::Result<TokenStream> {
         #table_def
         #table_index_impl
         #query_types_def
+        #query_locks_impls
     }))
 }
 

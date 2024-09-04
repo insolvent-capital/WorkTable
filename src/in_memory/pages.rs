@@ -12,6 +12,7 @@ use crate::in_memory::page::{DataExecutionError, Link, DATA_INNER_LENGTH};
 use crate::in_memory::row::{GeneralRow, RowWrapper, StorableRow};
 #[cfg(feature = "perf_measurements")]
 use performance_measurement_codegen::performance_measurement;
+use crate::prelude::ArchivedRow;
 
 #[derive(Debug)]
 pub struct DataPages<Row, const DATA_LENGTH: usize = DATA_INNER_LENGTH>
@@ -190,6 +191,8 @@ pub enum ExecutionError {
     DataPageError(DataExecutionError),
 
     PageNotFound(#[error(not(source))] page::Id),
+
+    Locked
 }
 
 #[cfg(test)]
@@ -204,6 +207,7 @@ mod tests {
     use crate::in_memory::row::GeneralRow;
     use crate::in_memory::StorableRow;
     use rkyv::{Archive, Deserialize, Serialize};
+    use crate::prelude::ArchivedRow;
 
     #[derive(
         Archive, Copy, Clone, Deserialize, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize,

@@ -4,4 +4,4 @@ mod row;
 pub mod space;
 
 pub use pages::{DataPages, ExecutionError as PagesExecutionError};
-pub use row::{RowWrapper, StorableRow};
+pub use row::{RowWrapper, StorableRow, ArchivedRow};

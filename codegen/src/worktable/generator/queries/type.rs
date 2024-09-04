@@ -7,7 +7,7 @@ impl Generator {
     pub fn gen_result_types_def(&mut self) -> syn::Result<TokenStream> {
         if let Some(queries) = &self.queries {
             let defs = queries.updates.keys().map(|v| {
-                let ident = Ident::new(format!("{}Result", v).as_str(), Span::mixed_site());
+                let ident = Ident::new(format!("{}Query", v).as_str(), Span::mixed_site());
                 let rows = queries.updates.get(v).expect("exists").columns.iter().map(|i| {
                     let type_ = self.columns.columns_map.get(i).ok_or(syn::Error::new(
                         i.span(),

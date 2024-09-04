@@ -13,6 +13,7 @@ use crate::in_memory::{DataPages, RowWrapper, StorableRow};
 use crate::primary_key::{PrimaryKeyGenerator, TablePrimaryKey};
 use crate::{in_memory, TableIndex, TableRow};
 use crate::lock::LockMap;
+use crate::prelude::ArchivedRow;
 
 #[derive(Debug)]
 pub struct WorkTable<Row, Pk, I = (), PkGen = <Pk as TablePrimaryKey>::Generator>
