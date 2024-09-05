@@ -105,7 +105,7 @@ impl Generator {
                     }).map_err(WorkTableError::PagesError)? };
                     lock.unlock();
 
-                    Ok(())
+                    core::result::Result::Ok(())
                 }
             }
     }
@@ -169,7 +169,7 @@ impl Generator {
                     }
                     lock.unlock();
 
-                    Ok(())
+                    core::result::Result::Ok(())
                 }
             }
     }
@@ -226,7 +226,7 @@ impl Generator {
                     }).map_err(WorkTableError::PagesError)? };
                     lock.unlock();
 
-                    Ok(())
+                    core::result::Result::Ok(())
                 }
             }
     }

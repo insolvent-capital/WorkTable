@@ -80,7 +80,7 @@ impl Generator {
                 fn save_row(&self, row: #row_type_name, link: Link) -> core::result::Result<(), WorkTableError>{
                     #(#index_rows)*
 
-                    Ok(())
+                    core::result::Result::Ok(())
                 }
             }
         }
