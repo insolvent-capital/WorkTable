@@ -77,7 +77,7 @@ impl Generator {
 
         quote! {
             impl TableIndex<#row_type_name> for #index_type_name {
-                fn save_row(&self, row: #row_type_name, link: Link) -> Result<(), WorkTableError>{
+                fn save_row(&self, row: #row_type_name, link: Link) -> core::result::Result<(), WorkTableError>{
                     #(#index_rows)*
 
                     Ok(())

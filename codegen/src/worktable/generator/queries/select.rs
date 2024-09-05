@@ -18,11 +18,11 @@ impl Generator {
         let row_ident = self.row_name.as_ref().unwrap();
 
         quote! {
-            pub fn select_all(&self) -> Result<Vec<#row_ident>, WorkTableError> {
+            pub fn select_all(&self) -> core::result::Result<Vec<#row_ident>, WorkTableError> {
                 let guard = Guard::new();
                 self.0.pk_map.iter(&guard).map(|(_,l)| {
                     self.0.data.select(*l).map_err(WorkTableError::PagesError)
-                }).collect::<Result<Vec<_>, _>>()
+                }).collect::<core::result::Result<Vec<_>, _>>()
             }
         }
     }

@@ -70,7 +70,7 @@ impl Generator {
         }).collect::<Vec<_>>();
 
         quote! {
-                pub async fn #method_ident(&self, row: #query_ident, by: #by_ident) -> Result<(), WorkTableError> {
+                pub async fn #method_ident(&self, row: #query_ident, by: #by_ident) -> core::result::Result<(), WorkTableError> {
                     let op_id = self.0.lock_map.next_id();
                     let lock = std::sync::Arc::new(Lock::new(op_id.into()));
 
@@ -127,7 +127,7 @@ impl Generator {
         }).collect::<Vec<_>>();
 
         quote! {
-                pub async fn #method_ident(&self, row: #query_ident, by: #by_ident) -> Result<(), WorkTableError> {
+                pub async fn #method_ident(&self, row: #query_ident, by: #by_ident) -> core::result::Result<(), WorkTableError> {
                     let op_id = self.0.lock_map.next_id();
                     let lock = std::sync::Arc::new(Lock::new(op_id.into()));
 
@@ -191,7 +191,7 @@ impl Generator {
         }).collect::<Vec<_>>();
 
         quote! {
-                pub async fn #method_ident(&self, row: #query_ident, by: #by_ident) -> Result<(), WorkTableError> {
+                pub async fn #method_ident(&self, row: #query_ident, by: #by_ident) -> core::result::Result<(), WorkTableError> {
                     let op_id = self.0.lock_map.next_id();
                     let lock = std::sync::Arc::new(Lock::new(op_id.into()));
 

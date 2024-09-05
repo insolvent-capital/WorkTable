@@ -28,11 +28,11 @@ impl Generator {
                     self.0.select(pk)
                 }
 
-                pub fn insert<const ROW_SIZE_HINT: usize>(&self, row: #row_type) -> Result<#pk_type, WorkTableError> {
+                pub fn insert<const ROW_SIZE_HINT: usize>(&self, row: #row_type) -> core::result::Result<#pk_type, WorkTableError> {
                     self.0.insert::<ROW_SIZE_HINT>(row)
                 }
 
-                pub fn update<const ROW_SIZE_HINT: usize>(&self, row: #row_type) -> Result<(), WorkTableError> {
+                pub fn update<const ROW_SIZE_HINT: usize>(&self, row: #row_type) -> core::result::Result<(), WorkTableError> {
                     self.0.update::<ROW_SIZE_HINT>(row)
                 }
 
@@ -109,7 +109,7 @@ impl Generator {
         let field_ident = &idx.name;
 
         Ok(quote! {
-            pub fn #fn_name(&self, by: #type_) -> Result<Vec<#row_ident>, WorkTableError> {
+            pub fn #fn_name(&self, by: #type_) -> core::result::Result<Vec<#row_ident>, WorkTableError> {
                 {
                     let guard = Guard::new();
                     self.0.indexes.#field_ident
