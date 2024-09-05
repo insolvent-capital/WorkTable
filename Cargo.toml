@@ -3,7 +3,7 @@ members = ["codegen", "performance_measurement",  "performance_measurement/codeg
 
 [package]
 name = "worktable"
-version = "0.3.4"
+version = "0.3.5"
 edition = "2021"
 authors = ["PathScale"]
 

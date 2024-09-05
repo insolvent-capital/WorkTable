@@ -30,11 +30,12 @@ impl Generator {
                 idx.field.to_string() == op.by.to_string()
             }).expect("field must be indexed for update query");
             let index_name = &index.name;
+            let idents = &op.columns;
 
             if index.is_unique {
-                Self::gen_unique_update(snake_case_name, name, index_name)
+                Self::gen_unique_update(snake_case_name, name, index_name, idents)
             } else {
-                Self::gen_non_unique_update(snake_case_name, name, index_name)
+                Self::gen_non_unique_update(snake_case_name, name, index_name, idents)
             }
         }).collect::<Vec<_>>();
 
@@ -43,7 +44,7 @@ impl Generator {
         }
     }
 
-    fn gen_non_unique_update(snake_case_name: String, name: &Ident, index: &Ident) -> TokenStream {
+    fn gen_non_unique_update(snake_case_name: String, name: &Ident, index: &Ident, idents: &Vec<Ident>) -> TokenStream {
         let method_ident = Ident::new(format!("update_{snake_case_name}").as_str(), Span::mixed_site());
 
         let query_ident = Ident::new(format!("{name}Query").as_str(), Span::mixed_site());
@@ -53,6 +54,11 @@ impl Generator {
         let lock_ident = Ident::new(format!("lock_{snake_case_name}").as_str(), Span::mixed_site());
         let unlock_ident = Ident::new(format!("unlock_{snake_case_name}").as_str(), Span::mixed_site());
         let verify_ident = Ident::new(format!("verify_{snake_case_name}_lock").as_str(), Span::mixed_site());
+        let row_updates = idents.iter().map(|i| {
+            quote! {
+                archived.inner.#i = row.#i;
+            }
+        }).collect::<Vec<_>>();
 
         quote! {
                 pub async fn #method_ident(&self, row: #query_ident, by: #by_ident) -> Result<(), WorkTableError> {
@@ -84,7 +90,7 @@ impl Generator {
 
                     for link in rows_to_update.iter() {
                         unsafe { self.0.data.with_mut_ref(*link.as_ref(), |archived| {
-                            archived.inner.another = row.another
+                            #(#row_updates)*
                         }).map_err(WorkTableError::PagesError)? };
                     }
 
@@ -102,7 +108,7 @@ impl Generator {
             }
     }
 
-    fn gen_unique_update(snake_case_name: String, name: &Ident, index: &Ident) -> TokenStream {
+    fn gen_unique_update(snake_case_name: String, name: &Ident, index: &Ident, idents: &Vec<Ident>) -> TokenStream {
         let method_ident = Ident::new(format!("update_{snake_case_name}").as_str(), Span::mixed_site());
 
         let query_ident = Ident::new(format!("{name}Query").as_str(), Span::mixed_site());
@@ -112,6 +118,11 @@ impl Generator {
         let lock_ident = Ident::new(format!("lock_{snake_case_name}").as_str(), Span::mixed_site());
         let unlock_ident = Ident::new(format!("unlock_{snake_case_name}").as_str(), Span::mixed_site());
         let verify_ident = Ident::new(format!("verify_{snake_case_name}_lock").as_str(), Span::mixed_site());
+        let row_updates = idents.iter().map(|i| {
+            quote! {
+                archived.inner.#i = row.#i;
+            }
+        }).collect::<Vec<_>>();
 
         quote! {
                 pub async fn #method_ident(&self, row: #query_ident, by: #by_ident) -> Result<(), WorkTableError> {
@@ -139,7 +150,7 @@ impl Generator {
                     }).map_err(WorkTableError::PagesError)? };
 
                     unsafe { self.0.data.with_mut_ref(*link, |archived| {
-                        archived.inner.another = row.another
+                        #(#row_updates)*
                     }).map_err(WorkTableError::PagesError)? };
 
                     unsafe { self.0.data.with_mut_ref(*link, |archived| {
