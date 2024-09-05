@@ -27,9 +27,9 @@ where
 
     pub indexes: I,
 
-    pk_gen: PkGen,
+    pub pk_gen: PkGen,
 
-    lock_map: LockMap
+    pub lock_map: LockMap
 }
 
 // Manual implementations to avoid unneeded trait bounds.
