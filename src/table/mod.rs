@@ -106,15 +106,22 @@ where
         Ok(pk)
     }
 
-    // /// Updates provided `Row` in table. Errors if `Row` with provided primary key was not found.
-    // pub fn update(&mut self, row: Row) -> Result<Row, WorkTableError> {
-    //     let pk = row.get_primary_key();
-    //     let index = self.pk_map.get(pk).ok_or(WorkTableError::NotFound)?;
-    //     let old_value = self.rows.remove(*index);
-    //     self.rows.insert(*index, row);
-    //
-    //     Ok(old_value)
-    // }
+    /// Updates provided `Row` in table. Errors if `Row` with provided primary key was not found.
+    pub fn update<const ROW_SIZE_HINT: usize>(&self, row: Row) -> Result<(), WorkTableError>
+    where
+        Row: Archive + Serialize<AllocSerializer<ROW_SIZE_HINT>> + Clone,
+        <Row as StorableRow>::WrappedRow: Archive + Serialize<AllocSerializer<ROW_SIZE_HINT>>,
+        Pk: Clone,
+        I: TableIndex<Row>,
+    {
+        // TODO: add full row locking here.
+        let pk = row.get_primary_key();
+        let guard = Guard::new();
+        let link = self.pk_map.peek(&pk, &guard).ok_or(WorkTableError::NotFound)?;
+        let _ = unsafe { self.data.update::<ROW_SIZE_HINT>(row, *link).map_err(WorkTableError::PagesError)? };
+
+        Ok(())
+    }
 }
 
 #[derive(Debug, Display, Error, From)]
@@ -186,6 +193,29 @@ mod tests {
         let selected_row = table.select(pk).unwrap();
 
         assert_eq!(selected_row, row);
+        assert!(table.select(2).is_none())
+    }
+
+    #[test]
+    fn update() {
+        let table = TestWorkTable::default();
+        let row = TestRow {
+            id: table.get_next_pk(),
+            test: 1,
+            another: 1,
+            exchange: "test".to_string(),
+        };
+        let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let updated = TestRow {
+            id: pk,
+            test: 2,
+            another: 3,
+            exchange: "test".to_string(),
+        };
+        table.update::<{ TestRow::ROW_SIZE }>(updated.clone()).unwrap();
+        let selected_row = table.select(pk).unwrap();
+
+        assert_eq!(selected_row, updated);
         assert!(table.select(2).is_none())
     }
 

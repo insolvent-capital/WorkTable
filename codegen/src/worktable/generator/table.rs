@@ -32,6 +32,10 @@ impl Generator {
                     self.0.insert::<ROW_SIZE_HINT>(row)
                 }
 
+                pub fn update<const ROW_SIZE_HINT: usize>(&self, row: #row_type) -> Result<(), WorkTableError> {
+                    self.0.update::<ROW_SIZE_HINT>(row)
+                }
+
                 pub fn get_next_pk(&self) -> #pk_type {
                     self.0.get_next_pk()
                 }
