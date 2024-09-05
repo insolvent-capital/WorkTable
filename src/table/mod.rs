@@ -153,6 +153,7 @@ mod tests {
             update: {
                 AnotherByExchange(another) by exchange,
                 AnotherByTest(another) by test,
+                AnotherById(another) by id,
             }
         }
     );
@@ -393,6 +394,32 @@ mod tests {
             another: 3
         };
         table.update_another_by_test(row, 1).await.unwrap();
+
+        let row = table.select_by_test(1).unwrap();
+
+        assert_eq!(row, TestRow {
+            id: 0,
+            test: 1,
+            another: 3,
+            exchange: "test".to_string(),
+        })
+    }
+
+    #[tokio::test]
+    async fn test_update_by_pk() {
+        let table = TestWorkTable::default();
+        let row = TestRow {
+            id: table.get_next_pk(),
+            test: 1,
+            another: 1,
+            exchange: "test".to_string(),
+        };
+        let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+
+        let row = AnotherByIdQuery {
+            another: 3
+        };
+        table.update_another_by_id(row, pk).await.unwrap();
 
         let row = table.select_by_test(1).unwrap();
 
