@@ -277,6 +277,29 @@ mod tests {
         assert!(table.select(2).is_none())
     }
 
+    #[tokio::test]
+    async fn upsert() {
+        let table = TestWorkTable::default();
+        let row = TestRow {
+            id: table.get_next_pk(),
+            test: 1,
+            another: 1,
+            exchange: "test".to_string(),
+        };
+        table.upsert::<{ TestRow::ROW_SIZE }>(row.clone()).await.unwrap();
+        let updated = TestRow {
+            id: row.id,
+            test: 2,
+            another: 3,
+            exchange: "test".to_string(),
+        };
+        table.upsert::<{ TestRow::ROW_SIZE }>(updated.clone()).await.unwrap();
+        let selected_row = table.select(row.id).unwrap();
+
+        assert_eq!(selected_row, updated);
+        assert!(table.select(2).is_none())
+    }
+
     #[test]
     fn insert_same() {
         let table = TestWorkTable::default();
