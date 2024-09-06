@@ -1,25 +1,78 @@
+use std::collections::HashMap;
+
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
-use std::collections::HashMap;
-use std::fmt::format;
 
 use crate::worktable::generator::Generator;
 use crate::worktable::model::Operation;
 
 impl Generator {
     pub fn gen_query_update_impl(&mut self) -> syn::Result<TokenStream> {
-        if let Some(q) = &self.queries {
+        let custom_updates = if let Some(q) = &self.queries {
             let custom_updates = self.gen_custom_updates(q.updates.clone());
 
-            let table_ident = self.table_name.as_ref().unwrap();
-            Ok(quote! {
-                impl #table_ident {
-                    #custom_updates
-                }
-            })
+            quote! {
+                #custom_updates
+            }
         } else {
-            Ok(quote! {})
+            quote! {}
+        };
+        let full_row_update = self.gen_full_row_update();
+
+        let table_ident = self.table_name.as_ref().unwrap();
+        Ok(quote! {
+            impl #table_ident {
+                #full_row_update
+                #custom_updates
+            }
+        })
+    }
+
+    fn gen_full_row_update(&mut self) -> TokenStream {
+
+        let row_ident = self.row_name.as_ref().unwrap();
+        let row_updates = self.columns.columns_map.keys().map(|i| {
+            quote! {
+                std::mem::swap(&mut archived.inner.#i, &mut row.#i);
+            }
+        }).collect::<Vec<_>>();
+
+        quote! {
+            pub async fn update<const ROW_SIZE_HINT: usize>(&self, row: #row_ident) -> core::result::Result<(), WorkTableError> {
+                let pk = row.get_primary_key();
+                let op_id = self.0.lock_map.next_id();
+                let lock = std::sync::Arc::new(Lock::new(op_id.into()));
+                self.0.lock_map.insert(op_id.into(), lock.clone());
+
+                let mut bytes = rkyv::to_bytes::<_, ROW_SIZE_HINT>(&row).map_err(|_| WorkTableError::SerializeError)?;
+                let mut row = unsafe { rkyv::archived_root_mut::<#row_ident>(core::pin::Pin::new(&mut bytes[..])).get_unchecked_mut() };
+
+                let guard = Guard::new();
+                let link = self.0.pk_map.peek(&pk, &guard).ok_or(WorkTableError::NotFound)?;
+                let id = self.0.data.with_ref(*link, |archived| {
+                    archived.is_locked()
+                }).map_err(WorkTableError::PagesError)?;
+                if let Some(id) = id {
+                    if let Some(lock) = self.0.lock_map.get(&(id.into())) {
+                        lock.as_ref().await
+                    }
+                }
+                unsafe { self.0.data.with_mut_ref(*link, |archived| {
+                    archived.lock = op_id;
+                }).map_err(WorkTableError::PagesError)? };
+                unsafe { self.0.data.with_mut_ref(*link, move |archived| {
+                    #(#row_updates)*
+                }).map_err(WorkTableError::PagesError)? };
+                unsafe { self.0.data.with_mut_ref(*link, |archived| {
+                    unsafe {
+                        archived.lock = 0;
+                    }
+                }).map_err(WorkTableError::PagesError)? };
+                lock.unlock();
+
+                core::result::Result::Ok(())
+            }
         }
     }
 

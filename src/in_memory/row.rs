@@ -17,7 +17,7 @@ pub trait RowWrapper<Inner> {
 }
 
 pub trait ArchivedRow {
-    fn is_locked(&self) -> bool;
+    fn is_locked(&self) -> Option<u16>;
 }
 
 /// General `Row` wrapper that is used to append general data for every `Inner`
@@ -48,7 +48,7 @@ impl<Inner> RowWrapper<Inner> for GeneralRow<Inner> {
 impl<Inner> ArchivedRow for ArchivedGeneralRow<Inner>
 where Inner: Archive
 {
-    fn is_locked(&self) -> bool {
-        false
+    fn is_locked(&self) -> Option<u16> {
+        None
     }
 }

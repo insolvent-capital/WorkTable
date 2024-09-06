@@ -30,6 +30,8 @@ impl Generator {
 
                 is_deleted: bool,
 
+                lock: u16,
+
                 #(#row_locks)*
             }
         }
@@ -45,14 +47,16 @@ impl Generator {
             }
         };
 
-        let row_sums = self
+        let checks = self
             .columns
             .columns_map
             .iter()
             .map(|(i, _)| {
                 let name = Ident::new(format!("{i}_lock").as_str(), Span::mixed_site());
                 quote! {
-                    self.#name
+                    if self.#name != 0 {
+                        return Some(self.#name);
+                    }
                 }
             })
             .collect::<Vec<_>>();
@@ -60,10 +64,12 @@ impl Generator {
         let archived_wrapper = Ident::new(format!("Archived{}", &wrapper_name).as_str(), Span::mixed_site());
         let archived_impl = quote! {
             impl ArchivedRow for #archived_wrapper {
-                fn is_locked(&self) -> bool {
-                    let sum =
-                    #(#row_sums)+*;
-                    sum == 0
+                fn is_locked(&self) -> Option<u16> {
+                    if self.lock != 0 {
+                        return Some(self.lock);
+                    }
+                    #(#checks)*
+                    None
                 }
             }
         };
@@ -90,6 +96,7 @@ impl Generator {
                     Self {
                         inner,
                         is_deleted: Default::default(),
+                        lock: Default::default(),
                         #(#row_defaults)*
                     }
                 }

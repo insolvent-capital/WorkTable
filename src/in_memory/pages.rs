@@ -169,10 +169,10 @@ where
         feature = "perf_measurements",
         performance_measurement(prefix_name = "DataPages")
     )]
-    pub unsafe fn with_mut_ref<Op, Res>(&self, link: Link, op: Op) -> Result<Res, ExecutionError>
+    pub unsafe fn with_mut_ref<Op, Res>(&self, link: Link, mut op: Op) -> Result<Res, ExecutionError>
     where
         Row: Archive,
-        Op: Fn(&mut <<Row as StorableRow>::WrappedRow as Archive>::Archived) -> Res
+        Op: FnMut(&mut <<Row as StorableRow>::WrappedRow as Archive>::Archived) -> Res
     {
         let pages = self.pages.read().unwrap();
         let page = pages

@@ -51,6 +51,9 @@ impl Generator {
 
                 quote! {
                     pub fn #check_ident(&self) -> Option<u16> {
+                        if self.lock != 0 {
+                            return Some(self.lock);
+                        }
                         #(#checks)*
                         None
                     }

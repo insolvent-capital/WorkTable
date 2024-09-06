@@ -128,6 +128,7 @@ where
 pub enum WorkTableError {
     NotFound,
     AlreadyExists,
+    SerializeError,
     PagesError(in_memory::PagesExecutionError),
 }
 
@@ -160,6 +161,7 @@ mod tests {
 
     mod custom_pk {
         use std::sync::atomic::{AtomicU64, Ordering};
+
         use derive_more::From;
         use rkyv::{Archive, Deserialize, Serialize};
         use worktable_codegen::worktable;
@@ -252,8 +254,8 @@ mod tests {
         assert!(table.select(2).is_none())
     }
 
-    #[test]
-    fn update() {
+    #[tokio::test]
+    async fn update() {
         let table = TestWorkTable::default();
         let row = TestRow {
             id: table.get_next_pk(),
@@ -268,7 +270,7 @@ mod tests {
             another: 3,
             exchange: "test".to_string(),
         };
-        table.update::<{ TestRow::ROW_SIZE }>(updated.clone()).unwrap();
+        table.update::<{ TestRow::ROW_SIZE }>(updated.clone()).await.unwrap();
         let selected_row = table.select(pk).unwrap();
 
         assert_eq!(selected_row, updated);
