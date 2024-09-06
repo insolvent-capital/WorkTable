@@ -2,6 +2,8 @@
 name = "performance_measurement"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+description = "Package taht can be used to measuere function execution time"
 
 [dependencies]
 lazy_static = {version = "1.5.0"}

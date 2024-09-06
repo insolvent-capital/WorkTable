@@ -2,6 +2,8 @@
 name = "worktable_codegen"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+description = "WorkTable codegeneration crate"
 
 [lib]
 name = "worktable_codegen"

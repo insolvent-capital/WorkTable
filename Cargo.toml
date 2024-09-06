@@ -8,6 +8,7 @@ edition = "2021"
 authors = ["Handy-caT"]
 license = "MIT"
 repository = "https://github.com/pathscale/WorkTable"
+description = "WorkTable is in-memory storage"
 
 [features]
 perf_measurements = ["dep:performance_measurement", "dep:performance_measurement_codegen"]
