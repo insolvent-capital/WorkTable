@@ -30,3 +30,6 @@ futures = "0.3.30"
 
 performance_measurement_codegen = {path = "performance_measurement/codegen", optional = true}
 performance_measurement = {path = "performance_measurement", optional = true}
+
+[dev-dependencies]
+eyre = "0.6.12"

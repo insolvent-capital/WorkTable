@@ -36,7 +36,7 @@ impl Parser {
             return Err(syn::Error::new(name.span(), "Expected identifier."));
         };
 
-        self.parse_comma()?;
+        self.try_parse_comma()?;
 
         Ok(name)
     }

@@ -53,6 +53,8 @@ impl Parser {
             ind = parser.has_next()
         }
 
+        self.try_parse_comma()?;
+
         Ok(rows)
     }
 

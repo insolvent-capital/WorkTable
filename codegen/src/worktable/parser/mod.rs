@@ -4,7 +4,7 @@ mod name;
 mod punct;
 pub mod queries;
 
-use proc_macro2::TokenStream;
+use proc_macro2::{Ident, TokenStream, TokenTree};
 use std::iter::Peekable;
 
 pub struct Parser {
@@ -22,5 +22,9 @@ impl Parser {
 
     pub fn has_next(&mut self) -> bool {
         self.input_iter.peek().is_some()
+    }
+
+    pub fn peek_next(&mut self) -> Option<&TokenTree> {
+        self.input_iter.peek()
     }
 }

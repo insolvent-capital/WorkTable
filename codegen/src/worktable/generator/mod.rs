@@ -10,15 +10,15 @@ use proc_macro2::Ident;
 use crate::worktable::model::{Columns, PrimaryKey, Queries};
 
 pub struct Generator {
-    name: Ident,
-    table_name: Option<Ident>,
-    row_name: Option<Ident>,
-    wrapper_name: Option<Ident>,
-    index_name: Option<Ident>,
-    pk: Option<PrimaryKey>,
+    pub name: Ident,
+    pub table_name: Option<Ident>,
+    pub row_name: Option<Ident>,
+    pub wrapper_name: Option<Ident>,
+    pub index_name: Option<Ident>,
+    pub pk: Option<PrimaryKey>,
     pub queries: Option<Queries>,
 
-    columns: Columns,
+    pub columns: Columns,
 }
 
 impl Generator {

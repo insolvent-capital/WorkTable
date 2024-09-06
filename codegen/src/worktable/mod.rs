@@ -10,19 +10,33 @@ pub use parser::Parser;
 
 pub fn expand(input: TokenStream) -> syn::Result<TokenStream> {
     let mut parser = Parser::new(input);
+    let mut columns = None;
+    let mut queries = None;
+    let mut indexes = None;
 
     let name = parser.parse_name()?;
-    let mut columns = parser.parse_columns()?;
-    if parser.has_next() {
-        let indexes = parser.parse_indexes()?;
-        columns.indexes = indexes;
+    while let Some(ident) = parser.peek_next() {
+        match ident.to_string().as_str() {
+            "columns" => {
+                let res = parser.parse_columns()?;
+                columns = Some(res)
+            },
+            "indexes" => {
+                let res = parser.parse_indexes()?;
+                indexes = Some(res);
+            },
+            "queries" => {
+                let res = parser.parse_queries()?;
+                queries = Some(res)
+            }
+            _ => return Err(syn::Error::new(ident.span(), "Unexpected identifier")),
+        }
     }
-    let queries = if parser.has_next() {
-        Some(parser.parse_queries()?)
-    } else {
-        None
-    };
 
+    let mut columns = columns.expect("defined");
+    if let Some(i) = indexes {
+        columns.indexes = i
+    }
     let mut generator = Generator::new(name, columns);
     generator.queries = queries;
 
