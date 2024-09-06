@@ -18,8 +18,9 @@ pub use worktable_codegen::worktable;
 
 pub mod prelude {
     pub use crate::in_memory::{RowWrapper, StorableRow, ArchivedRow};
+    pub use crate::primary_key::{PrimaryKeyGenerator, TablePrimaryKey};
     pub use crate::{
-        in_memory::page::Link, primary_key::PrimaryKeyGenerator, TableIndex, TableRow, WorkTable,
+        in_memory::page::Link, TableIndex, TableRow, WorkTable,
         WorkTableError, lock::Lock
     };
     pub use lockfree::set::Set as LockFreeSet;
