@@ -135,7 +135,7 @@ mod tests {
         assert!(columns.is_ok());
         let columns = columns.unwrap();
 
-        assert_eq!(columns.primary_key.to_string(), "id");
+        assert_eq!(columns.primary_keys.to_string(), "id");
 
         let map: HashMap<_, _> = columns
             .columns_map
@@ -158,7 +158,7 @@ mod tests {
         assert!(columns.is_ok());
         let columns = columns.unwrap();
 
-        assert_eq!(columns.primary_key.to_string(), "id");
+        assert_eq!(columns.primary_keys.to_string(), "id");
 
         let map: HashMap<_, _> = columns
             .columns_map
@@ -181,7 +181,7 @@ mod tests {
 
         let columns = columns.unwrap();
 
-        assert_eq!(columns.primary_key.to_string(), "id");
+        assert_eq!(columns.primary_keys.to_string(), "id");
 
         let map: HashMap<_, _> = columns
             .columns_map

@@ -93,8 +93,12 @@ impl Generator {
                     Self::gen_non_unique_update(snake_case_name, name, index_name, idents)
                 }
             } else {
-                if self.columns.primary_key.to_string() == op.by.to_string() {
-                    Self::gen_pk_update(snake_case_name, name, idents)
+                if self.columns.primary_keys.len() == 1 {
+                    if self.columns.primary_keys.first().unwrap().to_string() == op.by.to_string() {
+                        Self::gen_pk_update(snake_case_name, name, idents)
+                    } else {
+                        todo!()
+                    }
                 } else {
                     todo!()
                 }

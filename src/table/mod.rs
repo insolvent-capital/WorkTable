@@ -56,11 +56,12 @@ impl<Row, Pk, I, PkGen> WorkTable<Row, Pk, I, PkGen>
 where
     Row: TableRow<Pk>,
     Pk: Clone + Ord + TablePrimaryKey,
-    PkGen: PrimaryKeyGenerator<Pk>,
     Row: StorableRow,
     <Row as StorableRow>::WrappedRow: RowWrapper<Row>,
 {
-    pub fn get_next_pk(&self) -> Pk {
+    pub fn get_next_pk(&self) -> Pk
+    where PkGen: PrimaryKeyGenerator<Pk>,
+    {
         self.pk_gen.next()
     }
 
@@ -104,23 +105,6 @@ where
         self.indexes.save_row(row, link)?;
 
         Ok(pk)
-    }
-
-    /// Updates provided `Row` in table. Errors if `Row` with provided primary key was not found.
-    pub fn update<const ROW_SIZE_HINT: usize>(&self, row: Row) -> Result<(), WorkTableError>
-    where
-        Row: Archive + Serialize<AllocSerializer<ROW_SIZE_HINT>> + Clone,
-        <Row as StorableRow>::WrappedRow: Archive + Serialize<AllocSerializer<ROW_SIZE_HINT>>,
-        Pk: Clone,
-        I: TableIndex<Row>,
-    {
-        // TODO: add full row locking here.
-        let pk = row.get_primary_key();
-        let guard = Guard::new();
-        let link = self.pk_map.peek(&pk, &guard).ok_or(WorkTableError::NotFound)?;
-        let _ = unsafe { self.data.update::<ROW_SIZE_HINT>(row, *link).map_err(WorkTableError::PagesError)? };
-
-        Ok(())
     }
 }
 
@@ -214,6 +198,51 @@ mod tests {
             assert_eq!(pk.0, 0);
         }
     }
+
+    mod tuple_primary_key {
+        use worktable_codegen::worktable;
+
+        use crate::prelude::*;
+
+        worktable! (
+            name: Test,
+            columns: {
+                id: u64 primary_key,
+                test: u64 primary_key,
+                another: i64,
+            }
+        );
+
+        #[test]
+        fn insert() {
+            let table = TestWorkTable::default();
+            let row = TestRow {
+                id: 1,
+                test: 1,
+                another: 1,
+            };
+            let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+            let selected_row = table.select(pk).unwrap();
+
+            assert_eq!(selected_row, row);
+            assert!(table.select((1, 0)).is_none())
+        }
+    }
+
+    // mod eyre {
+    //     use eyre::*;
+    //     use worktable_codegen::worktable;
+    //
+    //     use crate::prelude::*;
+    //
+    //     worktable! (
+    //         name: Test,
+    //         columns: {
+    //             id: u64 primary_key,
+    //             test: u64
+    //         }
+    //     );
+    // }
 
     #[test]
     fn bench() {

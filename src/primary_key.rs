@@ -12,6 +12,10 @@ impl TablePrimaryKey for u64 {
     type Generator = AtomicU64;
 }
 
+impl TablePrimaryKey for (u64, u64) {
+    type Generator = ();
+}
+
 pub trait PrimaryKeyGenerator<T> {
     fn next(&self) -> T;
 }

@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use crate::worktable::generator::Generator;
 use crate::worktable::model::PrimaryKey;
 use proc_macro2::{Ident, Span, TokenStream};
@@ -7,22 +8,28 @@ impl Generator {
     pub fn gen_pk_def(&mut self) -> TokenStream {
         let name = &self.name;
         let ident = Ident::new(format!("{name}PrimaryKey").as_str(), Span::mixed_site());
-        let type_ = self
-            .columns
-            .columns_map
-            .get(&self.columns.primary_key)
-            .unwrap();
+        let vals = self.columns.primary_keys.iter().map(|i| {
+            (i.clone(), self.columns.columns_map.get(i).unwrap().clone())
+        }).collect::<HashMap<_, _>>();
 
-        let struct_def = quote! {
-            pub type #ident = #type_;
+        let def = if vals.len() == 1 {
+            let type_ = vals.values().next().unwrap();
+            quote! {
+                pub type #ident = #type_;
+            }
+        } else {
+            let types = vals.values();
+            quote! {
+                pub type #ident = (#(#types),*);
+            }
         };
+
         self.pk = Some(PrimaryKey {
             ident,
-            field: self.columns.primary_key.clone(),
-            type_: type_.clone(),
+            vals
         });
 
-        struct_def
+        def
     }
 }
 

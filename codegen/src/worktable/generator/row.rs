@@ -12,14 +12,29 @@ impl Generator {
 
         let pk = self.pk.clone().unwrap();
         let pk_ident = &pk.ident;
-        let pk_field = &pk.field;
+
+        let def = if pk.vals.len() == 1 {
+            let pk_field = pk.vals.keys().next().unwrap();
+            quote! {
+                self.#pk_field.clone()
+            }
+        } else {
+            let vals = pk.vals.keys().map(|i| {
+                quote! {
+                    self.#i.clone()
+                }
+            }).collect::<Vec<_>>();
+            quote! {
+                (#(#vals),*)
+            }
+        };
 
         let row_impl = quote! {
             impl TableRow<#pk_ident> for #ident {
                 const ROW_SIZE: usize = ::core::mem::size_of::<#ident>();
 
-                fn get_primary_key(&self) -> &#pk_ident {
-                    &self.#pk_field
+                fn get_primary_key(&self) -> #pk_ident {
+                    #def
                 }
             }
         };

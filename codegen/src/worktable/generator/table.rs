@@ -19,6 +19,16 @@ impl Generator {
         let pk_type = &self.pk.as_ref().unwrap().ident;
         let index_type = self.index_name.as_ref().unwrap();
 
+        let get_next = if self.columns.primary_keys.len() == 1 {
+            quote! {
+                pub fn get_next_pk(&self) -> #pk_type {
+                    self.0.get_next_pk()
+                }
+            }
+        } else {
+            quote! {}
+        };
+
         quote! {
             #[derive(Debug, Default)]
             pub struct #ident(WorkTable<#row_type, #pk_type, #index_type>);
@@ -44,9 +54,7 @@ impl Generator {
                     core::result::Result::Ok(())
                 }
 
-                pub fn get_next_pk(&self) -> #pk_type {
-                    self.0.get_next_pk()
-                }
+                #get_next
             }
         }
     }
