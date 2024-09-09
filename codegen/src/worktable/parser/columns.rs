@@ -1,7 +1,7 @@
 use proc_macro2::{Delimiter, TokenTree};
 use syn::spanned::Spanned as _;
 
-use crate::worktable::model::{Columns, Row};
+use crate::worktable::model::{Columns, GeneratorType, Row};
 use crate::worktable::Parser;
 
 impl Parser {
@@ -78,30 +78,29 @@ impl Parser {
             return Err(syn::Error::new(type_.span(), "Expected type."));
         };
 
-        let is_primary_key = if let Some(tt) = self.input_iter.peek() {
-            match tt {
-                TokenTree::Ident(index) => {
-                    if index.to_string().as_str() == "primary_key" {
-                        self.input_iter.next();
-                        true
-                    } else {
-                        return Err(syn::Error::new(index.span(), "Unexpected identifier."));
-                    }
-                }
-                TokenTree::Punct(comma) => {
-                    if comma.as_char() != ',' {
-                        return Err(syn::Error::new(
-                            comma.span(),
-                            format!("Expected `,` found: `{}`", comma.as_char()),
-                        ));
-                    }
-                    self.input_iter.next();
-                    false
-                }
-                _ => false,
+        let is_primary_key = if let Some(TokenTree::Ident(index)) = self.input_iter.peek() {
+            if index.to_string().as_str() == "primary_key" {
+                self.input_iter.next();
+                true
+            } else {
+                return Err(syn::Error::new(index.span(), "Unexpected identifier."));
             }
         } else {
             false
+        };
+
+        let gen_type = if let Some(TokenTree::Ident(index)) = self.input_iter.peek() {
+            if index.to_string().as_str() == "autoincrement" {
+                self.input_iter.next();
+                GeneratorType::Autoincrement
+            } else if index.to_string().as_str() == "custom" {
+                self.input_iter.next();
+                GeneratorType::Custom
+            } else {
+                return Err(syn::Error::new(index.span(), "Unexpected identifier."));
+            }
+        } else {
+            GeneratorType::None
         };
 
         self.try_parse_comma()?;
@@ -110,6 +109,7 @@ impl Parser {
             name,
             type_,
             is_primary_key,
+            gen_type,
         })
     }
 }

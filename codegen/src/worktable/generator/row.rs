@@ -16,7 +16,7 @@ impl Generator {
         let def = if pk.vals.len() == 1 {
             let pk_field = pk.vals.keys().next().unwrap();
             quote! {
-                self.#pk_field.clone()
+                self.#pk_field.clone().into()
             }
         } else {
             let vals = pk.vals.keys().map(|i| {
@@ -25,7 +25,7 @@ impl Generator {
                 }
             }).collect::<Vec<_>>();
             quote! {
-                (#(#vals),*)
+                (#(#vals),*).into()
             }
         };
 

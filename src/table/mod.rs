@@ -125,7 +125,7 @@ mod tests {
     worktable! (
         name: Test,
         columns: {
-            id: u64 primary_key,
+            id: u64 primary_key autoincrement,
             test: i64,
             another: u64,
             exchange: String
@@ -161,26 +161,26 @@ mod tests {
         #[derive(Debug, Default)]
         pub struct Generator(AtomicU64);
 
-        impl PrimaryKeyGenerator<CustomId> for Generator {
-            fn next(&self) -> CustomId {
+        impl PrimaryKeyGenerator<TestPrimaryKey> for Generator {
+            fn next(&self) -> TestPrimaryKey {
                 let res = self.0.fetch_add(1, Ordering::Relaxed);
 
                 if res >= 10 {
                     self.0.store(0, Ordering::Relaxed);
                 }
 
-                res.into()
+                CustomId::from(res).into()
             }
         }
 
-        impl TablePrimaryKey for CustomId {
+        impl TablePrimaryKey for TestPrimaryKey {
             type Generator = Generator;
         }
 
         worktable! (
             name: Test,
             columns: {
-                id: CustomId primary_key,
+                id: CustomId primary_key custom,
                 test: u64
             }
         );
@@ -189,13 +189,13 @@ mod tests {
         fn test_custom_pk() {
             let table = TestWorkTable::default();
             let pk = table.get_next_pk();
-            assert_eq!(pk.0, 0);
+            assert_eq!(pk, CustomId::from(0).into());
 
             for _ in 0..10 {
                 let _ = table.get_next_pk();
             }
             let pk = table.get_next_pk();
-            assert_eq!(pk.0, 0);
+            assert_eq!(pk, CustomId::from(0).into());
         }
     }
 
@@ -225,7 +225,7 @@ mod tests {
             let selected_row = table.select(pk).unwrap();
 
             assert_eq!(selected_row, row);
-            assert!(table.select((1, 0)).is_none())
+            assert!(table.select((1, 0).into()).is_none())
         }
     }
 
@@ -252,7 +252,7 @@ mod tests {
 
         for i in 0..10000 {
             let row = TestRow {
-                id: table.get_next_pk(),
+                id: table.get_next_pk().into(),
                 test: i + 1,
                 another: 1,
                 exchange: "XD".to_string(),
@@ -271,7 +271,7 @@ mod tests {
     fn insert() {
         let table = TestWorkTable::default();
         let row = TestRow {
-            id: table.get_next_pk(),
+            id: table.get_next_pk().into(),
             test: 1,
             another: 1,
             exchange: "test".to_string(),
@@ -280,21 +280,21 @@ mod tests {
         let selected_row = table.select(pk).unwrap();
 
         assert_eq!(selected_row, row);
-        assert!(table.select(2).is_none())
+        assert!(table.select(2.into()).is_none())
     }
 
     #[tokio::test]
     async fn update() {
         let table = TestWorkTable::default();
         let row = TestRow {
-            id: table.get_next_pk(),
+            id: table.get_next_pk().into(),
             test: 1,
             another: 1,
             exchange: "test".to_string(),
         };
         let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
         let updated = TestRow {
-            id: pk,
+            id: pk.clone().into(),
             test: 2,
             another: 3,
             exchange: "test".to_string(),
@@ -303,14 +303,14 @@ mod tests {
         let selected_row = table.select(pk).unwrap();
 
         assert_eq!(selected_row, updated);
-        assert!(table.select(2).is_none())
+        assert!(table.select(2.into()).is_none())
     }
 
     #[tokio::test]
     async fn upsert() {
         let table = TestWorkTable::default();
         let row = TestRow {
-            id: table.get_next_pk(),
+            id: table.get_next_pk().into(),
             test: 1,
             another: 1,
             exchange: "test".to_string(),
@@ -323,22 +323,22 @@ mod tests {
             exchange: "test".to_string(),
         };
         table.upsert::<{ TestRow::ROW_SIZE }>(updated.clone()).await.unwrap();
-        let selected_row = table.select(row.id).unwrap();
+        let selected_row = table.select(row.id.into()).unwrap();
 
         assert_eq!(selected_row, updated);
-        assert!(table.select(2).is_none())
+        assert!(table.select(2.into()).is_none())
     }
 
     #[test]
     fn insert_same() {
         let table = TestWorkTable::default();
         let row = TestRow {
-            id: table.get_next_pk(),
+            id: table.get_next_pk().into(),
             test: 1,
             another: 1,
             exchange: "test".to_string(),
         };
-        let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let _ = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
         let res = table.insert::<{ TestRow::ROW_SIZE }>(row.clone());
         assert!(res.is_err())
     }
@@ -347,14 +347,14 @@ mod tests {
     fn insert_exchange_same() {
         let table = TestWorkTable::default();
         let row = TestRow {
-            id: table.get_next_pk(),
+            id: table.get_next_pk().into(),
             test: 1,
             another: 1,
             exchange: "test".to_string(),
         };
-        let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let _ = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
         let row = TestRow {
-            id: table.get_next_pk(),
+            id: table.get_next_pk().into(),
             test: 1,
             another: 1,
             exchange: "test".to_string(),
@@ -367,12 +367,12 @@ mod tests {
     fn select_by_exchange() {
         let table = TestWorkTable::default();
         let row = TestRow {
-            id: table.get_next_pk(),
+            id: table.get_next_pk().into(),
             test: 1,
             another: 1,
             exchange: "test".to_string(),
         };
-        let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let _ = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
         let selected_rows = table.select_by_exchange("test".to_string()).unwrap();
 
         assert_eq!(selected_rows.len(), 1);
@@ -384,14 +384,14 @@ mod tests {
     fn select_multiple_by_exchange() {
         let table = TestWorkTable::default();
         let row = TestRow {
-            id: table.get_next_pk(),
+            id: table.get_next_pk().into(),
             test: 1,
             another: 1,
             exchange: "test".to_string(),
         };
-        let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let _ = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
         let row_next = TestRow {
-            id: table.get_next_pk(),
+            id: table.get_next_pk().into(),
             test: 2,
             another: 1,
             exchange: "test".to_string(),
@@ -411,7 +411,7 @@ mod tests {
     fn select_by_test() {
         let table = TestWorkTable::default();
         let row = TestRow {
-            id: table.get_next_pk(),
+            id: table.get_next_pk().into(),
             test: 1,
             another: 1,
             exchange: "test".to_string(),
@@ -427,14 +427,14 @@ mod tests {
     fn select_all_test() {
         let table = TestWorkTable::default();
         let row1 = TestRow {
-            id: table.get_next_pk(),
+            id: table.get_next_pk().into(),
             test: 1,
             another: 1,
             exchange: "test".to_string(),
         };
         let _ = table.insert::<{ TestRow::ROW_SIZE }>(row1.clone()).unwrap();
         let row2 = TestRow {
-            id: table.get_next_pk(),
+            id: table.get_next_pk().into(),
             test: 2,
             another: 1,
             exchange: "test".to_string(),
@@ -452,14 +452,14 @@ mod tests {
     async fn test_update_by_non_unique() {
         let table = TestWorkTable::default();
         let row1 = TestRow {
-            id: table.get_next_pk(),
+            id: table.get_next_pk().into(),
             test: 1,
             another: 1,
             exchange: "test".to_string(),
         };
         let _ = table.insert::<{ TestRow::ROW_SIZE }>(row1.clone()).unwrap();
         let row2 = TestRow {
-            id: table.get_next_pk(),
+            id: table.get_next_pk().into(),
             test: 2,
             another: 1,
             exchange: "test".to_string(),
@@ -492,7 +492,7 @@ mod tests {
     async fn test_update_by_unique() {
         let table = TestWorkTable::default();
         let row = TestRow {
-            id: table.get_next_pk(),
+            id: table.get_next_pk().into(),
             test: 1,
             another: 1,
             exchange: "test".to_string(),
@@ -518,7 +518,7 @@ mod tests {
     async fn test_update_by_pk() {
         let table = TestWorkTable::default();
         let row = TestRow {
-            id: table.get_next_pk(),
+            id: table.get_next_pk().into(),
             test: 1,
             another: 1,
             exchange: "test".to_string(),

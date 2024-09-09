@@ -40,7 +40,7 @@ pub fn expand(input: TokenStream) -> syn::Result<TokenStream> {
     let mut generator = Generator::new(name, columns);
     generator.queries = queries;
 
-    let pk_def = generator.gen_pk_def();
+    let pk_def = generator.gen_pk_def()?;
     let row_def = generator.gen_row_def();
     let wrapper_def = generator.gen_wrapper_def();
     let wrapper_impl = generator.gen_wrapper_impl();

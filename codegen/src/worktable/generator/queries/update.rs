@@ -95,7 +95,8 @@ impl Generator {
             } else {
                 if self.columns.primary_keys.len() == 1 {
                     if self.columns.primary_keys.first().unwrap().to_string() == op.by.to_string() {
-                        Self::gen_pk_update(snake_case_name, name, idents)
+                        let pk_ident = &self.pk.as_ref().unwrap().ident;
+                        Self::gen_pk_update(snake_case_name, name, idents, pk_ident)
                     } else {
                         todo!()
                     }
@@ -110,11 +111,10 @@ impl Generator {
         }
     }
 
-    fn gen_pk_update(snake_case_name: String, name: &Ident, idents: &Vec<Ident>) -> TokenStream {
+    fn gen_pk_update(snake_case_name: String, name: &Ident, idents: &Vec<Ident>, pk_ident: &Ident) -> TokenStream {
         let method_ident = Ident::new(format!("update_{snake_case_name}").as_str(), Span::mixed_site());
 
         let query_ident = Ident::new(format!("{name}Query").as_str(), Span::mixed_site());
-        let by_ident = Ident::new(format!("{name}By").as_str(), Span::mixed_site());
 
         let check_ident = Ident::new(format!("check_{snake_case_name}_lock").as_str(), Span::mixed_site());
         let lock_ident = Ident::new(format!("lock_{snake_case_name}").as_str(), Span::mixed_site());
@@ -127,7 +127,7 @@ impl Generator {
         }).collect::<Vec<_>>();
 
         quote! {
-                pub async fn #method_ident(&self, row: #query_ident, by: #by_ident) -> core::result::Result<(), WorkTableError> {
+                pub async fn #method_ident(&self, row: #query_ident, by: #pk_ident) -> core::result::Result<(), WorkTableError> {
                     let op_id = self.0.lock_map.next_id();
                     let lock = std::sync::Arc::new(Lock::new(op_id.into()));
 

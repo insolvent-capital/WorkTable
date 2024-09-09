@@ -4,7 +4,7 @@ use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
 use crate::worktable::generator::Generator;
-use crate::worktable::model::Index;
+use crate::worktable::model::{GeneratorType, Index};
 
 impl Generator {
     /// Generates type alias for new [`WorkTable`].
@@ -19,14 +19,19 @@ impl Generator {
         let pk_type = &self.pk.as_ref().unwrap().ident;
         let index_type = self.index_name.as_ref().unwrap();
 
-        let get_next = if self.columns.primary_keys.len() == 1 {
-            quote! {
+
+        let get_next = match self.columns.generator_type {
+            GeneratorType::Custom |
+            GeneratorType::Autoincrement => {
+                quote! {
                 pub fn get_next_pk(&self) -> #pk_type {
                     self.0.get_next_pk()
                 }
             }
-        } else {
-            quote! {}
+            }
+            GeneratorType::None => {
+                quote! {}
+            }
         };
 
         quote! {

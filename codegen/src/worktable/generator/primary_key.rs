@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 use crate::worktable::generator::Generator;
-use crate::worktable::model::PrimaryKey;
+use crate::worktable::model::{GeneratorType, PrimaryKey};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
 impl Generator {
-    pub fn gen_pk_def(&mut self) -> TokenStream {
+    pub fn gen_pk_def(&mut self) -> syn::Result<TokenStream> {
         let name = &self.name;
         let ident = Ident::new(format!("{name}PrimaryKey").as_str(), Span::mixed_site());
         let vals = self.columns.primary_keys.iter().map(|i| {
@@ -15,13 +15,35 @@ impl Generator {
         let def = if vals.len() == 1 {
             let type_ = vals.values().next().unwrap();
             quote! {
-                pub type #ident = #type_;
+                #[derive(Clone, Debug, From, Eq, Into, PartialEq, PartialOrd, Ord)]
+                pub struct #ident(#type_);
             }
         } else {
             let types = vals.values();
             quote! {
-                pub type #ident = (#(#types),*);
+                #[derive(Clone, Debug, From, Eq, Into, PartialEq, PartialOrd, Ord)]
+                pub struct #ident(#(#types),*);
             }
+        };
+
+        let impl_ = match self.columns.generator_type {
+            GeneratorType::None => {
+                quote! {
+                    impl TablePrimaryKey for #ident {
+                        type Generator = ();
+                    }
+                }
+            }
+            GeneratorType::Autoincrement => {
+                let type_ = vals.values().next().unwrap();
+                let gen = Self::gen_from_type(type_)?;
+                quote! {
+                    impl TablePrimaryKey for #ident {
+                        type Generator = #gen;
+                    }
+                }
+            }
+            GeneratorType::Custom => {quote! {}}
         };
 
         self.pk = Some(PrimaryKey {
@@ -29,7 +51,24 @@ impl Generator {
             vals
         });
 
-        def
+        Ok(quote! {
+            #def
+            #impl_
+        })
+    }
+
+    fn gen_from_type(type_: &Ident) -> syn::Result<TokenStream> {
+        Ok(match type_.to_string().as_str() {
+            "u8" => quote! { std::sync::atomic::AtomicU8 },
+            "u16" => quote! { std::sync::atomic::AtomicU16 },
+            "u32" => quote! { std::sync::atomic::AtomicU32 },
+            "u64" => quote! { std::sync::atomic::AtomicU64 },
+            "i8" => quote! { std::sync::atomic::AtomicI8 },
+            "i16" => quote! { std::sync::atomic::AtomicI16 },
+            "i32" => quote! { std::sync::atomic::AtomicI32 },
+            "i64" => quote! { std::sync::atomic::AtomicI64 },
+            _ => return Err(syn::Error::new(type_.span(), "Type isa not supported for autoincrement"))
+        })
     }
 }
 
