@@ -229,6 +229,35 @@ mod tests {
         }
     }
 
+    mod uuid {
+        use uuid::Uuid;
+        use worktable_codegen::worktable;
+
+        use crate::prelude::*;
+
+        worktable! (
+            name: Test,
+            columns: {
+                id: Uuid primary_key,
+                another: i64,
+            }
+        );
+
+        #[test]
+        fn insert() {
+            let table = TestWorkTable::default();
+            let row = TestRow {
+                id: Uuid::new_v4(),
+                another: 1,
+            };
+            let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+            let selected_row = table.select(pk).unwrap();
+
+            assert_eq!(selected_row, row);
+            assert!(table.select(Uuid::new_v4().into()).is_none())
+        }
+    }
+
     // mod eyre {
     //     use eyre::*;
     //     use worktable_codegen::worktable;
@@ -242,6 +271,20 @@ mod tests {
     //             test: u64
     //         }
     //     );
+    //
+    //     #[test]
+    //     fn test() {
+    //         let table = TestWorkTable::default();
+    //         let row = TestRow {
+    //             id: 1,
+    //             test: 1,
+    //         };
+    //         let pk = table.insert::<{ crate::table::tests::tuple_primary_key::TestRow::ROW_SIZE }>(row.clone()).unwrap();
+    //         let selected_row = table.select(pk).unwrap();
+    //
+    //         assert_eq!(selected_row, row);
+    //         assert!(table.select((1, 0).into()).is_none())
+    //     }
     // }
 
     #[test]
