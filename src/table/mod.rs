@@ -143,6 +143,48 @@ mod tests {
         }
     );
 
+    mod enum_ {
+        use std::sync::atomic::{AtomicU64, Ordering};
+
+        use derive_more::From;
+        use rkyv::{Archive, Deserialize, Serialize};
+        use worktable_codegen::worktable;
+
+        use crate::prelude::*;
+        use crate::primary_key::TablePrimaryKey;
+
+        #[derive(Archive, Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
+        #[archive(compare(PartialEq))]
+        #[archive_attr(derive(Debug))]
+        pub enum SomeEnum {
+            First,
+            Second,
+            Third,
+        }
+
+        worktable! (
+            name: Test,
+            columns: {
+                id: u64 primary_key autoincrement,
+                test: SomeEnum
+            }
+        );
+
+        #[test]
+        fn insert() {
+            let table = TestWorkTable::default();
+            let row = TestRow {
+                id: 1,
+                test: SomeEnum::First,
+            };
+            let pk = table.insert::<{ crate::table::tests::tuple_primary_key::TestRow::ROW_SIZE }>(row.clone()).unwrap();
+            let selected_row = table.select(pk).unwrap();
+
+            assert_eq!(selected_row, row);
+            assert!(table.select(2.into()).is_none())
+        }
+    }
+
     mod custom_pk {
         use std::sync::atomic::{AtomicU64, Ordering};
 
