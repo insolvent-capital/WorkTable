@@ -47,10 +47,11 @@ impl Generator {
 
                 let mut bytes = rkyv::to_bytes::<_, ROW_SIZE_HINT>(&row).map_err(|_| WorkTableError::SerializeError)?;
                 let mut row = unsafe { rkyv::archived_root_mut::<#row_ident>(core::pin::Pin::new(&mut bytes[..])).get_unchecked_mut() };
-
-                let guard = Guard::new();
-                let link = self.0.pk_map.peek(&pk, &guard).ok_or(WorkTableError::NotFound)?;
-                let id = self.0.data.with_ref(*link, |archived| {
+                let link = {
+                    let guard = Guard::new();
+                    *self.0.pk_map.peek(&pk, &guard).ok_or(WorkTableError::NotFound)?
+                };
+                let id = self.0.data.with_ref(link, |archived| {
                     archived.is_locked()
                 }).map_err(WorkTableError::PagesError)?;
                 if let Some(id) = id {
@@ -58,13 +59,13 @@ impl Generator {
                         lock.as_ref().await
                     }
                 }
-                unsafe { self.0.data.with_mut_ref(*link, |archived| {
+                unsafe { self.0.data.with_mut_ref(link, |archived| {
                     archived.lock = op_id;
                 }).map_err(WorkTableError::PagesError)? };
-                unsafe { self.0.data.with_mut_ref(*link, move |archived| {
+                unsafe { self.0.data.with_mut_ref(link, move |archived| {
                     #(#row_updates)*
                 }).map_err(WorkTableError::PagesError)? };
-                unsafe { self.0.data.with_mut_ref(*link, |archived| {
+                unsafe { self.0.data.with_mut_ref(link, |archived| {
                     unsafe {
                         archived.lock = 0;
                     }
@@ -133,9 +134,10 @@ impl Generator {
 
                     self.0.lock_map.insert(op_id.into(), lock.clone());
 
-                    let guard = Guard::new();
-                    let link = *self.0.pk_map.peek(&by, &guard).ok_or(WorkTableError::NotFound)?;
-                    drop(guard);
+                    let link = {
+                        let guard = Guard::new();
+                        *self.0.pk_map.peek(&by, &guard).ok_or(WorkTableError::NotFound)?
+                    };
                     let id = self.0.data.with_ref(link, |archived| {
                         archived.#check_ident()
                     }).map_err(WorkTableError::PagesError)?;
@@ -191,9 +193,10 @@ impl Generator {
 
                     self.0.lock_map.insert(op_id.into(), lock.clone());
 
-                    let guard = Guard::new();
-                    let rows_to_update = self.0.indexes.#index.peek(&by, &guard).ok_or(WorkTableError::NotFound)?.clone();
-                    drop(guard);
+                    let rows_to_update = {
+                        let guard = Guard::new();
+                        self.0.indexes.#index.peek(&by, &guard).ok_or(WorkTableError::NotFound)?.clone()
+                    };
                     for link in rows_to_update.iter() {
                         let id = self.0.data.with_ref(*link.as_ref(), |archived| {
                             archived.#check_ident()
@@ -255,9 +258,10 @@ impl Generator {
 
                     self.0.lock_map.insert(op_id.into(), lock.clone());
 
-                    let guard = Guard::new();
-                    let link = *self.0.indexes.#index.peek(&by, &guard).ok_or(WorkTableError::NotFound)?;
-                    drop(guard);
+                    let link = {
+                        let guard = Guard::new();
+                        *self.0.indexes.#index.peek(&by, &guard).ok_or(WorkTableError::NotFound)?
+                    };
                     let id = self.0.data.with_ref(link, |archived| {
                         archived.#check_ident()
                     }).map_err(WorkTableError::PagesError)?;

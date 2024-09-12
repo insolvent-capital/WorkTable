@@ -185,6 +185,36 @@ mod tests {
         }
     }
 
+    mod spawn {
+        use std::sync::Arc;
+        use super::*;
+
+        #[tokio::test]
+        async fn update() {
+            let table = Arc::new(TestWorkTable::default());
+            let row = TestRow {
+                id: table.get_next_pk().into(),
+                test: 1,
+                another: 1,
+                exchange: "test".to_string(),
+            };
+            let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+            let updated = TestRow {
+                id: pk.clone().into(),
+                test: 2,
+                another: 3,
+                exchange: "test".to_string(),
+            };
+            let shared = table.clone();
+            let shared_updated = updated.clone();
+            tokio::spawn(async move { shared.update::<{ TestRow::ROW_SIZE }>(shared_updated).await }).await.unwrap().unwrap();
+            let selected_row = table.select(pk).unwrap();
+
+            assert_eq!(selected_row, updated);
+            assert!(table.select(2.into()).is_none())
+        }
+    }
+
     mod custom_pk {
         use std::sync::atomic::{AtomicU64, Ordering};
 
