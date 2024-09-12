@@ -134,8 +134,9 @@ impl Generator {
                     self.0.lock_map.insert(op_id.into(), lock.clone());
 
                     let guard = Guard::new();
-                    let link = self.0.pk_map.peek(&by, &guard).ok_or(WorkTableError::NotFound)?;
-                    let id = self.0.data.with_ref(*link, |archived| {
+                    let link = *self.0.pk_map.peek(&by, &guard).ok_or(WorkTableError::NotFound)?;
+                    drop(guard);
+                    let id = self.0.data.with_ref(link, |archived| {
                         archived.#check_ident()
                     }).map_err(WorkTableError::PagesError)?;
                     if let Some(id) = id {
@@ -143,7 +144,7 @@ impl Generator {
                             lock.as_ref().await
                         }
                     }
-                    unsafe { self.0.data.with_mut_ref(*link, |archived| {
+                    unsafe { self.0.data.with_mut_ref(link, |archived| {
                         while !archived.#verify_ident(op_id) {
                             unsafe {
                                 archived.#lock_ident(op_id)
@@ -151,11 +152,11 @@ impl Generator {
                         }
                     }).map_err(WorkTableError::PagesError)? };
 
-                    unsafe { self.0.data.with_mut_ref(*link, |archived| {
+                    unsafe { self.0.data.with_mut_ref(link, |archived| {
                         #(#row_updates)*
                     }).map_err(WorkTableError::PagesError)? };
 
-                    unsafe { self.0.data.with_mut_ref(*link, |archived| {
+                    unsafe { self.0.data.with_mut_ref(link, |archived| {
                         unsafe {
                             archived.#unlock_ident()
                         }
@@ -191,8 +192,8 @@ impl Generator {
                     self.0.lock_map.insert(op_id.into(), lock.clone());
 
                     let guard = Guard::new();
-
-                    let rows_to_update = self.0.indexes.#index.peek(&by, &guard).ok_or(WorkTableError::NotFound)?;
+                    let rows_to_update = self.0.indexes.#index.peek(&by, &guard).ok_or(WorkTableError::NotFound)?.clone();
+                    drop(guard);
                     for link in rows_to_update.iter() {
                         let id = self.0.data.with_ref(*link.as_ref(), |archived| {
                             archived.#check_ident()
@@ -255,8 +256,9 @@ impl Generator {
                     self.0.lock_map.insert(op_id.into(), lock.clone());
 
                     let guard = Guard::new();
-                    let link = self.0.indexes.#index.peek(&by, &guard).ok_or(WorkTableError::NotFound)?;
-                    let id = self.0.data.with_ref(*link, |archived| {
+                    let link = *self.0.indexes.#index.peek(&by, &guard).ok_or(WorkTableError::NotFound)?;
+                    drop(guard);
+                    let id = self.0.data.with_ref(link, |archived| {
                         archived.#check_ident()
                     }).map_err(WorkTableError::PagesError)?;
                     if let Some(id) = id {
@@ -264,7 +266,7 @@ impl Generator {
                             lock.as_ref().await
                         }
                     }
-                    unsafe { self.0.data.with_mut_ref(*link, |archived| {
+                    unsafe { self.0.data.with_mut_ref(link, |archived| {
                         while !archived.#verify_ident(op_id) {
                             unsafe {
                                 archived.#lock_ident(op_id)
@@ -272,11 +274,11 @@ impl Generator {
                         }
                     }).map_err(WorkTableError::PagesError)? };
 
-                    unsafe { self.0.data.with_mut_ref(*link, |archived| {
+                    unsafe { self.0.data.with_mut_ref(link, |archived| {
                         #(#row_updates)*
                     }).map_err(WorkTableError::PagesError)? };
 
-                    unsafe { self.0.data.with_mut_ref(*link, |archived| {
+                    unsafe { self.0.data.with_mut_ref(link, |archived| {
                         unsafe {
                             archived.#unlock_ident()
                         }
