@@ -143,9 +143,64 @@ mod tests {
         }
     );
 
-    mod enum_ {
-        use std::sync::atomic::{AtomicU64, Ordering};
+    mod array {
+        use derive_more::From;
+        use rkyv::{Archive, Deserialize, Serialize};
+        use worktable_codegen::worktable;
 
+        use crate::prelude::*;
+        use crate::primary_key::TablePrimaryKey;
+        use crate::table::tests::enum_::SomeEnum;
+
+        type Arr = [u32; 4];
+
+        worktable! (
+            name: Test,
+            columns: {
+                id: u64 primary_key autoincrement,
+                test: Arr
+            },
+            queries: {
+                update: {
+                    Test(test) by id,
+                }
+            }
+        );
+
+        #[test]
+        fn insert() {
+            let table = TestWorkTable::default();
+            let row = TestRow {
+                id: 1,
+                test: [0; 4],
+            };
+            let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+            let selected_row = table.select(pk).unwrap();
+
+            assert_eq!(selected_row, row);
+            assert!(table.select(2.into()).is_none())
+        }
+
+        #[tokio::test]
+        async fn update() {
+            let table = TestWorkTable::default();
+            let row = TestRow {
+                id: 1,
+                test: [0; 4],
+            };
+            let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+            let new_row = TestRow {
+                id: 1,
+                test: [1; 4]
+            };
+            table.update::<{ TestRow::ROW_SIZE }>(new_row.clone()).await.unwrap();
+            let selected_row = table.select(pk).unwrap();
+            assert_eq!(selected_row, new_row);
+            assert!(table.select(2.into()).is_none())
+        }
+    }
+
+    mod enum_ {
         use derive_more::From;
         use rkyv::{Archive, Deserialize, Serialize};
         use worktable_codegen::worktable;
