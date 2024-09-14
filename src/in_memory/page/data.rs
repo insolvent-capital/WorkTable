@@ -18,11 +18,8 @@ use performance_measurement_codegen::performance_measurement;
 /// Length of the [`Data`] page header.
 pub const DATA_HEADER_LENGTH: usize = 4;
 
-/// Length of the [`Hint`].
-pub const HINT_LENGTH: usize = 8;
-
 /// Length of the inner [`Data`] page part.
-pub const DATA_INNER_LENGTH: usize = INNER_PAGE_LENGTH - DATA_HEADER_LENGTH - HINT_LENGTH;
+pub const DATA_INNER_LENGTH: usize = INNER_PAGE_LENGTH - DATA_HEADER_LENGTH;
 
 /// Hint can be used to save row size, it `Row` is sized. It can predict how much `Row`s can be saved on page.
 /// Also, it counts saved rows.
@@ -57,10 +54,6 @@ pub struct Data<Row, const DATA_LENGTH: usize = DATA_INNER_LENGTH> {
     /// Offset to the first free byte on this [`Data`] page.
     free_offset: AtomicU32,
 
-    /// Optional size of the `Row` which stored on this [`Data`] page. If row
-    /// is unsized (contains [`String`] etc.) row size will be `None`.
-    hint: Hint,
-
     /// Inner array of bytes where deserialized `Row`s will be stored.
     #[with(Unsafe)]
     inner_data: UnsafeCell<AlignedBytes<DATA_LENGTH>>,
@@ -76,7 +69,6 @@ impl<Row, const DATA_LENGTH: usize> From<page::Empty> for Data<Row, DATA_LENGTH>
         Self {
             id: e.page_id,
             free_offset: AtomicU32::default(),
-            hint: Hint::default(),
             inner_data: UnsafeCell::default(),
             _phantom: PhantomData,
         }
@@ -89,7 +81,6 @@ impl<Row, const DATA_LENGTH: usize> Data<Row, DATA_LENGTH> {
         Self {
             id,
             free_offset: AtomicU32::default(),
-            hint: Hint::default(),
             inner_data: UnsafeCell::default(),
             _phantom: PhantomData,
         }
@@ -103,23 +94,8 @@ impl<Row, const DATA_LENGTH: usize> Data<Row, DATA_LENGTH> {
     where
         Row: Archive + Serialize<AllocSerializer<N>>,
     {
-        if self.hint.row_size.load(Ordering::SeqCst) != -1 {
-            let row_size = self.hint.row_size.load(Ordering::Relaxed) as u32;
-            let left = DATA_LENGTH as i64 - self.free_offset.load(Ordering::Relaxed) as i64;
-            if row_size as i64 > left {
-                return Err(ExecutionError::PageIsFull {
-                    need: row_size,
-                    left,
-                });
-            }
-        }
-
         let bytes = rkyv::to_bytes(row).map_err(|_| ExecutionError::SerializeError)?;
         let length = bytes.len() as u32;
-        if self.hint.row_size.load(Ordering::Relaxed) == -1 {
-            self.hint.row_size.store(length as i32, Ordering::SeqCst)
-        }
-
         let offset = self.free_offset.fetch_add(length, Ordering::SeqCst);
         if offset > DATA_LENGTH as u32 - length {
             return Err(ExecutionError::PageIsFull {
@@ -127,7 +103,6 @@ impl<Row, const DATA_LENGTH: usize> Data<Row, DATA_LENGTH> {
                 left: DATA_LENGTH as i64 - offset as i64,
             });
         }
-        self.hint.row_length.fetch_add(1, Ordering::Relaxed);
 
         let inner_data = unsafe { &mut *self.inner_data.get() };
         inner_data[offset as usize..][..length as usize].copy_from_slice(bytes.as_slice());
@@ -153,13 +128,6 @@ impl<Row, const DATA_LENGTH: usize> Data<Row, DATA_LENGTH> {
     where
         Row: Archive + Serialize<AllocSerializer<N>>,
     {
-        if self.hint.row_size.load(Ordering::SeqCst) != -1 {
-            let row_size = self.hint.row_size.load(Ordering::Relaxed) as u32;
-            if row_size != link.length {
-                return Err(ExecutionError::InvalidLink);
-            }
-        }
-
         let bytes = rkyv::to_bytes(row).map_err(|_| ExecutionError::SerializeError)?;
         let length = bytes.len() as u32;
         if length != link.length {
@@ -282,11 +250,6 @@ mod tests {
         assert_eq!(link.offset, 0);
 
         assert_eq!(page.free_offset.load(Ordering::Relaxed), link.length);
-        assert_eq!(
-            page.hint.row_size.load(Ordering::Relaxed),
-            link.length as i32
-        );
-        assert_eq!(page.hint.row_length.load(Ordering::Relaxed), 1);
 
         let inner_data = unsafe { &mut *page.inner_data.get() };
         let bytes = &inner_data[link.offset as usize..link.length as usize];

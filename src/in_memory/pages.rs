@@ -61,11 +61,29 @@ where
         Row: Archive + Serialize<AllocSerializer<N>>,
         <Row as StorableRow>::WrappedRow: Archive + Serialize<AllocSerializer<N>>,
     {
-        if let Some(link) = self.empty_links.pop() {
-            todo!()
-        }
-
         let general_row = <Row as StorableRow>::WrappedRow::from_inner(row);
+
+        if let Some(link) = self.empty_links.pop() {
+            let pages = self.pages.read().unwrap();
+            let current_page: usize = link.page_id.into();
+            let page = &pages[current_page];
+
+            return if let Err(e) = unsafe { page.save_row_by_link(&general_row, link) } {
+                match e {
+                    DataExecutionError::InvalidLink => {
+                        self.empty_links.push(link);
+                        self.retry_insert(general_row)
+                    },
+                    DataExecutionError::PageIsFull { .. } |
+                    DataExecutionError::SerializeError |
+                    DataExecutionError::DeserializeError => {
+                        Err(e.into())
+                    }
+                }
+            } else {
+                Ok(link)
+            }
+        }
 
         let (link, tried_page) = {
             let pages = self.pages.read().unwrap();
@@ -202,6 +220,11 @@ where
         page.save_row_by_link(&gen_row, link)
             .map_err(ExecutionError::DataPageError)
     }
+
+    pub fn delete(&self, link: Link) -> Result<(), ExecutionError> {
+        self.empty_links.push(link);
+        Ok(())
+    }
 }
 
 #[derive(Debug, Display, Error, From)]
@@ -274,6 +297,22 @@ mod tests {
         let res = pages.select(link).unwrap();
 
         assert_eq!(res, row)
+    }
+
+    #[test]
+    fn delete() {
+        let pages = DataPages::<TestRow>::new();
+
+        let row = TestRow { a: 10, b: 20 };
+        let link = pages.insert::<24>(row).unwrap();
+        pages.delete(link).unwrap();
+
+        assert_eq!(pages.empty_links.pop(), Some(link));
+        pages.empty_links.push(link);
+
+        let row = TestRow { a: 20, b: 20 };
+        let new_link = pages.insert::<24>(row).unwrap();
+        assert_eq!(new_link, link)
     }
 
     #[test]

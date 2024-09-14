@@ -51,6 +51,7 @@ pub fn expand(input: TokenStream) -> syn::Result<TokenStream> {
     let query_locks_impls = generator.gen_query_locks_impl()?;
     let select_impls = generator.gen_query_select_impl()?;
     let update_impls = generator.gen_query_update_impl()?;
+    let delete_impls = generator.gen_query_delete_impl()?;
 
     Ok(TokenStream::from(quote! {
         #pk_def
@@ -64,6 +65,7 @@ pub fn expand(input: TokenStream) -> syn::Result<TokenStream> {
         #query_locks_impls
         #select_impls
         #update_impls
+        #delete_impls
     }))
 }
 
