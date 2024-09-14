@@ -1,4 +1,4 @@
-use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicI64, AtomicU32, AtomicU64, Ordering};
 
 pub trait TablePrimaryKey {
     type Generator;
@@ -18,6 +18,13 @@ where T: From<u32>
 
 impl<T> PrimaryKeyGenerator<T> for AtomicU64
 where T: From<u64>{
+    fn next(&self) -> T {
+        self.fetch_add(1, Ordering::Relaxed).into()
+    }
+}
+
+impl<T> PrimaryKeyGenerator<T> for AtomicI64
+where T: From<i64>{
     fn next(&self) -> T {
         self.fetch_add(1, Ordering::Relaxed).into()
     }
