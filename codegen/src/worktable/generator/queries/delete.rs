@@ -31,6 +31,8 @@ impl Generator {
                         lock.as_ref().await
                     }
                 }
+                let row = self.select(pk.clone()).unwrap();
+                self.0.indexes.delete_row(row, link);
                 self.0.pk_map.remove(&pk);
                 self.0.data.delete(link);
 

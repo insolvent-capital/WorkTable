@@ -509,6 +509,10 @@ mod tests {
         table.delete(pk.clone()).await.unwrap();
         let selected_row = table.select(pk);
         assert!(selected_row.is_none());
+        let selected_row = table.select_by_test(1);
+        assert!(selected_row.is_none());
+        let selected_row = table.select_by_exchange("test".to_string()).unwrap();
+        assert!(selected_row.is_empty());
 
         let updated = TestRow {
             id: table.get_next_pk().into(),

@@ -48,7 +48,7 @@ impl Generator {
     }
 
     fn gen_impl_def(&mut self) -> TokenStream {
-        let index_rows = self.columns.indexes
+        let save_rows = self.columns.indexes
             .iter()
             .map(|(i, idx)| {
                 let index_field_name = &idx.name;
@@ -72,13 +72,37 @@ impl Generator {
                 }
             }).collect::<Vec<_>>();
 
+        let delete_rows = self.columns.indexes
+            .iter()
+            .map(|(i, idx)| {
+                let index_field_name = &idx.name;
+                if idx.is_unique {
+                    quote! {
+                        self.#index_field_name.remove(&row.#i);
+                    }
+                } else {
+                    quote! {
+                        let guard = Guard::new();
+                        if let Some(set) = self.#index_field_name.peek(&row.#i, &guard) {
+                            set.remove(&link);
+                        }
+                    }
+                }
+            }).collect::<Vec<_>>();
+
         let row_type_name = self.row_name.as_ref().unwrap();
         let index_type_name = self.index_name.as_ref().unwrap();
 
         quote! {
             impl TableIndex<#row_type_name> for #index_type_name {
-                fn save_row(&self, row: #row_type_name, link: Link) -> core::result::Result<(), WorkTableError>{
-                    #(#index_rows)*
+                fn save_row(&self, row: #row_type_name, link: Link) -> core::result::Result<(), WorkTableError> {
+                    #(#save_rows)*
+
+                    core::result::Result::Ok(())
+                }
+
+                fn delete_row(&self, row: #row_type_name, link: Link) -> core::result::Result<(), WorkTableError> {
+                    #(#delete_rows)*
 
                     core::result::Result::Ok(())
                 }
