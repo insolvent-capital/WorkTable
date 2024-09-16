@@ -135,7 +135,7 @@ impl<Row, const DATA_LENGTH: usize> Data<Row, DATA_LENGTH> {
         }
 
         let inner_data = unsafe { &mut *self.inner_data.get() };
-        inner_data[link.offset as usize..][..(link.offset + link.length) as usize]
+        inner_data[link.offset as usize..][..link.length as usize]
             .copy_from_slice(bytes.as_slice());
 
         Ok(link)
