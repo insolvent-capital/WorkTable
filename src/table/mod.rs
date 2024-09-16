@@ -554,6 +554,41 @@ mod tests {
         let pk = table.insert::<{ TestRow::ROW_SIZE }>(updated.clone()).unwrap();
         let new_link = *table.0.pk_map.peek(&pk, &guard).unwrap();
 
+        assert_ne!(link, new_link)
+    }
+
+    #[tokio::test]
+    async fn delete_and_replace() {
+        let table = TestWorkTable::default();
+        let row = TestRow {
+            id: table.get_next_pk().into(),
+            test: 0,
+            another: 0,
+            exchange: "test1".to_string(),
+        };
+        let _ = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let row = TestRow {
+            id: table.get_next_pk().into(),
+            test: 1,
+            another: 1,
+            exchange: "test".to_string(),
+        };
+        let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let guard = Guard::new();
+        let link = *table.0.pk_map.peek(&pk, &guard).unwrap();
+        table.delete(pk.clone()).await.unwrap();
+        let selected_row = table.select(pk);
+        assert!(selected_row.is_none());
+
+        let updated = TestRow {
+            id: table.get_next_pk().into(),
+            test: 2,
+            another: 3,
+            exchange: "test".to_string(),
+        };
+        let pk = table.insert::<{ TestRow::ROW_SIZE }>(updated.clone()).unwrap();
+        let new_link = *table.0.pk_map.peek(&pk, &guard).unwrap();
+
         assert_eq!(link, new_link)
     }
 
