@@ -118,6 +118,8 @@ pub enum WorkTableError {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+    use std::time::Duration;
     use worktable_codegen::worktable;
 
     use crate::prelude::*;
@@ -492,6 +494,48 @@ mod tests {
 
         assert_eq!(selected_row, updated);
         assert!(table.select(2.into()).is_none())
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn update_parallel() {
+        let table = Arc::new(TestWorkTable::default());
+        for i in 1..100 {
+            let row = TestRow {
+                id: table.get_next_pk().into(),
+                test: i + 1,
+                another: 1,
+                exchange: "test".to_string(),
+            };
+            println!("{}", row.id);
+            let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        }
+        let shared = table.clone();
+        let h = tokio::spawn(async move {
+            for i in 0..99 {
+                let row = TestRow {
+                    id: i,
+                    test: (i + 1) as i64,
+                    another: 1,
+                    exchange: "test".to_string(),
+                };
+                let res = shared.update_another_by_test(AnotherByTestQuery { another: i }, (i + 1) as i64).await;
+                println!("s {:?} {}", res ,i);
+                tokio::time::sleep(Duration::from_micros(5)).await;
+            }
+        });
+        tokio::time::sleep(Duration::from_micros(20)).await;
+        for i in 0..99 {
+            let row = TestRow {
+                id: i,
+                test: (i + 1) as i64,
+                another: 1,
+                exchange: "test".to_string(),
+            };
+            let res = table.update_another_by_id(AnotherByIdQuery { another: i }, i.into()).await;
+            println!("{:?} {}", res ,i);
+            tokio::time::sleep(Duration::from_micros(5)).await;
+        }
+        h.await;
     }
 
     #[tokio::test]

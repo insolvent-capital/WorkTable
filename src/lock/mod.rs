@@ -44,6 +44,7 @@ impl Lock {
     }
 
     pub fn unlock(&self) {
+        self.locked.store(false, Ordering::Relaxed);
         self.waker.wake()
     }
 }

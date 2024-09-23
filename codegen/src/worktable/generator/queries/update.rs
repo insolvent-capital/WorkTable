@@ -71,7 +71,7 @@ impl Generator {
                     }
                 }).map_err(WorkTableError::PagesError)? };
                 lock.unlock();
-
+                self.0.lock_map.remove(&op_id.into());
                 core::result::Result::Ok(())
             }
         }
@@ -164,6 +164,7 @@ impl Generator {
                         }
                     }).map_err(WorkTableError::PagesError)? };
                     lock.unlock();
+                    self.0.lock_map.remove(&op_id.into());
 
                     core::result::Result::Ok(())
                 }
@@ -229,6 +230,7 @@ impl Generator {
                         }).map_err(WorkTableError::PagesError)? };
                     }
                     lock.unlock();
+                    self.0.lock_map.remove(&op_id.into());
 
                     core::result::Result::Ok(())
                 }
@@ -288,6 +290,7 @@ impl Generator {
                         }
                     }).map_err(WorkTableError::PagesError)? };
                     lock.unlock();
+                    self.0.lock_map.remove(&op_id.into());;
 
                     core::result::Result::Ok(())
                 }
