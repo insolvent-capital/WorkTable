@@ -49,13 +49,19 @@ impl Generator {
 
                 pub async fn upsert<const ROW_SIZE_HINT: usize>(&self, row: #row_type) -> core::result::Result<(), WorkTableError> {
                     let pk = row.get_primary_key();
-
-                    let guard = Guard::new();
-                    let res = if let Some(v) = self.0.pk_map.peek(&pk, &guard) {
+                    let need_to_update = {
+                        let guard = Guard::new();
+                        if let Some(_) = self.0.pk_map.peek(&pk, &guard) {
+                            true
+                        } else {
+                            false
+                        }
+                    };
+                    if need_to_update {
                         self.update::<ROW_SIZE_HINT>(row).await?;
                     } else {
                         self.insert::<ROW_SIZE_HINT>(row)?;
-                    };
+                    }
                     core::result::Result::Ok(())
                 }
 
