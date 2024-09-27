@@ -61,12 +61,17 @@ impl Generator {
             let index = self.columns.indexes.values().find(|idx| {
                 idx.field.to_string() == op.by.to_string()
             });
+            let type_ = self.columns.columns_map.get(&op.by).unwrap();
+            if let Some(index) = index {
+                let index_name = &index.name;
 
-            if let Some(_) = index {
-                todo!()
+                if index.is_unique {
+                    Self::gen_unique_delete(&type_, &method_ident, index_name)
+                } else {
+                    Self::gen_non_unique_delete(&type_, &method_ident, index_name)
+                }
             } else {
-                let type_ = self.columns.columns_map.get(&op.by).unwrap();
-                Self::gen_brute_force_delete_field(&op.by, type_, &method_ident)
+                Self::gen_brute_force_delete_field(&op.by, &type_, &method_ident)
             }
         }).collect::<Vec<_>>();
 
@@ -89,6 +94,40 @@ impl Generator {
                         })
                     }
                 }).await?;
+                core::result::Result::Ok(())
+            }
+        }
+    }
+
+    fn gen_non_unique_delete(type_: &Ident, name: &Ident, index: &Ident, ) -> TokenStream {
+        quote! {
+            pub async fn #name(&self, by: #type_) -> core::result::Result<(), WorkTableError> {
+                let rows_to_update = {
+                    let guard = Guard::new();
+                    self.0.indexes.#index.peek(&by, &guard).cloned()
+                };
+                if let Some(rows) = rows_to_update {
+                    for link in rows.iter() {
+                        let row = self.0.data.select(*link.as_ref()).map_err(WorkTableError::PagesError)?;
+                        self.delete(row.id.into()).await?;
+                    }
+                }
+                core::result::Result::Ok(())
+            }
+        }
+    }
+
+    fn gen_unique_delete(type_: &Ident, name: &Ident, index: &Ident, ) -> TokenStream {
+        quote! {
+            pub async fn #name(&self, by: #type_) -> core::result::Result<(), WorkTableError> {
+                let row_to_update = {
+                    let guard = Guard::new();
+                    self.0.indexes.#index.peek(&by, &guard).cloned()
+                };
+                if let Some(link) = row_to_update {
+                    let row = self.0.data.select(link).map_err(WorkTableError::PagesError)?;
+                    self.delete(row.id.into()).await?;
+                }
                 core::result::Result::Ok(())
             }
         }

@@ -145,6 +145,8 @@ mod tests {
             },
             delete: {
                 ByAnother() by another,
+                ByExchange() by exchange,
+                ByTest() by test,
             }
         }
     );
@@ -681,7 +683,49 @@ mod tests {
         };
         let pk_2 = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
         table.delete_by_another(1).await.unwrap();
-        println!("{:?}", table.select_all())
+        assert_eq!(table.select_all().unwrap().len(), 0)
+    }
+
+    #[tokio::test]
+    async fn delete_by_exchange() {
+        let table = TestWorkTable::default();
+        let row = TestRow {
+            id: table.get_next_pk().into(),
+            test: 1,
+            another: 1,
+            exchange: "test".to_string(),
+        };
+        let pk_1 = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let row = TestRow {
+            id: table.get_next_pk().into(),
+            test: 2,
+            another: 1,
+            exchange: "test".to_string(),
+        };
+        let pk_2 = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        table.delete_by_exchange("test".to_string()).await.unwrap();
+        assert_eq!(table.select_all().unwrap().len(), 0)
+    }
+
+    #[tokio::test]
+    async fn delete_by_test() {
+        let table = TestWorkTable::default();
+        let row = TestRow {
+            id: table.get_next_pk().into(),
+            test: 1,
+            another: 1,
+            exchange: "test".to_string(),
+        };
+        let pk_1 = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let row = TestRow {
+            id: table.get_next_pk().into(),
+            test: 2,
+            another: 1,
+            exchange: "test".to_string(),
+        };
+        let pk_2 = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        table.delete_by_test(2).await.unwrap();
+        assert_eq!(table.select_all().unwrap().len(), 1)
     }
 
     #[tokio::test]
