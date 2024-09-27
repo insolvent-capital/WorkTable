@@ -118,6 +118,7 @@ pub enum WorkTableError {
 
 #[cfg(test)]
 mod tests {
+    use std::future::Future;
     use std::sync::Arc;
     use std::time::Duration;
     use worktable_codegen::worktable;
@@ -141,9 +142,76 @@ mod tests {
                 AnotherByExchange(another) by exchange,
                 AnotherByTest(another) by test,
                 AnotherById(another) by id,
+            },
+            delete: {
+                ByAnother() by another,
             }
         }
     );
+
+    #[test]
+    fn iter_with() {
+        let table = TestWorkTable::default();
+        let row = TestRow {
+            id: table.get_next_pk().into(),
+            test: 1,
+            another: 1,
+            exchange: "test".to_string(),
+        };
+        let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let row = TestRow {
+            id: table.get_next_pk().into(),
+            test: 2,
+            another: 2,
+            exchange: "test".to_string(),
+        };
+        let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let row = TestRow {
+            id: table.get_next_pk().into(),
+            test: 3,
+            another: 3,
+            exchange: "test".to_string(),
+        };
+        let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+
+        table.iter_with(|row| {
+            println!("{:?}", row);
+            Ok(())
+        }).unwrap()
+    }
+
+    #[tokio::test]
+    async fn iter_with_async() {
+        let table = TestWorkTable::default();
+        let row = TestRow {
+            id: table.get_next_pk().into(),
+            test: 1,
+            another: 1,
+            exchange: "test".to_string(),
+        };
+        let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let row = TestRow {
+            id: table.get_next_pk().into(),
+            test: 2,
+            another: 2,
+            exchange: "test".to_string(),
+        };
+        let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let row = TestRow {
+            id: table.get_next_pk().into(),
+            test: 3,
+            another: 3,
+            exchange: "test".to_string(),
+        };
+        let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+
+        table.iter_with_async(|row| {
+            async move {
+                println!("{:?}", row);
+                Ok(())
+            }
+        }).await.unwrap()
+    }
 
     mod array {
         use derive_more::From;
@@ -252,7 +320,7 @@ mod tests {
                 id: 1,
                 test: SomeEnum::First,
             };
-            let pk = table.insert::<{ crate::table::tests::tuple_primary_key::TestRow::ROW_SIZE }>(row.clone()).unwrap();
+            let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
             let selected_row = table.select(pk).unwrap();
 
             assert_eq!(selected_row, row);
@@ -593,6 +661,27 @@ mod tests {
         let new_link = *table.0.pk_map.peek(&pk, &guard).unwrap();
 
         assert_eq!(link, new_link)
+    }
+
+    #[tokio::test]
+    async fn delete_by_another() {
+        let table = TestWorkTable::default();
+        let row = TestRow {
+            id: table.get_next_pk().into(),
+            test: 1,
+            another: 1,
+            exchange: "test".to_string(),
+        };
+        let pk_1 = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let row = TestRow {
+            id: table.get_next_pk().into(),
+            test: 2,
+            another: 1,
+            exchange: "test".to_string(),
+        };
+        let pk_2 = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        table.delete_by_another(1).await.unwrap();
+        println!("{:?}", table.select_all())
     }
 
     #[tokio::test]

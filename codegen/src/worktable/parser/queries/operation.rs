@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use proc_macro2::{Ident, TokenTree};
 use syn::spanned::Spanned;
 
@@ -5,6 +6,22 @@ use crate::worktable::model::Operation;
 use crate::worktable::parser::Parser;
 
 impl Parser {
+    pub fn parse_operations(&mut self) -> syn::Result<HashMap<Ident, Operation>> {
+        let mut ops = HashMap::new();
+        while self.has_next() {
+            let row = self.parse_operation()?;
+            if ops.get(&row.name).is_some() {
+                return Err(syn::Error::new(
+                    row.name.span(),
+                    "Non-unique query name",
+                ));
+            }
+            ops.insert(row.name.clone(), row);
+            self.try_parse_comma()?
+        }
+        Ok(ops)
+    }
+
     pub fn parse_operation(&mut self) -> syn::Result<Operation> {
         let ident = self.input_iter.next().ok_or(syn::Error::new(
             self.input.span(),

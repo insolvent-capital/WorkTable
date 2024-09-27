@@ -34,6 +34,9 @@ impl Generator {
             }
         };
 
+        let iter_with = Self::gen_iter_with();
+        let iter_with_async = Self::gen_iter_with_async();
+
         quote! {
             #[derive(Debug, Default)]
             pub struct #ident(WorkTable<#row_type, #pk_type, #index_type>);
@@ -66,6 +69,10 @@ impl Generator {
                 }
 
                 #get_next
+
+                #iter_with
+
+                #iter_with_async
             }
         }
     }
@@ -151,5 +158,85 @@ impl Generator {
                 .collect()
             }
         })
+    }
+
+    fn gen_iter_with() -> TokenStream {
+        quote! {
+            pub fn iter_with<F: Fn(TestRow) -> core::result::Result<(), WorkTableError>>(&self, f: F) -> core::result::Result<(), WorkTableError> {
+                let first = {
+                    let guard = Guard::new();
+                    self.0.pk_map.iter(&guard).next().map(|(k, v)| (k.clone(), *v))
+                };
+                let Some((mut k, link)) = first else {
+                    return Ok(())
+                };
+
+                let data = self.0.data.select(link).map_err(WorkTableError::PagesError)?;
+                f(data)?;
+
+                let mut ind = false;
+                while !ind {
+                    let next = {
+                        let guard = Guard::new();
+                        let mut iter = self.0.pk_map.range(k.clone().., &guard);
+                        let next = iter.next().map(|(k, v)| (k.clone(), *v)).filter(|(key, _)| key != &k);
+                        if next.is_some() {
+                            next
+                        } else {
+                            iter.next().map(|(k, v)| (k.clone(), *v))
+                        }
+                    };
+                    if let Some((key, link)) = next {
+                        let data = self.0.data.select(link).map_err(WorkTableError::PagesError)?;
+                        f(data)?;
+                        k = key
+                    } else {
+                        ind = true;
+                    };
+                }
+
+                core::result::Result::Ok(())
+            }
+        }
+    }
+
+    fn gen_iter_with_async() -> TokenStream {
+        quote! {
+            pub async fn iter_with_async<F: Fn(TestRow) -> Fut , Fut: std::future::Future<Output = core::result::Result<(), WorkTableError>>>(&self, f: F) ->core::result::Result<(), WorkTableError> {
+                let first = {
+                    let guard = Guard::new();
+                    self.0.pk_map.iter(&guard).next().map(|(k, v)| (k.clone(), *v))
+                };
+                let Some((mut k, link)) = first else {
+                    return Ok(())
+                };
+
+                let data = self.0.data.select(link).map_err(WorkTableError::PagesError)?;
+                f(data).await?;
+
+                let mut ind = false;
+                while !ind {
+                    let next = {
+                        let guard = Guard::new();
+                        let mut iter = self.0.pk_map.range(k.clone().., &guard);
+                        let next = iter.next().map(|(k, v)| (k.clone(), *v)).filter(|(key, _)| key != &k);
+                        if next.is_some() {
+                            next
+                        } else {
+                            iter.next().map(|(k, v)| (k.clone(), *v))
+                        }
+                    };
+                    if let Some((key, link)) = next {
+                        let data = self.0.data.select(link).map_err(WorkTableError::PagesError)?;
+                        f(data).await?;
+                        k = key
+                    } else {
+                        ind = true;
+                    };
+                }
+
+                core::result::Result::Ok(())
+            }
+        }
     }
 }

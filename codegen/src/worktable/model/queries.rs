@@ -6,5 +6,6 @@ use crate::worktable::model::Operation;
 
 #[derive(Debug, Default)]
 pub struct Queries {
-    pub updates: HashMap<Ident, Operation>
+    pub updates: HashMap<Ident, Operation>,
+    pub deletes: HashMap<Ident, Operation>,
 }

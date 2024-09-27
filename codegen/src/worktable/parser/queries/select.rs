@@ -7,16 +7,16 @@ use crate::worktable::model::Operation;
 use crate::worktable::Parser;
 
 impl Parser {
-    pub fn parse_updates(&mut self) -> syn::Result<HashMap<Ident, Operation>> {
+    pub fn parse_selects(&mut self) -> syn::Result<HashMap<Ident, Operation>> {
         let ident = self.input_iter.next().ok_or(syn::Error::new(
             self.input.span(),
-            "Expected `update` field in declaration",
+            "Expected `select` field in declaration",
         ))?;
         if let TokenTree::Ident(ident) = ident {
-            if ident.to_string().as_str() != "update" {
+            if ident.to_string().as_str() != "select" {
                 return Err(syn::Error::new(
                     ident.span(),
-                    "Expected `update` field",
+                    "Expected `select` field",
                 ));
             }
         } else {
@@ -34,9 +34,7 @@ impl Parser {
         ))?;
         if let TokenTree::Group(ops) = ops {
             let mut parser = Parser::new(ops.stream());
-            let ops = parser.parse_operations();
-            self.try_parse_comma()?;
-            ops
+            parser.parse_operations()
         } else {
             Err(syn::Error::new(
                 ops.span(),
