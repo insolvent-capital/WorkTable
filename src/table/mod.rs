@@ -172,8 +172,7 @@ mod tests {
         };
         let _ = table.insert(row.clone()).unwrap();
 
-        table.iter_with(|row| {
-            println!("{:?}", row);
+        table.iter_with(|_| {
             Ok(())
         }).unwrap()
     }
@@ -203,9 +202,8 @@ mod tests {
         };
         let _ = table.insert(row.clone()).unwrap();
 
-        table.iter_with_async(|row| {
+        table.iter_with_async(|_| {
             async move {
-                println!("{:?}", row);
                 Ok(())
             }
         }).await.unwrap()
@@ -619,21 +617,18 @@ mod tests {
                 another: 1,
                 exchange: "test".to_string(),
             };
-            println!("{}", row.id);
             let _ = table.insert(row.clone()).unwrap();
         }
         let shared = table.clone();
         let h = tokio::spawn(async move {
             for i in 0..99 {
-                let res = shared.update_another_by_test(AnotherByTestQuery { another: i }, (i + 1) as i64).await;
-                println!("s {:?} {}", res ,i);
+                let _ = shared.update_another_by_test(AnotherByTestQuery { another: i }, (i + 1) as i64).await;
                 tokio::time::sleep(Duration::from_micros(5)).await;
             }
         });
         tokio::time::sleep(Duration::from_micros(20)).await;
         for i in 0..99 {
-            let res = table.update_another_by_id(AnotherByIdQuery { another: i }, i.into()).await;
-            println!("{:?} {}", res ,i);
+            let _ = table.update_another_by_id(AnotherByIdQuery { another: i }, i.into()).await;
             tokio::time::sleep(Duration::from_micros(5)).await;
         }
         h.await.unwrap();

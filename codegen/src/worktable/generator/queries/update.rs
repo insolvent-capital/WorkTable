@@ -88,9 +88,9 @@ impl Generator {
                 let index_name = &index.name;
 
                 if index.is_unique {
-                    Self::gen_unique_update(snake_case_name, name, index_name, idents)
+                   self.gen_unique_update(snake_case_name, name, index_name, idents)
                 } else {
-                    Self::gen_non_unique_update(snake_case_name, name, index_name, idents)
+                    self.gen_non_unique_update(snake_case_name, name, index_name, idents)
                 }
             } else {
                 if self.columns.primary_keys.len() == 1 {
@@ -135,7 +135,7 @@ impl Generator {
                     self.0.lock_map.insert(op_id.into(), lock.clone());
 
                     let mut bytes = rkyv::to_bytes::<_, { #row_ident::ROW_SIZE }>(&row).map_err(|_| WorkTableError::SerializeError)?;
-                    let mut row = unsafe { rkyv::archived_root_mut::<#row_ident>(core::pin::Pin::new(&mut bytes[..])).get_unchecked_mut() };
+                    let mut row = unsafe { rkyv::archived_root_mut::<#query_ident>(core::pin::Pin::new(&mut bytes[..])).get_unchecked_mut() };
                     let link = {
                         let guard = Guard::new();
                         *self.0.pk_map.peek(&by, &guard).ok_or(WorkTableError::NotFound)?
@@ -173,7 +173,8 @@ impl Generator {
             }
     }
 
-    fn gen_non_unique_update(snake_case_name: String, name: &Ident, index: &Ident, idents: &Vec<Ident>) -> TokenStream {
+    fn gen_non_unique_update(&self, snake_case_name: String, name: &Ident, index: &Ident, idents: &Vec<Ident>) -> TokenStream {
+        let row_ident = self.row_name.as_ref().unwrap();
         let method_ident = Ident::new(format!("update_{snake_case_name}").as_str(), Span::mixed_site());
 
         let query_ident = Ident::new(format!("{name}Query").as_str(), Span::mixed_site());
@@ -185,7 +186,7 @@ impl Generator {
         let verify_ident = Ident::new(format!("verify_{snake_case_name}_lock").as_str(), Span::mixed_site());
         let row_updates = idents.iter().map(|i| {
             quote! {
-                archived.inner.#i = row.#i;
+                std::mem::swap(&mut archived.inner.#i, &mut row.#i);
             }
         }).collect::<Vec<_>>();
 
@@ -219,6 +220,8 @@ impl Generator {
                     }
 
                     for link in rows_to_update.iter() {
+                        let mut bytes = rkyv::to_bytes::<_, { #row_ident::ROW_SIZE }>(&row).map_err(|_| WorkTableError::SerializeError)?;
+                        let mut row = unsafe { rkyv::archived_root_mut::<#query_ident>(core::pin::Pin::new(&mut bytes[..])).get_unchecked_mut() };
                         unsafe { self.0.data.with_mut_ref(*link.as_ref(), |archived| {
                             #(#row_updates)*
                         }).map_err(WorkTableError::PagesError)? };
@@ -239,7 +242,8 @@ impl Generator {
             }
     }
 
-    fn gen_unique_update(snake_case_name: String, name: &Ident, index: &Ident, idents: &Vec<Ident>) -> TokenStream {
+    fn gen_unique_update(&self, snake_case_name: String, name: &Ident, index: &Ident, idents: &Vec<Ident>) -> TokenStream {
+        let row_ident = self.row_name.as_ref().unwrap();
         let method_ident = Ident::new(format!("update_{snake_case_name}").as_str(), Span::mixed_site());
 
         let query_ident = Ident::new(format!("{name}Query").as_str(), Span::mixed_site());
@@ -251,7 +255,7 @@ impl Generator {
         let verify_ident = Ident::new(format!("verify_{snake_case_name}_lock").as_str(), Span::mixed_site());
         let row_updates = idents.iter().map(|i| {
             quote! {
-                archived.inner.#i = row.#i;
+                std::mem::swap(&mut archived.inner.#i, &mut row.#i);
             }
         }).collect::<Vec<_>>();
 
@@ -262,6 +266,8 @@ impl Generator {
 
                     self.0.lock_map.insert(op_id.into(), lock.clone());
 
+                    let mut bytes = rkyv::to_bytes::<_, { #row_ident::ROW_SIZE }>(&row).map_err(|_| WorkTableError::SerializeError)?;
+                    let mut row = unsafe { rkyv::archived_root_mut::<#query_ident>(core::pin::Pin::new(&mut bytes[..])).get_unchecked_mut() };
                     let link = {
                         let guard = Guard::new();
                         *self.0.indexes.#index.peek(&by, &guard).ok_or(WorkTableError::NotFound)?
