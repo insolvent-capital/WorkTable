@@ -1,7 +1,6 @@
 mod worktable;
 
 use proc_macro::TokenStream;
-use syn::spanned::Spanned;
 
 #[proc_macro]
 pub fn worktable(input: TokenStream) -> TokenStream {

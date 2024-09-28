@@ -1,10 +1,10 @@
-use proc_macro2::{TokenStream, TokenTree};
+use proc_macro2::TokenTree;
 use syn::spanned::Spanned;
 
 use crate::worktable::parser::Parser;
 
 impl Parser {
-    /// Parses ':' from [`TokenStream`].
+    /// Parses ':' from [`proc_macro2::TokenStream`].
     pub fn parse_colon(&mut self) -> syn::Result<()> {
         let iter = &mut self.input_iter;
 
@@ -23,16 +23,6 @@ impl Parser {
         } else {
             Err(syn::Error::new(colon.span(), "Expected `:`."))
         }
-    }
-
-    /// Parses ',' from [`TokenStream`].
-    pub fn parse_comma(&mut self) -> syn::Result<()> {
-        let iter = &mut self.input_iter;
-
-        let tt = iter
-            .next()
-            .ok_or(syn::Error::new(self.input.span(), "Expected token."))?;
-        comma(&tt)
     }
 
     /// Tries to parse ',' from [`TokenStream`] without calling `next` on wrong token.

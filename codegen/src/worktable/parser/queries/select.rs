@@ -7,7 +7,7 @@ use crate::worktable::model::Operation;
 use crate::worktable::Parser;
 
 impl Parser {
-    pub fn parse_selects(&mut self) -> syn::Result<HashMap<Ident, Operation>> {
+    pub fn _parse_selects(&mut self) -> syn::Result<HashMap<Ident, Operation>> {
         let ident = self.input_iter.next().ok_or(syn::Error::new(
             self.input.span(),
             "Expected `select` field in declaration",

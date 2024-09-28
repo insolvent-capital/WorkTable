@@ -60,10 +60,10 @@ impl Generator {
                     quote! {
                         let guard = Guard::new();
                         if let Some(set) = self.#index_field_name.peek(&row.#i, &guard) {
-                            set.insert(link);
+                            set.insert(link).expect("is ok");
                         } else {
                             let set = LockFreeSet::new();
-                            set.insert(link);
+                            set.insert(link).expect("is ok");
                             self.#index_field_name
                                 .insert(row.#i, std::sync::Arc::new(set))
                                 .map_err(|_| WorkTableError::AlreadyExists)?;

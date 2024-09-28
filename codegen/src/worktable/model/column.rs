@@ -1,4 +1,3 @@
-use std::cmp::PartialEq;
 use std::collections::HashMap;
 
 use proc_macro2::{Ident, TokenStream};

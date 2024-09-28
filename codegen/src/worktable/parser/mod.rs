@@ -4,7 +4,7 @@ mod name;
 mod punct;
 pub mod queries;
 
-use proc_macro2::{Ident, TokenStream, TokenTree};
+use proc_macro2::{TokenStream, TokenTree};
 use std::iter::Peekable;
 
 pub struct Parser {
