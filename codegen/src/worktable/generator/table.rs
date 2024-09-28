@@ -46,11 +46,11 @@ impl Generator {
                     self.0.select(pk)
                 }
 
-                pub fn insert<const ROW_SIZE_HINT: usize>(&self, row: #row_type) -> core::result::Result<#pk_type, WorkTableError> {
-                    self.0.insert::<ROW_SIZE_HINT>(row)
+                pub fn insert(&self, row: #row_type) -> core::result::Result<#pk_type, WorkTableError> {
+                    self.0.insert::<{ #row_type::ROW_SIZE }>(row)
                 }
 
-                pub async fn upsert<const ROW_SIZE_HINT: usize>(&self, row: #row_type) -> core::result::Result<(), WorkTableError> {
+                pub async fn upsert(&self, row: #row_type) -> core::result::Result<(), WorkTableError> {
                     let pk = row.get_primary_key();
                     let need_to_update = {
                         let guard = Guard::new();
@@ -61,9 +61,9 @@ impl Generator {
                         }
                     };
                     if need_to_update {
-                        self.update::<ROW_SIZE_HINT>(row).await?;
+                        self.update(row).await?;
                     } else {
-                        self.insert::<ROW_SIZE_HINT>(row)?;
+                        self.insert(row)?;
                     }
                     core::result::Result::Ok(())
                 }

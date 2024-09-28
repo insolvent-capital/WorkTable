@@ -7,7 +7,7 @@ use derive_more::{Display, Error};
 use rkyv::ser::serializers::AllocSerializer;
 use rkyv::{
     with::{Skip, Unsafe},
-    AlignedBytes, Archive, Deserialize, Fallible, Serialize,
+    AlignedBytes, Archive, Deserialize, Serialize,
 };
 use smart_default::SmartDefault;
 
@@ -241,7 +241,7 @@ mod tests {
 
     #[test]
     fn data_page_save_row() {
-        let mut page = Data::<TestRow>::new(1.into());
+        let page = Data::<TestRow>::new(1.into());
         let row = TestRow { a: 10, b: 20 };
 
         let link = page.save_row::<16>(&row).unwrap();
@@ -259,7 +259,7 @@ mod tests {
 
     #[test]
     fn data_page_overwrite_row() {
-        let mut page = Data::<TestRow>::new(1.into());
+        let page = Data::<TestRow>::new(1.into());
         let row = TestRow { a: 10, b: 20 };
 
         let link = page.save_row::<16>(&row).unwrap();
@@ -277,9 +277,9 @@ mod tests {
 
     #[test]
     fn data_page_full() {
-        let mut page = Data::<TestRow, 16>::new(1.into());
+        let page = Data::<TestRow, 16>::new(1.into());
         let row = TestRow { a: 10, b: 20 };
-        let link = page.save_row::<16>(&row).unwrap();
+        let _ = page.save_row::<16>(&row).unwrap();
 
         let new_row = TestRow { a: 20, b: 20 };
         let res = page.save_row::<16>(&new_row);
@@ -358,7 +358,7 @@ mod tests {
 
     #[test]
     fn data_page_get_row_ref() {
-        let mut page = Data::<TestRow>::new(1.into());
+        let page = Data::<TestRow>::new(1.into());
         let row = TestRow { a: 10, b: 20 };
 
         let link = page.save_row::<16>(&row).unwrap();

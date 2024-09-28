@@ -45,9 +45,9 @@ impl Generator {
                     }
                 }
                 let row = self.select(pk.clone()).unwrap();
-                self.0.indexes.delete_row(row, link);
+                self.0.indexes.delete_row(row, link)?;
                 self.0.pk_map.remove(&pk);
-                self.0.data.delete(link);
+                self.0.data.delete(link).map_err(WorkTableError::PagesError)?;
 
                 core::result::Result::Ok(())
             }

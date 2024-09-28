@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use derive_more::{Display, Error, From};
 #[cfg(feature = "perf_measurements")]
 use performance_measurement_codegen::performance_measurement;
@@ -13,7 +11,6 @@ use crate::in_memory::{DataPages, RowWrapper, StorableRow};
 use crate::primary_key::{PrimaryKeyGenerator, TablePrimaryKey};
 use crate::{in_memory, TableIndex, TableRow};
 use crate::lock::LockMap;
-use crate::prelude::ArchivedRow;
 
 #[derive(Debug)]
 pub struct WorkTable<Row, Pk, I = (), PkGen = <Pk as TablePrimaryKey>::Generator>
@@ -118,7 +115,6 @@ pub enum WorkTableError {
 
 #[cfg(test)]
 mod tests {
-    use std::future::Future;
     use std::sync::Arc;
     use std::time::Duration;
     use worktable_codegen::worktable;
@@ -160,21 +156,21 @@ mod tests {
             another: 1,
             exchange: "test".to_string(),
         };
-        let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let _ = table.insert(row.clone()).unwrap();
         let row = TestRow {
             id: table.get_next_pk().into(),
             test: 2,
             another: 2,
             exchange: "test".to_string(),
         };
-        let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let _ = table.insert(row.clone()).unwrap();
         let row = TestRow {
             id: table.get_next_pk().into(),
             test: 3,
             another: 3,
             exchange: "test".to_string(),
         };
-        let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let _ = table.insert(row.clone()).unwrap();
 
         table.iter_with(|row| {
             println!("{:?}", row);
@@ -191,21 +187,21 @@ mod tests {
             another: 1,
             exchange: "test".to_string(),
         };
-        let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let _ = table.insert(row.clone()).unwrap();
         let row = TestRow {
             id: table.get_next_pk().into(),
             test: 2,
             another: 2,
             exchange: "test".to_string(),
         };
-        let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let _ = table.insert(row.clone()).unwrap();
         let row = TestRow {
             id: table.get_next_pk().into(),
             test: 3,
             another: 3,
             exchange: "test".to_string(),
         };
-        let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let _ = table.insert(row.clone()).unwrap();
 
         table.iter_with_async(|row| {
             async move {
@@ -215,9 +211,31 @@ mod tests {
         }).await.unwrap()
     }
 
+    mod option {
+        use derive_more::From;
+        use worktable_codegen::worktable;
+
+        use crate::prelude::*;
+        use crate::primary_key::TablePrimaryKey;
+
+        type NullableU64 = Option<u64>;
+
+        worktable! (
+            name: Test,
+            columns: {
+                id: u64 primary_key autoincrement,
+                test: NullableU64
+            },
+            queries: {
+                update: {
+                    Test(test) by id,
+                }
+            }
+        );
+    }
+
     mod array {
         use derive_more::From;
-        use rkyv::{Archive, Deserialize, Serialize};
         use worktable_codegen::worktable;
 
         use crate::prelude::*;
@@ -245,7 +263,7 @@ mod tests {
                 id: 1,
                 test: [0; 4],
             };
-            let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+            let pk = table.insert(row.clone()).unwrap();
             let selected_row = table.select(pk).unwrap();
 
             assert_eq!(selected_row, row);
@@ -259,12 +277,12 @@ mod tests {
                 id: 1,
                 test: [0; 4],
             };
-            let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+            let pk = table.insert(row.clone()).unwrap();
             let new_row = TestRow {
                 id: 1,
                 test: [1; 4]
             };
-            table.update::<{ TestRow::ROW_SIZE }>(new_row.clone()).await.unwrap();
+            table.update(new_row.clone()).await.unwrap();
             let selected_row = table.select(pk).unwrap();
             assert_eq!(selected_row, new_row);
             assert!(table.select(2.into()).is_none())
@@ -278,13 +296,13 @@ mod tests {
                     id: i,
                     test: [0; 4],
                 };
-                let _ = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+                let _ = table.insert(row.clone()).unwrap();
             }
             let new_row = TestRow {
                 id: 3,
                 test: [1; 4]
             };
-            table.update::<{ TestRow::ROW_SIZE }>(new_row.clone()).await.unwrap();
+            table.update(new_row.clone()).await.unwrap();
             let selected_row = table.select(3.into()).unwrap();
             assert_eq!(selected_row, new_row);
         }
@@ -322,7 +340,7 @@ mod tests {
                 id: 1,
                 test: SomeEnum::First,
             };
-            let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+            let pk = table.insert(row.clone()).unwrap();
             let selected_row = table.select(pk).unwrap();
 
             assert_eq!(selected_row, row);
@@ -343,7 +361,7 @@ mod tests {
                 another: 1,
                 exchange: "test".to_string(),
             };
-            let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+            let pk = table.insert(row.clone()).unwrap();
             let updated = TestRow {
                 id: pk.clone().into(),
                 test: 2,
@@ -352,7 +370,7 @@ mod tests {
             };
             let shared = table.clone();
             let shared_updated = updated.clone();
-            tokio::spawn(async move { shared.update::<{ TestRow::ROW_SIZE }>(shared_updated).await }).await.unwrap().unwrap();
+            tokio::spawn(async move { shared.update(shared_updated).await }).await.unwrap().unwrap();
             let selected_row = table.select(pk).unwrap();
 
             assert_eq!(selected_row, updated);
@@ -368,7 +386,7 @@ mod tests {
                 another: 1,
                 exchange: "test".to_string(),
             };
-            let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+            let pk = table.insert(row.clone()).unwrap();
             let updated = TestRow {
                 id: pk.clone().into(),
                 test: 2,
@@ -377,7 +395,7 @@ mod tests {
             };
             let shared = table.clone();
             let shared_updated = updated.clone();
-            tokio::spawn(async move { shared.upsert::<{ TestRow::ROW_SIZE }>(shared_updated).await }).await.unwrap().unwrap();
+            tokio::spawn(async move { shared.upsert(shared_updated).await }).await.unwrap().unwrap();
             let selected_row = table.select(pk).unwrap();
 
             assert_eq!(selected_row, updated);
@@ -463,7 +481,7 @@ mod tests {
                 test: 1,
                 another: 1,
             };
-            let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+            let pk = table.insert(row.clone()).unwrap();
             let selected_row = table.select(pk).unwrap();
 
             assert_eq!(selected_row, row);
@@ -492,7 +510,7 @@ mod tests {
                 id: Uuid::new_v4(),
                 another: 1,
             };
-            let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+            let pk = table.insert(row.clone()).unwrap();
             let selected_row = table.select(pk).unwrap();
 
             assert_eq!(selected_row, row);
@@ -543,7 +561,7 @@ mod tests {
                 exchange: "XD".to_string(),
             };
 
-            let a = table.insert::<24>(row).expect("TODO: panic message");
+            let a = table.insert(row).expect("TODO: panic message");
             v.push(a)
         }
 
@@ -561,7 +579,7 @@ mod tests {
             another: 1,
             exchange: "test".to_string(),
         };
-        let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let pk = table.insert(row.clone()).unwrap();
         let selected_row = table.select(pk).unwrap();
 
         assert_eq!(selected_row, row);
@@ -577,14 +595,14 @@ mod tests {
             another: 1,
             exchange: "test".to_string(),
         };
-        let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let pk = table.insert(row.clone()).unwrap();
         let updated = TestRow {
             id: pk.clone().into(),
             test: 2,
             another: 3,
             exchange: "test".to_string(),
         };
-        table.update::<{ TestRow::ROW_SIZE }>(updated.clone()).await.unwrap();
+        table.update(updated.clone()).await.unwrap();
         let selected_row = table.select(pk).unwrap();
 
         assert_eq!(selected_row, updated);
@@ -602,17 +620,11 @@ mod tests {
                 exchange: "test".to_string(),
             };
             println!("{}", row.id);
-            let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+            let _ = table.insert(row.clone()).unwrap();
         }
         let shared = table.clone();
         let h = tokio::spawn(async move {
             for i in 0..99 {
-                let row = TestRow {
-                    id: i,
-                    test: (i + 1) as i64,
-                    another: 1,
-                    exchange: "test".to_string(),
-                };
                 let res = shared.update_another_by_test(AnotherByTestQuery { another: i }, (i + 1) as i64).await;
                 println!("s {:?} {}", res ,i);
                 tokio::time::sleep(Duration::from_micros(5)).await;
@@ -620,17 +632,11 @@ mod tests {
         });
         tokio::time::sleep(Duration::from_micros(20)).await;
         for i in 0..99 {
-            let row = TestRow {
-                id: i,
-                test: (i + 1) as i64,
-                another: 1,
-                exchange: "test".to_string(),
-            };
             let res = table.update_another_by_id(AnotherByIdQuery { another: i }, i.into()).await;
             println!("{:?} {}", res ,i);
             tokio::time::sleep(Duration::from_micros(5)).await;
         }
-        h.await;
+        h.await.unwrap();
     }
 
     #[tokio::test]
@@ -642,7 +648,7 @@ mod tests {
             another: 1,
             exchange: "test".to_string(),
         };
-        let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let pk = table.insert(row.clone()).unwrap();
         let guard = Guard::new();
         let link = *table.0.pk_map.peek(&pk, &guard).unwrap();
         table.delete(pk.clone()).await.unwrap();
@@ -659,7 +665,7 @@ mod tests {
             another: 3,
             exchange: "test".to_string(),
         };
-        let pk = table.insert::<{ TestRow::ROW_SIZE }>(updated.clone()).unwrap();
+        let pk = table.insert(updated.clone()).unwrap();
         let new_link = *table.0.pk_map.peek(&pk, &guard).unwrap();
 
         assert_eq!(link, new_link)
@@ -674,14 +680,14 @@ mod tests {
             another: 1,
             exchange: "test".to_string(),
         };
-        let pk_1 = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let _ = table.insert(row.clone()).unwrap();
         let row = TestRow {
             id: table.get_next_pk().into(),
             test: 2,
             another: 1,
             exchange: "test".to_string(),
         };
-        let pk_2 = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let _ = table.insert(row.clone()).unwrap();
         table.delete_by_another(1).await.unwrap();
         assert_eq!(table.select_all().unwrap().len(), 0)
     }
@@ -695,14 +701,14 @@ mod tests {
             another: 1,
             exchange: "test".to_string(),
         };
-        let pk_1 = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let _ = table.insert(row.clone()).unwrap();
         let row = TestRow {
             id: table.get_next_pk().into(),
             test: 2,
             another: 1,
             exchange: "test".to_string(),
         };
-        let pk_2 = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let _ = table.insert(row.clone()).unwrap();
         table.delete_by_exchange("test".to_string()).await.unwrap();
         assert_eq!(table.select_all().unwrap().len(), 0)
     }
@@ -716,14 +722,14 @@ mod tests {
             another: 1,
             exchange: "test".to_string(),
         };
-        let pk_1 = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let _ = table.insert(row.clone()).unwrap();
         let row = TestRow {
             id: table.get_next_pk().into(),
             test: 2,
             another: 1,
             exchange: "test".to_string(),
         };
-        let pk_2 = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let _ = table.insert(row.clone()).unwrap();
         table.delete_by_test(2).await.unwrap();
         assert_eq!(table.select_all().unwrap().len(), 1)
     }
@@ -737,14 +743,14 @@ mod tests {
             another: 0,
             exchange: "test".to_string(),
         };
-        let _ = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let _ = table.insert(row.clone()).unwrap();
         let row = TestRow {
             id: table.get_next_pk().into(),
             test: 1,
             another: 1,
             exchange: "test1234567890".to_string(),
         };
-        let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let pk = table.insert(row.clone()).unwrap();
         let guard = Guard::new();
         let link = *table.0.pk_map.peek(&pk, &guard).unwrap();
         table.delete(pk.clone()).await.unwrap();
@@ -757,7 +763,7 @@ mod tests {
             another: 3,
             exchange: "test1".to_string(),
         };
-        let pk = table.insert::<{ TestRow::ROW_SIZE }>(updated.clone()).unwrap();
+        let pk = table.insert(updated.clone()).unwrap();
         let new_link = *table.0.pk_map.peek(&pk, &guard).unwrap();
 
         assert_ne!(link, new_link)
@@ -772,14 +778,14 @@ mod tests {
             another: 0,
             exchange: "test1".to_string(),
         };
-        let _ = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let _ = table.insert(row.clone()).unwrap();
         let row = TestRow {
             id: table.get_next_pk().into(),
             test: 1,
             another: 1,
             exchange: "test".to_string(),
         };
-        let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let pk = table.insert(row.clone()).unwrap();
         let guard = Guard::new();
         let link = *table.0.pk_map.peek(&pk, &guard).unwrap();
         table.delete(pk.clone()).await.unwrap();
@@ -792,7 +798,7 @@ mod tests {
             another: 3,
             exchange: "test".to_string(),
         };
-        let pk = table.insert::<{ TestRow::ROW_SIZE }>(updated.clone()).unwrap();
+        let pk = table.insert(updated.clone()).unwrap();
         let new_link = *table.0.pk_map.peek(&pk, &guard).unwrap();
 
         assert_eq!(link, new_link)
@@ -807,14 +813,14 @@ mod tests {
             another: 1,
             exchange: "test".to_string(),
         };
-        table.upsert::<{ TestRow::ROW_SIZE }>(row.clone()).await.unwrap();
+        table.upsert(row.clone()).await.unwrap();
         let updated = TestRow {
             id: row.id,
             test: 2,
             another: 3,
             exchange: "test".to_string(),
         };
-        table.upsert::<{ TestRow::ROW_SIZE }>(updated.clone()).await.unwrap();
+        table.upsert(updated.clone()).await.unwrap();
         let selected_row = table.select(row.id.into()).unwrap();
 
         assert_eq!(selected_row, updated);
@@ -830,8 +836,8 @@ mod tests {
             another: 1,
             exchange: "test".to_string(),
         };
-        let _ = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
-        let res = table.insert::<{ TestRow::ROW_SIZE }>(row.clone());
+        let _ = table.insert(row.clone()).unwrap();
+        let res = table.insert(row.clone());
         assert!(res.is_err())
     }
 
@@ -844,14 +850,14 @@ mod tests {
             another: 1,
             exchange: "test".to_string(),
         };
-        let _ = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let _ = table.insert(row.clone()).unwrap();
         let row = TestRow {
             id: table.get_next_pk().into(),
             test: 1,
             another: 1,
             exchange: "test".to_string(),
         };
-        let res = table.insert::<{ TestRow::ROW_SIZE }>(row.clone());
+        let res = table.insert(row.clone());
         assert!(res.is_err())
     }
 
@@ -864,7 +870,7 @@ mod tests {
             another: 1,
             exchange: "test".to_string(),
         };
-        let _ = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let _ = table.insert(row.clone()).unwrap();
         let selected_rows = table.select_by_exchange("test".to_string()).unwrap();
 
         assert_eq!(selected_rows.len(), 1);
@@ -881,7 +887,7 @@ mod tests {
             another: 1,
             exchange: "test".to_string(),
         };
-        let _ = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let _ = table.insert(row.clone()).unwrap();
         let row_next = TestRow {
             id: table.get_next_pk().into(),
             test: 2,
@@ -889,7 +895,7 @@ mod tests {
             exchange: "test".to_string(),
         };
         let _ = table
-            .insert::<{ TestRow::ROW_SIZE }>(row_next.clone())
+            .insert(row_next.clone())
             .unwrap();
         let selected_rows = table.select_by_exchange("test".to_string()).unwrap();
 
@@ -908,7 +914,7 @@ mod tests {
             another: 1,
             exchange: "test".to_string(),
         };
-        let _ = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let _ = table.insert(row.clone()).unwrap();
         let selected_row = table.select_by_test(1).unwrap();
 
         assert_eq!(selected_row, row);
@@ -924,14 +930,14 @@ mod tests {
             another: 1,
             exchange: "test".to_string(),
         };
-        let _ = table.insert::<{ TestRow::ROW_SIZE }>(row1.clone()).unwrap();
+        let _ = table.insert(row1.clone()).unwrap();
         let row2 = TestRow {
             id: table.get_next_pk().into(),
             test: 2,
             another: 1,
             exchange: "test".to_string(),
         };
-        let _ = table.insert::<{ TestRow::ROW_SIZE }>(row2.clone()).unwrap();
+        let _ = table.insert(row2.clone()).unwrap();
 
         let all = table.select_all().unwrap();
 
@@ -949,14 +955,14 @@ mod tests {
             another: 1,
             exchange: "test".to_string(),
         };
-        let _ = table.insert::<{ TestRow::ROW_SIZE }>(row1.clone()).unwrap();
+        let _ = table.insert(row1.clone()).unwrap();
         let row2 = TestRow {
             id: table.get_next_pk().into(),
             test: 2,
             another: 1,
             exchange: "test".to_string(),
         };
-        let _ = table.insert::<{ TestRow::ROW_SIZE }>(row2.clone()).unwrap();
+        let _ = table.insert(row2.clone()).unwrap();
 
         let row = AnotherByExchangeQuery {
             another: 3
@@ -989,7 +995,7 @@ mod tests {
             another: 1,
             exchange: "test".to_string(),
         };
-        let _ = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let _ = table.insert(row.clone()).unwrap();
 
         let row = AnotherByTestQuery {
             another: 3
@@ -1015,7 +1021,7 @@ mod tests {
             another: 1,
             exchange: "test".to_string(),
         };
-        let pk = table.insert::<{ TestRow::ROW_SIZE }>(row.clone()).unwrap();
+        let pk = table.insert(row.clone()).unwrap();
 
         let row = AnotherByIdQuery {
             another: 3

@@ -20,7 +20,8 @@ impl Generator {
                 }).collect::<Result<Vec<_>, _>>()?;
 
                 Ok::<_, syn::Error>(quote! {
-                    #[derive(Debug, Clone)]
+                    #[derive(rkyv::Archive, Debug, rkyv::Deserialize, Clone, rkyv::Serialize)]
+                    #[repr(C)]
                     pub struct #ident {
                         #(#rows)*
                     }

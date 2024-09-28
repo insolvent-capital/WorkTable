@@ -16,7 +16,6 @@ pub struct LockId(u16);
 
 #[derive(Debug)]
 pub struct Lock {
-    id: LockId,
     locked: AtomicBool,
     waker: AtomicWaker
 }
@@ -35,9 +34,8 @@ impl Future for &Lock {
 }
 
 impl Lock {
-    pub fn new(id: LockId) -> Self {
+    pub fn new() -> Self {
         Self {
-            id,
             locked: AtomicBool::from(true),
             waker: AtomicWaker::new(),
         }

@@ -1,5 +1,5 @@
 use std::fmt::Debug;
-use std::sync::atomic::{AtomicI32, AtomicU32, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
 
 use derive_more::{Display, Error, From};
@@ -9,10 +9,9 @@ use rkyv::{Archive, Deserialize, Serialize};
 
 use crate::in_memory::page;
 use crate::in_memory::page::{DataExecutionError, Link, DATA_INNER_LENGTH};
-use crate::in_memory::row::{GeneralRow, RowWrapper, StorableRow};
+use crate::in_memory::row::{RowWrapper, StorableRow};
 #[cfg(feature = "perf_measurements")]
 use performance_measurement_codegen::performance_measurement;
-use crate::prelude::ArchivedRow;
 
 #[derive(Debug)]
 pub struct DataPages<Row, const DATA_LENGTH: usize = DATA_INNER_LENGTH>
@@ -24,9 +23,6 @@ where
 
     /// Stack with empty [`Link`]s. It stores [`Link`]s of rows that was deleted.
     empty_links: Stack<Link>,
-
-    /// Hint of `Row` size. Available for sized `Row`s.
-    row_size_hint: AtomicI32,
 
     /// Count of saved rows.
     row_count: AtomicU64,
@@ -45,7 +41,6 @@ where
         Self {
             pages: RwLock::new(vec![Arc::new(page::Data::new(0.into()))]),
             empty_links: Stack::new(),
-            row_size_hint: AtomicI32::new(-1),
             row_count: AtomicU64::new(0),
             last_page_id: AtomicU32::new(0),
             current_page: AtomicU32::new(0),
@@ -320,7 +315,7 @@ mod tests {
         let pages = DataPages::<TestRow, 24>::new();
 
         let row = TestRow { a: 10, b: 20 };
-        let link = pages.insert::<16>(row).unwrap();
+        let _ = pages.insert::<16>(row).unwrap();
         let res = pages.insert::<24>(row);
 
         assert!(res.is_ok())
@@ -340,7 +335,7 @@ mod tests {
                 for i in 0..1000 {
                     let row = TestRow { a: i, b: j * i + 1 };
 
-                    pages_shared.insert::<24>(row);
+                    pages_shared.insert::<24>(row).unwrap();
                 }
             });
 

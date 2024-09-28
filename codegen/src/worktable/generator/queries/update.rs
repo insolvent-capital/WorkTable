@@ -30,7 +30,6 @@ impl Generator {
     }
 
     fn gen_full_row_update(&mut self) -> TokenStream {
-
         let row_ident = self.row_name.as_ref().unwrap();
         let row_updates = self.columns.columns_map.keys().map(|i| {
             quote! {
@@ -39,13 +38,13 @@ impl Generator {
         }).collect::<Vec<_>>();
 
         quote! {
-            pub async fn update<const ROW_SIZE_HINT: usize>(&self, row: #row_ident) -> core::result::Result<(), WorkTableError> {
+            pub async fn update(&self, row: #row_ident) -> core::result::Result<(), WorkTableError> {
                 let pk = row.get_primary_key();
                 let op_id = self.0.lock_map.next_id();
-                let lock = std::sync::Arc::new(Lock::new(op_id.into()));
+                let lock = std::sync::Arc::new(Lock::new());
                 self.0.lock_map.insert(op_id.into(), lock.clone());
 
-                let mut bytes = rkyv::to_bytes::<_, ROW_SIZE_HINT>(&row).map_err(|_| WorkTableError::SerializeError)?;
+                let mut bytes = rkyv::to_bytes::<_, { #row_ident::ROW_SIZE }>(&row).map_err(|_| WorkTableError::SerializeError)?;
                 let mut row = unsafe { rkyv::archived_root_mut::<#row_ident>(core::pin::Pin::new(&mut bytes[..])).get_unchecked_mut() };
                 let link = {
                     let guard = Guard::new();
@@ -96,8 +95,7 @@ impl Generator {
             } else {
                 if self.columns.primary_keys.len() == 1 {
                     if self.columns.primary_keys.first().unwrap().to_string() == op.by.to_string() {
-                        let pk_ident = &self.pk.as_ref().unwrap().ident;
-                        Self::gen_pk_update(snake_case_name, name, idents, pk_ident)
+                        self.gen_pk_update(snake_case_name, name, idents)
                     } else {
                         todo!()
                     }
@@ -112,7 +110,9 @@ impl Generator {
         }
     }
 
-    fn gen_pk_update(snake_case_name: String, name: &Ident, idents: &Vec<Ident>, pk_ident: &Ident) -> TokenStream {
+    fn gen_pk_update(&self, snake_case_name: String, name: &Ident, idents: &Vec<Ident>) -> TokenStream {
+        let row_ident = self.row_name.as_ref().unwrap();
+        let pk_ident = &self.pk.as_ref().unwrap().ident;
         let method_ident = Ident::new(format!("update_{snake_case_name}").as_str(), Span::mixed_site());
 
         let query_ident = Ident::new(format!("{name}Query").as_str(), Span::mixed_site());
@@ -123,17 +123,19 @@ impl Generator {
         let verify_ident = Ident::new(format!("verify_{snake_case_name}_lock").as_str(), Span::mixed_site());
         let row_updates = idents.iter().map(|i| {
             quote! {
-                archived.inner.#i = row.#i;
+                std::mem::swap(&mut archived.inner.#i, &mut row.#i);
             }
         }).collect::<Vec<_>>();
 
         quote! {
                 pub async fn #method_ident(&self, row: #query_ident, by: #pk_ident) -> core::result::Result<(), WorkTableError> {
                     let op_id = self.0.lock_map.next_id();
-                    let lock = std::sync::Arc::new(Lock::new(op_id.into()));
+                    let lock = std::sync::Arc::new(Lock::new());
 
                     self.0.lock_map.insert(op_id.into(), lock.clone());
 
+                    let mut bytes = rkyv::to_bytes::<_, { #row_ident::ROW_SIZE }>(&row).map_err(|_| WorkTableError::SerializeError)?;
+                    let mut row = unsafe { rkyv::archived_root_mut::<#row_ident>(core::pin::Pin::new(&mut bytes[..])).get_unchecked_mut() };
                     let link = {
                         let guard = Guard::new();
                         *self.0.pk_map.peek(&by, &guard).ok_or(WorkTableError::NotFound)?
@@ -190,7 +192,7 @@ impl Generator {
         quote! {
                 pub async fn #method_ident(&self, row: #query_ident, by: #by_ident) -> core::result::Result<(), WorkTableError> {
                     let op_id = self.0.lock_map.next_id();
-                    let lock = std::sync::Arc::new(Lock::new(op_id.into()));
+                    let lock = std::sync::Arc::new(Lock::new());
 
                     self.0.lock_map.insert(op_id.into(), lock.clone());
 
@@ -256,7 +258,7 @@ impl Generator {
         quote! {
                 pub async fn #method_ident(&self, row: #query_ident, by: #by_ident) -> core::result::Result<(), WorkTableError> {
                     let op_id = self.0.lock_map.next_id();
-                    let lock = std::sync::Arc::new(Lock::new(op_id.into()));
+                    let lock = std::sync::Arc::new(Lock::new());
 
                     self.0.lock_map.insert(op_id.into(), lock.clone());
 
