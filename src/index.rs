@@ -1,4 +1,9 @@
+use std::sync::Arc;
+
+use scc::TreeIndex;
+
 use crate::in_memory::page::Link;
+use crate::prelude::LockFreeSet;
 use crate::WorkTableError;
 
 pub trait TableIndex<Row> {
@@ -15,4 +20,9 @@ impl<Row> TableIndex<Row> for () {
     fn delete_row(&self, _: Row, _: Link) -> Result<(), WorkTableError> {
         Ok(())
     }
+}
+
+pub enum IndexType<'a, T> {
+    Unique(&'a TreeIndex<T, Link>),
+    NonUnique(&'a TreeIndex<T, Arc<LockFreeSet<Link>>>,)
 }

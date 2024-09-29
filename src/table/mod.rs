@@ -1,3 +1,5 @@
+pub mod select;
+
 use derive_more::{Display, Error, From};
 #[cfg(feature = "perf_measurements")]
 use performance_measurement_codegen::performance_measurement;
@@ -120,6 +122,7 @@ mod tests {
     use worktable_codegen::worktable;
 
     use crate::prelude::*;
+    use crate::select::Order;
 
     worktable! (
         name: Test,
@@ -212,7 +215,6 @@ mod tests {
     mod option {
         use derive_more::From;
         use worktable_codegen::worktable;
-
         use crate::prelude::*;
         use crate::primary_key::TablePrimaryKey;
 
@@ -743,7 +745,7 @@ mod tests {
         };
         let _ = table.insert(row.clone()).unwrap();
         table.delete_by_another(1).await.unwrap();
-        assert_eq!(table.select_all().unwrap().len(), 0)
+        assert_eq!(table.select_all().execute().unwrap().len(), 0)
     }
 
     #[tokio::test]
@@ -764,7 +766,7 @@ mod tests {
         };
         let _ = table.insert(row.clone()).unwrap();
         table.delete_by_exchange("test".to_string()).await.unwrap();
-        assert_eq!(table.select_all().unwrap().len(), 0)
+        assert_eq!(table.select_all().execute().unwrap().len(), 0)
     }
 
     #[tokio::test]
@@ -785,7 +787,7 @@ mod tests {
         };
         let _ = table.insert(row.clone()).unwrap();
         table.delete_by_test(2).await.unwrap();
-        assert_eq!(table.select_all().unwrap().len(), 1)
+        assert_eq!(table.select_all().execute().unwrap().len(), 1)
     }
 
     #[tokio::test]
@@ -993,11 +995,113 @@ mod tests {
         };
         let _ = table.insert(row2.clone()).unwrap();
 
-        let all = table.select_all().unwrap();
+        let all = table.select_all().execute().unwrap();
 
         assert_eq!(all.len(), 2);
         assert_eq!(&all[0], &row1);
         assert_eq!(&all[1], &row2)
+    }
+
+    #[test]
+    fn select_all_limit_test() {
+        let table = TestWorkTable::default();
+        let row1 = TestRow {
+            id: table.get_next_pk().into(),
+            test: 100 - 1,
+            another: 1,
+            exchange: "test".to_string(),
+        };
+        let _ = table.insert(row1.clone()).unwrap();
+        let row2 = TestRow {
+            id: table.get_next_pk().into(),
+            test: 100 - 2,
+            another: 1,
+            exchange: "test".to_string(),
+        };
+        let _ = table.insert(row2.clone()).unwrap();
+        for i in 3..100 {
+            let row = TestRow {
+                id: table.get_next_pk().into(),
+                test: 100 - i,
+                another: 1,
+                exchange: "test".to_string(),
+            };
+            let _ = table.insert(row.clone()).unwrap();
+        }
+
+        let all = table.select_all().limit(2).execute().unwrap();
+
+        assert_eq!(all.len(), 2);
+        assert_eq!(&all[0], &row1);
+        assert_eq!(&all[1], &row2)
+    }
+
+    #[test]
+    fn select_all_order_by_unique_test() {
+        let table = TestWorkTable::default();
+        let row1 = TestRow {
+            id: table.get_next_pk().into(),
+            test: 1,
+            another: 1,
+            exchange: "test".to_string(),
+        };
+        let _ = table.insert(row1.clone()).unwrap();
+        let row2 = TestRow {
+            id: table.get_next_pk().into(),
+            test: 2,
+            another: 1,
+            exchange: "test".to_string(),
+        };
+        let _ = table.insert(row2.clone()).unwrap();
+        for i in 3..100 {
+            let row = TestRow {
+                id: table.get_next_pk().into(),
+                test: i,
+                another: 1,
+                exchange: "test".to_string(),
+            };
+            let _ = table.insert(row.clone()).unwrap();
+        }
+
+        let all = table.select_all().order_by(Order::Asc, "test").limit(2).execute().unwrap();
+
+        assert_eq!(all.len(), 2);
+        assert_eq!(&all[0].test, &1);
+        assert_eq!(&all[1].test, &2)
+    }
+
+    #[test]
+    fn select_all_order_by_non_unique_test() {
+        let table = TestWorkTable::default();
+        let row1 = TestRow {
+            id: table.get_next_pk().into(),
+            test: 1,
+            another: 3,
+            exchange: "c_test".to_string(),
+        };
+        let _ = table.insert(row1.clone()).unwrap();
+        let row2 = TestRow {
+            id: table.get_next_pk().into(),
+            test: 2,
+            another: 2,
+            exchange: "b_test".to_string(),
+        };
+        let _ = table.insert(row2.clone()).unwrap();
+        for i in 3..100 {
+            let row = TestRow {
+                id: table.get_next_pk().into(),
+                test: i,
+                another: 1,
+                exchange: "a_test".to_string(),
+            };
+            let _ = table.insert(row.clone()).unwrap();
+        }
+
+        let all = table.select_all().order_by(Order::Asc, "exchange").limit(2).execute().unwrap();
+
+        assert_eq!(all.len(), 2);
+        assert_eq!(&all[0].exchange, &"a_test".to_string());
+        assert_eq!(&all[1].exchange, &"a_test".to_string())
     }
 
     #[tokio::test]
@@ -1023,7 +1127,7 @@ mod tests {
         };
         table.update_another_by_exchange(row, "test".to_string()).await.unwrap();
 
-        let all = table.select_all().unwrap();
+        let all = table.select_all().execute().unwrap();
 
         assert_eq!(all.len(), 2);
         assert_eq!(&all[0], &TestRow {

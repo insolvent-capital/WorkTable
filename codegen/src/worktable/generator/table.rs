@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use proc_macro2::{Ident, Span, TokenStream};
+use proc_macro2::{Ident, Literal, Span, TokenStream};
 use quote::quote;
 
 use crate::worktable::generator::Generator;
@@ -19,7 +19,6 @@ impl Generator {
         let pk_type = &self.pk.as_ref().unwrap().ident;
         let index_type = self.index_name.as_ref().unwrap();
 
-
         let get_next = match self.columns.generator_type {
             GeneratorType::Custom |
             GeneratorType::Autoincrement => {
@@ -36,6 +35,7 @@ impl Generator {
 
         let iter_with = Self::gen_iter_with();
         let iter_with_async = Self::gen_iter_with_async();
+        let select_executor = self.gen_select_executor();
 
         quote! {
             #[derive(Debug, Default)]
@@ -73,6 +73,100 @@ impl Generator {
                 #iter_with
 
                 #iter_with_async
+            }
+
+            #select_executor
+        }
+    }
+
+    pub fn gen_select_executor(&self) -> TokenStream {
+        let row_type = self.row_name.as_ref().unwrap();
+        let name = &self.name;
+        let ident = Ident::new(format!("{}WorkTable", name).as_str(), Span::mixed_site());
+
+        let columns = self.columns.columns_map.iter().map(|(name, _)| {
+            let lit = Literal::string(name.to_string().as_str());
+            if let Some(index) = self.columns.indexes.get(&name) {
+                let idx_name = &index.name;
+                if index.is_unique {
+                    quote! {
+                        #lit => {
+                            let mut limit = q.limit.unwrap_or(usize::MAX);
+                            let guard = Guard::new();
+                            let mut iter = self.0.indexes.#idx_name.iter(&guard);
+                            let mut rows = vec![];
+
+                            while let Some((_, l)) = iter.next() {
+                                let next = self.0.data.select(*l).map_err(WorkTableError::PagesError)?;
+                                rows.push(next);
+                                limit -= 1;
+                                if limit == 0 {
+                                    break
+                                }
+                            }
+
+                            Ok(rows)
+                        },
+                    }
+                } else {
+                    quote! {
+                        #lit => {
+                            let mut limit = q.limit.unwrap_or(usize::MAX);
+                            let guard = Guard::new();
+                            let mut iter = self.0.indexes.#idx_name.iter(&guard);
+                            let mut rows = vec![];
+
+                            while let Some((_, links)) = iter.next() {
+                                for l in links.iter() {
+                                    let next = self.0.data.select(*l.as_ref()).map_err(WorkTableError::PagesError)?;
+                                    rows.push(next);
+                                    limit -= 1;
+                                    if limit == 0 {
+                                        break
+                                    }
+                                }
+                                if limit == 0 {
+                                    break
+                                }
+                            }
+
+                            Ok(rows)
+                        }
+                    }
+                }
+            } else {
+                quote! {
+                    #lit => todo!(),
+                }
+            }
+        }).collect::<Vec<_>>();
+
+        quote! {
+            impl SelectQueryExecutor<'_, #row_type> for #ident {
+                fn execute(&self, q: SelectQueryBuilder<#row_type, Self>) -> Result<Vec<#row_type>, WorkTableError> {
+                    if q.column == "".to_string() {
+                        let mut limit = q.limit.unwrap_or(usize::MAX);
+                        let guard = Guard::new();
+                        let mut iter = self.0.pk_map.iter(&guard);
+                        let mut rows = vec![];
+
+                        while let Some((_, l)) = iter.next() {
+                            let next = self.0.data.select(*l).map_err(WorkTableError::PagesError)?;
+                            rows.push(next);
+                            limit -= 1;
+                            if limit == 0 {
+                                break
+                            }
+                        }
+
+                        Ok(rows)
+                    } else {
+                        match q.column.as_str() {
+                            #(#columns)*
+                            _ => unreachable!()
+                        }
+                    }
+                }
             }
         }
     }

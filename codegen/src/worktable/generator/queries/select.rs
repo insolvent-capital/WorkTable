@@ -18,11 +18,8 @@ impl Generator {
         let row_ident = self.row_name.as_ref().unwrap();
 
         quote! {
-            pub fn select_all(&self) -> core::result::Result<Vec<#row_ident>, WorkTableError> {
-                let guard = Guard::new();
-                self.0.pk_map.iter(&guard).map(|(_,l)| {
-                    self.0.data.select(*l).map_err(WorkTableError::PagesError)
-                }).collect::<core::result::Result<Vec<_>, _>>()
+            pub fn select_all<'a>(&'a self) -> SelectQueryBuilder<'a, #row_ident, Self> {
+                SelectQueryBuilder::new(&self)
             }
         }
     }
