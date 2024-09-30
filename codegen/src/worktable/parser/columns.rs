@@ -83,7 +83,7 @@ impl Parser {
                 self.input_iter.next();
                 true
             } else {
-                return Err(syn::Error::new(index.span(), "Unexpected identifier."));
+                false
             }
         } else {
             false
@@ -97,10 +97,21 @@ impl Parser {
                 self.input_iter.next();
                 GeneratorType::Custom
             } else {
-                return Err(syn::Error::new(index.span(), "Unexpected identifier."));
+                GeneratorType::None
             }
         } else {
             GeneratorType::None
+        };
+
+        let optional = if let Some(TokenTree::Ident(option)) = self.input_iter.peek() {
+            if option.to_string().as_str() == "optional" {
+                self.input_iter.next();
+                true
+            } else {
+                return Err(syn::Error::new(option.span(), "Unexpected identifier."));
+            }
+        } else {
+            false
         };
 
         self.try_parse_comma()?;
@@ -110,6 +121,7 @@ impl Parser {
             type_,
             is_primary_key,
             gen_type,
+            optional
         })
     }
 }
@@ -135,7 +147,7 @@ mod tests {
         assert!(columns.is_ok());
         let columns = columns.unwrap();
 
-        assert_eq!(columns.primary_keys.to_string(), "id");
+        assert_eq!(columns.primary_keys[0].to_string(), "id");
 
         let map: HashMap<_, _> = columns
             .columns_map
@@ -158,7 +170,7 @@ mod tests {
         assert!(columns.is_ok());
         let columns = columns.unwrap();
 
-        assert_eq!(columns.primary_keys.to_string(), "id");
+        assert_eq!(columns.primary_keys[0].to_string(), "id");
 
         let map: HashMap<_, _> = columns
             .columns_map
@@ -167,6 +179,28 @@ mod tests {
             .collect();
         assert_eq!(map.get("id"), Some(&"i64".to_string()));
         assert_eq!(map.get("test"), Some(&"u64".to_string()));
+    }
+
+    #[test]
+    fn test_columns_parse_optional() {
+        let tokens = TokenStream::from(quote! {columns: {
+            id: i64 primary_key,
+            test: u64 optional,
+        }});
+        let mut parser = Parser::new(tokens);
+        let columns = parser.parse_columns();
+
+        let columns = columns.unwrap();
+
+        assert_eq!(columns.primary_keys[0].to_string(), "id");
+
+        let map: HashMap<_, _> = columns
+            .columns_map
+            .into_iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect();
+        assert_eq!(map.get("id"), Some(&"i64".to_string()));
+        assert_eq!(map.get("test"),  Some(&"core :: option :: Option < u64 >".to_string()));
     }
 
     #[test]
@@ -181,7 +215,7 @@ mod tests {
 
         let columns = columns.unwrap();
 
-        assert_eq!(columns.primary_keys.to_string(), "id");
+        assert_eq!(columns.primary_keys[0].to_string(), "id");
 
         let map: HashMap<_, _> = columns
             .columns_map
@@ -269,6 +303,23 @@ mod tests {
 
             assert_eq!(row.name.to_string(), "id");
             assert_eq!(row.type_.to_string(), "i64");
+            assert!(!row.is_primary_key)
+        }
+
+        #[test]
+        fn test_row_parse_optional() {
+            let row_tokens = TokenStream::from(quote! {id: i64 optional});
+            let iter = &mut row_tokens.clone().into_iter();
+
+            let mut parser = Parser::new(row_tokens);
+            let row = parser.parse_row();
+
+            assert!(row.is_ok());
+            let row = row.unwrap();
+
+            assert_eq!(row.name.to_string(), "id");
+            assert_eq!(row.type_.to_string(), "i64");
+            assert!(row.optional);
             assert!(!row.is_primary_key)
         }
     }

@@ -206,7 +206,7 @@ impl Generator {
     fn gen_unique_index_fn(
         i: &Ident,
         idx: &Index,
-        columns_map: &HashMap<Ident, Ident>,
+        columns_map: &HashMap<Ident, TokenStream>,
         row_ident: Ident,
     ) -> syn::Result<TokenStream> {
         let type_ = columns_map
@@ -227,7 +227,7 @@ impl Generator {
     fn gen_non_unique_index_fn(
         i: &Ident,
         idx: &Index,
-        columns_map: &HashMap<Ident, Ident>,
+        columns_map: &HashMap<Ident, TokenStream>,
         row_ident: Ident,
     ) -> syn::Result<TokenStream> {
         let type_ = columns_map

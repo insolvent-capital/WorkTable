@@ -1,6 +1,8 @@
 use std::collections::HashMap;
+
 use crate::worktable::generator::Generator;
 use crate::worktable::model::{GeneratorType, PrimaryKey};
+
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
@@ -35,8 +37,8 @@ impl Generator {
                 }
             }
             GeneratorType::Autoincrement => {
-                let type_ = vals.values().next().unwrap();
-                let gen = Self::gen_from_type(type_)?;
+                let (i, type_) = vals.iter().next().unwrap();
+                let gen = Self::gen_from_type(type_, i)?;
                 quote! {
                     impl TablePrimaryKey for #ident {
                         type Generator = #gen;
@@ -57,7 +59,7 @@ impl Generator {
         })
     }
 
-    fn gen_from_type(type_: &Ident) -> syn::Result<TokenStream> {
+    fn gen_from_type(type_: &TokenStream, i: &Ident) -> syn::Result<TokenStream> {
         Ok(match type_.to_string().as_str() {
             "u8" => quote! { std::sync::atomic::AtomicU8 },
             "u16" => quote! { std::sync::atomic::AtomicU16 },
@@ -67,7 +69,7 @@ impl Generator {
             "i16" => quote! { std::sync::atomic::AtomicI16 },
             "i32" => quote! { std::sync::atomic::AtomicI32 },
             "i64" => quote! { std::sync::atomic::AtomicI64 },
-            _ => return Err(syn::Error::new(type_.span(), "Type isa not supported for autoincrement"))
+            _ => return Err(syn::Error::new(i.span(), "Type is not supported for autoincrement"))
         })
     }
 }
@@ -95,7 +97,7 @@ mod tests {
         let pk_def = generator.gen_pk_def();
 
         assert_eq!(generator.pk.unwrap().ident.to_string(), "TestPrimaryKey");
-        assert_eq!(pk_def.to_string(), "pub type TestPrimaryKey = i64 ;");
+        assert_eq!(pk_def.unwrap().to_string(), "pub type TestPrimaryKey = i64 ;");
     }
 
     #[test]
@@ -114,7 +116,7 @@ mod tests {
 
         assert_eq!(generator.pk.unwrap().ident.to_string(), "TestPrimaryKey");
         assert_eq!(
-            pk_def.to_string(),
+            pk_def.unwrap().to_string(),
             "pub type TestPrimaryKey = (i64 , u64) ;"
         );
     }

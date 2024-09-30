@@ -218,13 +218,11 @@ mod tests {
         use crate::prelude::*;
         use crate::primary_key::TablePrimaryKey;
 
-        type NullableU64 = Option<u64>;
-
         worktable! (
             name: Test,
             columns: {
                 id: u64 primary_key autoincrement,
-                test: NullableU64,
+                test: u64 optional,
                 another: u64,
                 exchange: i32,
             },

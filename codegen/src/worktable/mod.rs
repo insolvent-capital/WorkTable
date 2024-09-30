@@ -89,6 +89,6 @@ mod test {
         }
         };
 
-        let res = expand(tokens).unwrap();
+        let _ = expand(tokens).unwrap();
     }
 }

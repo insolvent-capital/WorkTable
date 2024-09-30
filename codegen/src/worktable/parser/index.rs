@@ -122,9 +122,9 @@ impl Parser {
 
 #[cfg(test)]
 mod tests {
-    use crate::worktable::model::Index;
     use crate::worktable::Parser;
-    use proc_macro2::{Ident, Span, TokenStream};
+
+    use proc_macro2::TokenStream;
     use quote::quote;
 
     #[test]

@@ -8,6 +8,7 @@ Change Log
 - `SelectQueryBuilder` object that is used to customize `select_all` query. It has `limit` and `order_by` methods that 
 can be used to limit returned row's count. `order_by` has not full functionality and is only available for indexed columns
 and only `Oreder::Asc`.
+- added `optional` column attribute instead of explicit `Option` type declaration.
 
 ### BC Breaks
 

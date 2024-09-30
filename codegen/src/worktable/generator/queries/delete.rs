@@ -80,7 +80,7 @@ impl Generator {
         }
     }
 
-    fn gen_brute_force_delete_field(field: &Ident, type_: &Ident, name: &Ident) -> TokenStream {
+    fn gen_brute_force_delete_field(field: &Ident, type_: &TokenStream, name: &Ident) -> TokenStream {
         quote! {
             pub async fn #name(&self, by: #type_) -> core::result::Result<(), WorkTableError> {
                 self.iter_with_async(|row| {
@@ -99,7 +99,7 @@ impl Generator {
         }
     }
 
-    fn gen_non_unique_delete(type_: &Ident, name: &Ident, index: &Ident, ) -> TokenStream {
+    fn gen_non_unique_delete(type_: &TokenStream, name: &Ident, index: &Ident, ) -> TokenStream {
         quote! {
             pub async fn #name(&self, by: #type_) -> core::result::Result<(), WorkTableError> {
                 let rows_to_update = {
@@ -117,7 +117,7 @@ impl Generator {
         }
     }
 
-    fn gen_unique_delete(type_: &Ident, name: &Ident, index: &Ident, ) -> TokenStream {
+    fn gen_unique_delete(type_: &TokenStream, name: &Ident, index: &Ident, ) -> TokenStream {
         quote! {
             pub async fn #name(&self, by: #type_) -> core::result::Result<(), WorkTableError> {
                 let row_to_update = {
