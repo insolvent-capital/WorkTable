@@ -34,8 +34,8 @@ impl Generator {
         };
 
         let iter_with = Self::gen_iter_with();
-        let iter_with_async = Self::gen_iter_with_async();
-        let select_executor = self.gen_select_executor();
+        let iter_with_async = Self::gen_iter_with_async(row_type);
+        let select_executor = self.gen_select_executor(row_type);
 
         quote! {
             #[derive(Debug, Default)]
@@ -254,9 +254,9 @@ impl Generator {
         })
     }
 
-    fn gen_iter_with() -> TokenStream {
+    fn gen_iter_with(row: &Ident) -> TokenStream {
         quote! {
-            pub fn iter_with<F: Fn(TestRow) -> core::result::Result<(), WorkTableError>>(&self, f: F) -> core::result::Result<(), WorkTableError> {
+            pub fn iter_with<F: Fn(#row) -> core::result::Result<(), WorkTableError>>(&self, f: F) -> core::result::Result<(), WorkTableError> {
                 let first = {
                     let guard = Guard::new();
                     self.0.pk_map.iter(&guard).next().map(|(k, v)| (k.clone(), *v))
@@ -294,9 +294,9 @@ impl Generator {
         }
     }
 
-    fn gen_iter_with_async() -> TokenStream {
+    fn gen_iter_with_async(row: &Ident) -> TokenStream {
         quote! {
-            pub async fn iter_with_async<F: Fn(TestRow) -> Fut , Fut: std::future::Future<Output = core::result::Result<(), WorkTableError>>>(&self, f: F) ->core::result::Result<(), WorkTableError> {
+            pub async fn iter_with_async<F: Fn(#row) -> Fut , Fut: std::future::Future<Output = core::result::Result<(), WorkTableError>>>(&self, f: F) ->core::result::Result<(), WorkTableError> {
                 let first = {
                     let guard = Guard::new();
                     self.0.pk_map.iter(&guard).next().map(|(k, v)| (k.clone(), *v))
