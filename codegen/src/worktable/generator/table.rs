@@ -33,9 +33,9 @@ impl Generator {
             }
         };
 
-        let iter_with = Self::gen_iter_with();
+        let iter_with = Self::gen_iter_with(row_type);
         let iter_with_async = Self::gen_iter_with_async(row_type);
-        let select_executor = self.gen_select_executor(row_type);
+        let select_executor = self.gen_select_executor();
 
         quote! {
             #[derive(Debug, Default)]
