@@ -9,6 +9,7 @@ Change Log
 can be used to limit returned row's count. `order_by` has not full functionality and is only available for indexed columns
 and only `Oreder::Asc`.
 - added `optional` column attribute instead of explicit `Option` type declaration.
+- support for enums in queries
 
 ### BC Breaks
 
