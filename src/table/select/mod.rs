@@ -15,5 +15,6 @@ pub enum Order {
 #[derive(Debug, Default, Clone)]
 pub struct QueryParams {
     pub limit: Option<usize>,
+    pub offset: Option<usize>,
     pub orders: VecDeque<(Order, String)>,
 }

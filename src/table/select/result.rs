@@ -30,6 +30,11 @@ where W: SelectResultExecutor<Row>
         self
     }
 
+    pub fn offset(mut self, offset: usize) -> Self {
+        self.params.offset = Some(offset);
+        self
+    }
+
     pub fn limit(mut self, limit: usize) -> Self {
         self.params.limit = Some(limit);
         self

@@ -31,6 +31,11 @@ impl<'a, Row, W> SelectQueryBuilder<'a, Row, W>
         self
     }
 
+    pub fn offset(mut self, offset: usize) -> Self {
+        self.params.offset = Some(offset);
+        self
+    }
+
     pub fn order_by<S: Into<String>>(mut self, order: Order, column: S) -> Self {
         self.params.orders.push_back((order, column.into()));
         self

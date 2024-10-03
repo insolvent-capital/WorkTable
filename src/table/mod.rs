@@ -1060,6 +1060,32 @@ mod tests {
     }
 
     #[test]
+    fn select_all_offset_test() {
+        let table = TestWorkTable::default();
+        let row1 = TestRow {
+            id: table.get_next_pk().into(),
+            test: 100 - 1,
+            another: 1,
+            exchange: "test".to_string(),
+        };
+        let _ = table.insert(row1.clone()).unwrap();
+        let row2 = TestRow {
+            id: table.get_next_pk().into(),
+            test: 100 - 2,
+            another: 1,
+            exchange: "test".to_string(),
+        };
+        let _ = table.insert(row2.clone()).unwrap();
+
+        let all = table.select_all().offset(1).execute().unwrap();
+        assert_eq!(all.len(), 1);
+        assert_eq!(&all[0], &row2);
+
+        let all = table.select_all().offset(2).execute().unwrap();
+        assert_eq!(all.len(), 0);
+    }
+
+    #[test]
     fn select_all_order_by_unique_test() {
         let table = TestWorkTable::default();
         let row1 = TestRow {
@@ -1199,6 +1225,44 @@ mod tests {
         assert_eq!(&all[1].test, &98);
         assert_eq!(&all[2].exchange, &"c_test".to_string());
         assert_eq!(&all[2].test, &97)
+    }
+
+    #[test]
+    fn select_by_offset_test() {
+        let table = TestWorkTable::default();
+        let row1 = TestRow {
+            id: table.get_next_pk().into(),
+            test: 1,
+            another: 3,
+            exchange: "a_test".to_string(),
+        };
+        let _ = table.insert(row1.clone()).unwrap();
+        let row2 = TestRow {
+            id: table.get_next_pk().into(),
+            test: 2,
+            another: 2,
+            exchange: "b_test".to_string(),
+        };
+        let _ = table.insert(row2.clone()).unwrap();
+        for i in 3..100 {
+            let row = TestRow {
+                id: table.get_next_pk().into(),
+                test: i,
+                another: 1,
+                exchange: "c_test".to_string(),
+            };
+            let _ = table.insert(row.clone()).unwrap();
+        }
+
+        let all = table.select_by_exchange("c_test".to_string()).unwrap().order_by(Order::Desc, "test").offset(10).limit(3).execute();
+
+        assert_eq!(all.len(), 3);
+        assert_eq!(&all[0].exchange, &"c_test".to_string());
+        assert_eq!(&all[0].test, &89);
+        assert_eq!(&all[1].exchange, &"c_test".to_string());
+        assert_eq!(&all[1].test, &88);
+        assert_eq!(&all[2].exchange, &"c_test".to_string());
+        assert_eq!(&all[2].test, &87)
     }
 
     #[tokio::test]

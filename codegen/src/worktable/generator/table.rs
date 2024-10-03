@@ -125,11 +125,14 @@ impl Generator {
                         }
                     }
                     q.vals.sort_by(sort);
+
+                    let offset = q.params.offset.unwrap_or(0);
+                    let mut vals = q.vals.as_slice()[offset..].to_vec();
                     if let Some(l) = q.params.limit {
-                        q.vals.truncate(l);
-                        q.vals
+                        vals.truncate(l);
+                        vals
                     } else {
-                        q.vals
+                        vals
                     }
 
                 }
@@ -150,11 +153,18 @@ impl Generator {
                     quote! {
                         #lit => {
                             let mut limit = q.params.limit.unwrap_or(usize::MAX);
+                            let mut offset = q.params.offset.unwrap_or(0);
                             let guard = Guard::new();
                             let mut iter = self.0.indexes.#idx_name.iter(&guard);
                             let mut rows = vec![];
 
                             while let Some((_, l)) = iter.next() {
+                                if q.params.orders.len() < 2 {
+                                    if offset != 0 {
+                                        offset -= 1;
+                                        continue;
+                                    }
+                                }
                                 let next = self.0.data.select(*l).map_err(WorkTableError::PagesError)?;
                                 rows.push(next);
                                 if q.params.orders.len() < 2 {
@@ -172,12 +182,19 @@ impl Generator {
                     quote! {
                         #lit => {
                             let mut limit = q.params.limit.unwrap_or(usize::MAX);
+                            let mut offset = q.params.offset.unwrap_or(0);
                             let guard = Guard::new();
                             let mut iter = self.0.indexes.#idx_name.iter(&guard);
                             let mut rows = vec![];
 
                             while let Some((_, links)) = iter.next() {
                                 for l in links.iter() {
+                                    if q.params.orders.len() < 2 {
+                                        if offset != 0 {
+                                            offset -= 1;
+                                            continue;
+                                        }
+                                    }
                                     let next = self.0.data.select(*l.as_ref()).map_err(WorkTableError::PagesError)?;
                                     rows.push(next);
                                     if q.params.orders.len() < 2 {
@@ -208,11 +225,16 @@ impl Generator {
                 fn execute(&self, mut q: SelectQueryBuilder<#row_type, Self>) -> Result<Vec<#row_type>, WorkTableError> {
                     if q.params.orders.is_empty() {
                         let mut limit = q.params.limit.unwrap_or(usize::MAX);
+                        let mut offset = q.params.offset.unwrap_or(0);
                         let guard = Guard::new();
                         let mut iter = self.0.pk_map.iter(&guard);
                         let mut rows = vec![];
 
                         while let Some((_, l)) = iter.next() {
+                            if offset != 0 {
+                                offset -= 1;
+                                continue;
+                            }
                             let next = self.0.data.select(*l).map_err(WorkTableError::PagesError)?;
                             rows.push(next);
                             if q.params.orders.len() < 2 {

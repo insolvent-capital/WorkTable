@@ -9,7 +9,8 @@ Change Log
 can be used to limit returned row's count. `order_by` has not full functionality and is only available for indexed columns
 and only `Oreder::Asc`.
 - `SelectResult` object with is partially same to `SelectQueryBuilder`. It allows to limit/order returned rows. Both 
-- `Oreder::Asc` and `Oreder::Desc` are available. No issues with not indexed columns.
+`Oreder::Asc` and `Oreder::Desc` are available. No issues with not indexed columns.
+- added `offset` for `SelectQueryBuilder` and `SelectResult`.
 - added `optional` column attribute instead of explicit `Option` type declaration.
 - support for enums in queries
 
