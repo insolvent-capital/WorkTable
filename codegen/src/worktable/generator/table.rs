@@ -36,6 +36,7 @@ impl Generator {
         let iter_with = Self::gen_iter_with(row_type);
         let iter_with_async = Self::gen_iter_with_async(row_type);
         let select_executor = self.gen_select_executor();
+        let select_result_executor = self.gen_select_result_executor();
 
         quote! {
             #[derive(Debug, Default)]
@@ -76,6 +77,63 @@ impl Generator {
             }
 
             #select_executor
+
+            #select_result_executor
+        }
+    }
+
+    pub fn gen_select_result_executor(&self) -> TokenStream {
+        let row_type = self.row_name.as_ref().unwrap();
+        let name = &self.name;
+        let ident = Ident::new(format!("{}WorkTable", name).as_str(), Span::mixed_site());
+
+        let columns = self.columns.columns_map.iter().map(|(name, _)| {
+            let lit = Literal::string(name.to_string().as_str());
+            quote! {
+                #lit => {
+                    sort = Box::new(move |left, right| {match sort(left, right) {
+                        std::cmp::Ordering::Equal => {
+                            match q {
+                                Order::Asc => {
+                                    (&left.#name).partial_cmp(&right.#name).unwrap()
+                                },
+                                Order::Desc => {
+                                    (&right.#name).partial_cmp(&left.#name).unwrap()
+                                }
+                            }
+                        },
+                        std::cmp::Ordering::Less => {
+                            std::cmp::Ordering::Less
+                        },
+                        std::cmp::Ordering::Greater => {
+                            std::cmp::Ordering::Greater
+                        },
+                    }});
+                }
+            }
+        }).collect::<Vec<_>>();
+
+        quote! {
+            impl SelectResultExecutor<#row_type> for #ident {
+                fn execute(mut q: SelectResult<#row_type, Self>) -> Vec<#row_type> {
+                    let mut sort: Box<dyn Fn(&#row_type, &#row_type) ->  std::cmp::Ordering> = Box::new(|left: &#row_type, right: &#row_type| { std::cmp::Ordering::Equal });
+                    while let Some((q, col)) = q.params.orders.pop_front() {
+                        println!("{:?} {:?}", q, col);
+                        match col.as_str() {
+                            #(#columns)*
+                            _ => unreachable!()
+                        }
+                    }
+                    q.vals.sort_by(sort);
+                    if let Some(l) = q.params.limit {
+                        q.vals.truncate(l);
+                        q.vals
+                    } else {
+                        q.vals
+                    }
+
+                }
+            }
         }
     }
 
@@ -91,7 +149,7 @@ impl Generator {
                 if index.is_unique {
                     quote! {
                         #lit => {
-                            let mut limit = q.limit.unwrap_or(usize::MAX);
+                            let mut limit = q.params.limit.unwrap_or(usize::MAX);
                             let guard = Guard::new();
                             let mut iter = self.0.indexes.#idx_name.iter(&guard);
                             let mut rows = vec![];
@@ -99,19 +157,21 @@ impl Generator {
                             while let Some((_, l)) = iter.next() {
                                 let next = self.0.data.select(*l).map_err(WorkTableError::PagesError)?;
                                 rows.push(next);
-                                limit -= 1;
-                                if limit == 0 {
-                                    break
+                                if q.params.orders.len() < 2 {
+                                    limit -= 1;
+                                    if limit == 0 {
+                                        break
+                                    }
                                 }
                             }
 
-                            Ok(rows)
+                            rows
                         },
                     }
                 } else {
                     quote! {
                         #lit => {
-                            let mut limit = q.limit.unwrap_or(usize::MAX);
+                            let mut limit = q.params.limit.unwrap_or(usize::MAX);
                             let guard = Guard::new();
                             let mut iter = self.0.indexes.#idx_name.iter(&guard);
                             let mut rows = vec![];
@@ -120,9 +180,11 @@ impl Generator {
                                 for l in links.iter() {
                                     let next = self.0.data.select(*l.as_ref()).map_err(WorkTableError::PagesError)?;
                                     rows.push(next);
-                                    limit -= 1;
-                                    if limit == 0 {
-                                        break
+                                    if q.params.orders.len() < 2 {
+                                        limit -= 1;
+                                        if limit == 0 {
+                                            break
+                                        }
                                     }
                                 }
                                 if limit == 0 {
@@ -130,7 +192,7 @@ impl Generator {
                                 }
                             }
 
-                            Ok(rows)
+                            rows
                         }
                     }
                 }
@@ -143,9 +205,9 @@ impl Generator {
 
         quote! {
             impl SelectQueryExecutor<'_, #row_type> for #ident {
-                fn execute(&self, q: SelectQueryBuilder<#row_type, Self>) -> Result<Vec<#row_type>, WorkTableError> {
-                    if q.column == "".to_string() {
-                        let mut limit = q.limit.unwrap_or(usize::MAX);
+                fn execute(&self, mut q: SelectQueryBuilder<#row_type, Self>) -> Result<Vec<#row_type>, WorkTableError> {
+                    if q.params.orders.is_empty() {
+                        let mut limit = q.params.limit.unwrap_or(usize::MAX);
                         let guard = Guard::new();
                         let mut iter = self.0.pk_map.iter(&guard);
                         let mut rows = vec![];
@@ -153,18 +215,23 @@ impl Generator {
                         while let Some((_, l)) = iter.next() {
                             let next = self.0.data.select(*l).map_err(WorkTableError::PagesError)?;
                             rows.push(next);
-                            limit -= 1;
-                            if limit == 0 {
-                                break
+                            if q.params.orders.len() < 2 {
+                                limit -= 1;
+                                if limit == 0 {
+                                    break
+                                }
                             }
                         }
 
                         Ok(rows)
                     } else {
-                        match q.column.as_str() {
+                        let (order, column) = q.params.orders.pop_front().unwrap();
+                        q.params.orders.push_front((order, column.clone()));
+                        let rows = match column.as_str() {
                             #(#columns)*
                             _ => unreachable!()
-                        }
+                        };
+                        core::result::Result::Ok(SelectResult::<_, Self>::new(rows).with_params(q.params).execute())
                     }
                 }
             }
@@ -237,8 +304,8 @@ impl Generator {
         let field_ident = &idx.name;
 
         Ok(quote! {
-            pub fn #fn_name(&self, by: #type_) -> core::result::Result<Vec<#row_ident>, WorkTableError> {
-                {
+            pub fn #fn_name(&self, by: #type_) -> core::result::Result<SelectResult<#row_ident, Self>, WorkTableError> {
+                let rows = {
                     let guard = Guard::new();
                     self.0.indexes.#field_ident
                         .peek(&by, &guard)
@@ -249,7 +316,8 @@ impl Generator {
                 }.iter().map(|link| {
                     self.0.data.select(*link).map_err(WorkTableError::PagesError)
                 })
-                .collect()
+                .collect::<Result<Vec<_>, _>>()?;
+                core::result::Result::Ok(SelectResult::<#row_ident, Self>::new(rows))
             }
         })
     }

@@ -23,7 +23,7 @@ pub mod prelude {
         in_memory::page::Link, TableIndex, TableRow, WorkTable,
         WorkTableError, lock::Lock
     };
-    pub use table::select::{SelectQueryExecutor, SelectQueryBuilder};
+    pub use table::select::{SelectQueryExecutor, SelectQueryBuilder, SelectResult, SelectResultExecutor, Order};
     pub use derive_more::{From, Into};
     pub use lockfree::set::Set as LockFreeSet;
     pub use scc::{ebr::Guard, tree_index::TreeIndex};

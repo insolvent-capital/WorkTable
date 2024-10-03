@@ -119,6 +119,7 @@ pub enum WorkTableError {
 mod tests {
     use std::sync::Arc;
     use std::time::Duration;
+
     use worktable_codegen::worktable;
 
     use crate::prelude::*;
@@ -373,7 +374,7 @@ mod tests {
         use crate::prelude::*;
         use crate::primary_key::TablePrimaryKey;
 
-        #[derive(Archive, Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
+        #[derive(Archive, Clone, Copy, Debug, Deserialize, Serialize, PartialEq, PartialOrd)]
         #[archive(compare(PartialEq))]
         #[archive_attr(derive(Debug))]
         pub enum SomeEnum {
@@ -735,7 +736,7 @@ mod tests {
         let selected_row = table.select_by_test(1);
         assert!(selected_row.is_none());
         let selected_row = table.select_by_exchange("test".to_string()).unwrap();
-        assert!(selected_row.is_empty());
+        assert!(selected_row.execute().is_empty());
 
         let updated = TestRow {
             id: table.get_next_pk().into(),
@@ -949,7 +950,7 @@ mod tests {
             exchange: "test".to_string(),
         };
         let _ = table.insert(row.clone()).unwrap();
-        let selected_rows = table.select_by_exchange("test".to_string()).unwrap();
+        let selected_rows = table.select_by_exchange("test".to_string()).unwrap().execute();
 
         assert_eq!(selected_rows.len(), 1);
         assert!(selected_rows.contains(&row));
@@ -975,7 +976,7 @@ mod tests {
         let _ = table
             .insert(row_next.clone())
             .unwrap();
-        let selected_rows = table.select_by_exchange("test".to_string()).unwrap();
+        let selected_rows = table.select_by_exchange("test".to_string()).unwrap().execute();
 
         assert_eq!(selected_rows.len(), 2);
         assert!(selected_rows.contains(&row));
@@ -1124,6 +1125,80 @@ mod tests {
         assert_eq!(all.len(), 2);
         assert_eq!(&all[0].exchange, &"a_test".to_string());
         assert_eq!(&all[1].exchange, &"a_test".to_string())
+    }
+
+    #[test]
+    fn select_all_order_two_test() {
+        let table = TestWorkTable::default();
+        let row1 = TestRow {
+            id: table.get_next_pk().into(),
+            test: 1,
+            another: 3,
+            exchange: "a_test".to_string(),
+        };
+        let _ = table.insert(row1.clone()).unwrap();
+        let row2 = TestRow {
+            id: table.get_next_pk().into(),
+            test: 2,
+            another: 2,
+            exchange: "b_test".to_string(),
+        };
+        let _ = table.insert(row2.clone()).unwrap();
+        for i in 3..100 {
+            let row = TestRow {
+                id: table.get_next_pk().into(),
+                test: i,
+                another: 1,
+                exchange: "c_test".to_string(),
+            };
+            let _ = table.insert(row.clone()).unwrap();
+        }
+
+        let all = table.select_all().order_by(Order::Asc, "exchange").order_by(Order::Desc, "test").limit(3).execute().unwrap();
+
+        assert_eq!(all.len(), 3);
+        assert_eq!(&all[0].exchange, &"a_test".to_string());
+        assert_eq!(&all[1].exchange, &"b_test".to_string());
+        assert_eq!(&all[2].exchange, &"c_test".to_string());
+        assert_eq!(&all[2].test, &99)
+    }
+
+    #[test]
+    fn select_by_order_by_test() {
+        let table = TestWorkTable::default();
+        let row1 = TestRow {
+            id: table.get_next_pk().into(),
+            test: 1,
+            another: 3,
+            exchange: "a_test".to_string(),
+        };
+        let _ = table.insert(row1.clone()).unwrap();
+        let row2 = TestRow {
+            id: table.get_next_pk().into(),
+            test: 2,
+            another: 2,
+            exchange: "b_test".to_string(),
+        };
+        let _ = table.insert(row2.clone()).unwrap();
+        for i in 3..100 {
+            let row = TestRow {
+                id: table.get_next_pk().into(),
+                test: i,
+                another: 1,
+                exchange: "c_test".to_string(),
+            };
+            let _ = table.insert(row.clone()).unwrap();
+        }
+
+        let all = table.select_by_exchange("c_test".to_string()).unwrap().order_by(Order::Desc, "test").limit(3).execute();
+
+        assert_eq!(all.len(), 3);
+        assert_eq!(&all[0].exchange, &"c_test".to_string());
+        assert_eq!(&all[0].test, &99);
+        assert_eq!(&all[1].exchange, &"c_test".to_string());
+        assert_eq!(&all[1].test, &98);
+        assert_eq!(&all[2].exchange, &"c_test".to_string());
+        assert_eq!(&all[2].test, &97)
     }
 
     #[tokio::test]
