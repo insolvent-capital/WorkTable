@@ -13,6 +13,7 @@ pub fn expand(input: TokenStream) -> syn::Result<TokenStream> {
     let mut columns = None;
     let mut queries = None;
     let mut indexes = None;
+    let mut config = None;
 
     let name = parser.parse_name()?;
     while let Some(ident) = parser.peek_next() {
@@ -28,6 +29,10 @@ pub fn expand(input: TokenStream) -> syn::Result<TokenStream> {
             "queries" => {
                 let res = parser.parse_queries()?;
                 queries = Some(res)
+            },
+            "config" => {
+                let res = parser.parse_configs()?;
+                config = Some(res)
             }
             _ => return Err(syn::Error::new(ident.span(), "Unexpected identifier")),
         }
@@ -39,6 +44,7 @@ pub fn expand(input: TokenStream) -> syn::Result<TokenStream> {
     }
     let mut generator = Generator::new(name, columns);
     generator.queries = queries;
+    generator.config = config;
 
     let pk_def = generator.gen_pk_def()?;
     let row_def = generator.gen_row_def();

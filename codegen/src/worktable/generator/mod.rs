@@ -7,7 +7,7 @@ mod queries;
 
 use proc_macro2::Ident;
 
-use crate::worktable::model::{Columns, PrimaryKey, Queries};
+use crate::worktable::model::{Columns, Config, PrimaryKey, Queries};
 
 pub struct Generator {
     pub name: Ident,
@@ -17,6 +17,7 @@ pub struct Generator {
     pub index_name: Option<Ident>,
     pub pk: Option<PrimaryKey>,
     pub queries: Option<Queries>,
+    pub config: Option<Config>,
 
     pub columns: Columns,
 }
@@ -31,6 +32,7 @@ impl Generator {
             index_name: None,
             pk: None,
             queries: None,
+            config: None,
             columns,
         }
     }

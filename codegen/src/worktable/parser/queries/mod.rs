@@ -60,6 +60,8 @@ impl Parser {
             ));
         };
 
+        self.try_parse_comma()?;
+
         Ok(queries)
     }
 }

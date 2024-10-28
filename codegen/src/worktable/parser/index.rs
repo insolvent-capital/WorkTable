@@ -134,7 +134,7 @@ mod tests {
             test_idx: test,
         }});
         let mut parser = Parser::new(tokens);
-        let columns = parser.parse_indexes();
+        let columns = parser.parse_configs();
 
         assert!(columns.is_ok());
         let columns = columns.unwrap();

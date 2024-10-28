@@ -292,6 +292,32 @@ mod tests {
         }
     }
 
+    mod config {
+        use derive_more::From;
+        use worktable_codegen::worktable;
+
+        use crate::prelude::*;
+        use crate::primary_key::TablePrimaryKey;
+
+        type Arr = [u32; 4];
+
+        worktable! (
+            name: Test,
+            columns: {
+                id: u64 primary_key autoincrement,
+                test: Arr
+            },
+            queries: {
+                update: {
+                    Test(test) by id,
+                }
+            },
+            config: {
+
+            }
+        );
+    }
+
     mod array {
         use derive_more::From;
         use worktable_codegen::worktable;
