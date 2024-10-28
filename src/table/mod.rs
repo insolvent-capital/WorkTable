@@ -8,19 +8,24 @@ use rkyv::{Archive, Deserialize, Serialize};
 use scc::ebr::Guard;
 use scc::tree_index::TreeIndex;
 
-use crate::in_memory::page::Link;
+use crate::in_memory::page::{Link, DATA_INNER_LENGTH};
 use crate::in_memory::{DataPages, RowWrapper, StorableRow};
+use crate::lock::LockMap;
 use crate::primary_key::{PrimaryKeyGenerator, TablePrimaryKey};
 use crate::{in_memory, TableIndex, TableRow};
-use crate::lock::LockMap;
 
 #[derive(Debug)]
-pub struct WorkTable<Row, Pk, I = (), PkGen = <Pk as TablePrimaryKey>::Generator>
-where
+pub struct WorkTable<
+    Row,
+    Pk,
+    I = (),
+    PkGen = <Pk as TablePrimaryKey>::Generator,
+    const DATA_LENGTH: usize = DATA_INNER_LENGTH,
+> where
     Pk: Clone + Ord + 'static,
     Row: StorableRow,
 {
-    pub data: DataPages<Row>,
+    pub data: DataPages<Row, DATA_LENGTH>,
 
     pub pk_map: TreeIndex<Pk, Link>,
 
@@ -28,15 +33,16 @@ where
 
     pub pk_gen: PkGen,
 
-    pub lock_map: LockMap
+    pub lock_map: LockMap,
 }
 
 // Manual implementations to avoid unneeded trait bounds.
-impl<Row, Pk, I> Default for WorkTable<Row, Pk, I>
+impl<Row, Pk, I, PkGen, const DATA_LENGTH: usize> Default
+    for WorkTable<Row, Pk, I, PkGen, DATA_LENGTH>
 where
     Pk: Clone + Ord + TablePrimaryKey,
     I: Default,
-    <Pk as TablePrimaryKey>::Generator: Default,
+    PkGen: Default,
     Row: StorableRow,
     <Row as StorableRow>::WrappedRow: RowWrapper<Row>,
 {
@@ -51,7 +57,7 @@ where
     }
 }
 
-impl<Row, Pk, I, PkGen> WorkTable<Row, Pk, I, PkGen>
+impl<Row, Pk, I, PkGen, const DATA_LENGTH: usize> WorkTable<Row, Pk, I, PkGen, DATA_LENGTH>
 where
     Row: TableRow<Pk>,
     Pk: Clone + Ord + TablePrimaryKey,
@@ -59,7 +65,8 @@ where
     <Row as StorableRow>::WrappedRow: RowWrapper<Row>,
 {
     pub fn get_next_pk(&self) -> Pk
-    where PkGen: PrimaryKeyGenerator<Pk>,
+    where
+        PkGen: PrimaryKeyGenerator<Pk>,
     {
         self.pk_gen.next()
     }
@@ -176,9 +183,7 @@ mod tests {
         };
         let _ = table.insert(row.clone()).unwrap();
 
-        table.iter_with(|_| {
-            Ok(())
-        }).unwrap()
+        table.iter_with(|_| Ok(())).unwrap()
     }
 
     #[tokio::test]
@@ -206,18 +211,17 @@ mod tests {
         };
         let _ = table.insert(row.clone()).unwrap();
 
-        table.iter_with_async(|_| {
-            async move {
-                Ok(())
-            }
-        }).await.unwrap()
+        table
+            .iter_with_async(|_| async move { Ok(()) })
+            .await
+            .unwrap()
     }
 
     mod option {
-        use derive_more::From;
-        use worktable_codegen::worktable;
         use crate::prelude::*;
         use crate::primary_key::TablePrimaryKey;
+        use derive_more::From;
+        use worktable_codegen::worktable;
 
         worktable! (
             name: Test,
@@ -242,7 +246,7 @@ mod tests {
 
         #[tokio::test]
         async fn update() {
-            let table =TestWorkTable::default();
+            let table = TestWorkTable::default();
             let row = TestRow {
                 id: table.get_next_pk().into(),
                 test: None,
@@ -263,7 +267,7 @@ mod tests {
 
         #[tokio::test]
         async fn update_by_another() {
-            let table =TestWorkTable::default();
+            let table = TestWorkTable::default();
             let row = TestRow {
                 id: table.get_next_pk().into(),
                 test: None,
@@ -271,14 +275,17 @@ mod tests {
                 exchange: 1,
             };
             let pk = table.insert(row.clone()).unwrap();
-            table.update_test_by_another(TestByAnotherQuery {test: Some(1)}, 1).await.unwrap();
+            table
+                .update_test_by_another(TestByAnotherQuery { test: Some(1) }, 1)
+                .await
+                .unwrap();
             let selected_row = table.select(pk).unwrap();
             assert_eq!(selected_row.test, Some(1));
         }
 
         #[tokio::test]
         async fn update_by_exchange() {
-            let table =TestWorkTable::default();
+            let table = TestWorkTable::default();
             let row = TestRow {
                 id: table.get_next_pk().into(),
                 test: None,
@@ -286,7 +293,10 @@ mod tests {
                 exchange: 1,
             };
             let pk = table.insert(row.clone()).unwrap();
-            table.update_test_by_exchange(TestByExchangeQuery {test: Some(1)}, 1).await.unwrap();
+            table
+                .update_test_by_exchange(TestByExchangeQuery { test: Some(1) }, 1)
+                .await
+                .unwrap();
             let selected_row = table.select(pk).unwrap();
             assert_eq!(selected_row.test, Some(1));
         }
@@ -299,21 +309,13 @@ mod tests {
         use crate::prelude::*;
         use crate::primary_key::TablePrimaryKey;
 
-        type Arr = [u32; 4];
-
         worktable! (
             name: Test,
             columns: {
                 id: u64 primary_key autoincrement,
-                test: Arr
-            },
-            queries: {
-                update: {
-                    Test(test) by id,
-                }
             },
             config: {
-
+                page_size: 32_000,
             }
         );
     }
@@ -364,7 +366,7 @@ mod tests {
             let pk = table.insert(row.clone()).unwrap();
             let new_row = TestRow {
                 id: 1,
-                test: [1; 4]
+                test: [1; 4],
             };
             table.update(new_row.clone()).await.unwrap();
             let selected_row = table.select(pk).unwrap();
@@ -384,7 +386,7 @@ mod tests {
             }
             let new_row = TestRow {
                 id: 3,
-                test: [1; 4]
+                test: [1; 4],
             };
             table.update(new_row.clone()).await.unwrap();
             let selected_row = table.select(3.into()).unwrap();
@@ -457,8 +459,8 @@ mod tests {
     }
 
     mod spawn {
-        use std::sync::Arc;
         use super::*;
+        use std::sync::Arc;
 
         #[tokio::test]
         async fn update() {
@@ -478,7 +480,10 @@ mod tests {
             };
             let shared = table.clone();
             let shared_updated = updated.clone();
-            tokio::spawn(async move { shared.update(shared_updated).await }).await.unwrap().unwrap();
+            tokio::spawn(async move { shared.update(shared_updated).await })
+                .await
+                .unwrap()
+                .unwrap();
             let selected_row = table.select(pk).unwrap();
 
             assert_eq!(selected_row, updated);
@@ -503,7 +508,10 @@ mod tests {
             };
             let shared = table.clone();
             let shared_updated = updated.clone();
-            tokio::spawn(async move { shared.upsert(shared_updated).await }).await.unwrap().unwrap();
+            tokio::spawn(async move { shared.upsert(shared_updated).await })
+                .await
+                .unwrap()
+                .unwrap();
             let selected_row = table.select(pk).unwrap();
 
             assert_eq!(selected_row, updated);
@@ -521,7 +529,19 @@ mod tests {
         use crate::prelude::*;
         use crate::primary_key::TablePrimaryKey;
 
-        #[derive(Archive, Debug, Default, Deserialize, Clone, Eq, From, PartialOrd, PartialEq, Ord, Serialize)]
+        #[derive(
+            Archive,
+            Debug,
+            Default,
+            Deserialize,
+            Clone,
+            Eq,
+            From,
+            PartialOrd,
+            PartialEq,
+            Ord,
+            Serialize,
+        )]
         #[archive(compare(PartialEq))]
         #[archive_attr(derive(Debug))]
         struct CustomId(u64);
@@ -732,13 +752,17 @@ mod tests {
         let shared = table.clone();
         let h = tokio::spawn(async move {
             for i in 0..99 {
-                let _ = shared.update_another_by_test(AnotherByTestQuery { another: i }, (i + 1) as i64).await;
+                let _ = shared
+                    .update_another_by_test(AnotherByTestQuery { another: i }, (i + 1) as i64)
+                    .await;
                 tokio::time::sleep(Duration::from_micros(5)).await;
             }
         });
         tokio::time::sleep(Duration::from_micros(20)).await;
         for i in 0..99 {
-            let _ = table.update_another_by_id(AnotherByIdQuery { another: i }, i.into()).await;
+            let _ = table
+                .update_another_by_id(AnotherByIdQuery { another: i }, i.into())
+                .await;
             tokio::time::sleep(Duration::from_micros(5)).await;
         }
         h.await.unwrap();
@@ -976,7 +1000,10 @@ mod tests {
             exchange: "test".to_string(),
         };
         let _ = table.insert(row.clone()).unwrap();
-        let selected_rows = table.select_by_exchange("test".to_string()).unwrap().execute();
+        let selected_rows = table
+            .select_by_exchange("test".to_string())
+            .unwrap()
+            .execute();
 
         assert_eq!(selected_rows.len(), 1);
         assert!(selected_rows.contains(&row));
@@ -999,10 +1026,11 @@ mod tests {
             another: 1,
             exchange: "test".to_string(),
         };
-        let _ = table
-            .insert(row_next.clone())
-            .unwrap();
-        let selected_rows = table.select_by_exchange("test".to_string()).unwrap().execute();
+        let _ = table.insert(row_next.clone()).unwrap();
+        let selected_rows = table
+            .select_by_exchange("test".to_string())
+            .unwrap()
+            .execute();
 
         assert_eq!(selected_rows.len(), 2);
         assert!(selected_rows.contains(&row));
@@ -1138,7 +1166,12 @@ mod tests {
             let _ = table.insert(row.clone()).unwrap();
         }
 
-        let all = table.select_all().order_by(Order::Asc, "test").limit(2).execute().unwrap();
+        let all = table
+            .select_all()
+            .order_by(Order::Asc, "test")
+            .limit(2)
+            .execute()
+            .unwrap();
 
         assert_eq!(all.len(), 2);
         assert_eq!(&all[0].test, &1);
@@ -1172,7 +1205,12 @@ mod tests {
             let _ = table.insert(row.clone()).unwrap();
         }
 
-        let all = table.select_all().order_by(Order::Asc, "exchange").limit(2).execute().unwrap();
+        let all = table
+            .select_all()
+            .order_by(Order::Asc, "exchange")
+            .limit(2)
+            .execute()
+            .unwrap();
 
         assert_eq!(all.len(), 2);
         assert_eq!(&all[0].exchange, &"a_test".to_string());
@@ -1206,7 +1244,13 @@ mod tests {
             let _ = table.insert(row.clone()).unwrap();
         }
 
-        let all = table.select_all().order_by(Order::Asc, "exchange").order_by(Order::Desc, "test").limit(3).execute().unwrap();
+        let all = table
+            .select_all()
+            .order_by(Order::Asc, "exchange")
+            .order_by(Order::Desc, "test")
+            .limit(3)
+            .execute()
+            .unwrap();
 
         assert_eq!(all.len(), 3);
         assert_eq!(&all[0].exchange, &"a_test".to_string());
@@ -1242,7 +1286,12 @@ mod tests {
             let _ = table.insert(row.clone()).unwrap();
         }
 
-        let all = table.select_by_exchange("c_test".to_string()).unwrap().order_by(Order::Desc, "test").limit(3).execute();
+        let all = table
+            .select_by_exchange("c_test".to_string())
+            .unwrap()
+            .order_by(Order::Desc, "test")
+            .limit(3)
+            .execute();
 
         assert_eq!(all.len(), 3);
         assert_eq!(&all[0].exchange, &"c_test".to_string());
@@ -1280,7 +1329,13 @@ mod tests {
             let _ = table.insert(row.clone()).unwrap();
         }
 
-        let all = table.select_by_exchange("c_test".to_string()).unwrap().order_by(Order::Desc, "test").offset(10).limit(3).execute();
+        let all = table
+            .select_by_exchange("c_test".to_string())
+            .unwrap()
+            .order_by(Order::Desc, "test")
+            .offset(10)
+            .limit(3)
+            .execute();
 
         assert_eq!(all.len(), 3);
         assert_eq!(&all[0].exchange, &"c_test".to_string());
@@ -1309,26 +1364,33 @@ mod tests {
         };
         let _ = table.insert(row2.clone()).unwrap();
 
-        let row = AnotherByExchangeQuery {
-            another: 3
-        };
-        table.update_another_by_exchange(row, "test".to_string()).await.unwrap();
+        let row = AnotherByExchangeQuery { another: 3 };
+        table
+            .update_another_by_exchange(row, "test".to_string())
+            .await
+            .unwrap();
 
         let all = table.select_all().execute().unwrap();
 
         assert_eq!(all.len(), 2);
-        assert_eq!(&all[0], &TestRow {
-            id: 0,
-            test: 1,
-            another: 3,
-            exchange: "test".to_string(),
-        });
-        assert_eq!(&all[1], &TestRow {
-            id: 1,
-            test: 2,
-            another: 3,
-            exchange: "test".to_string(),
-        })
+        assert_eq!(
+            &all[0],
+            &TestRow {
+                id: 0,
+                test: 1,
+                another: 3,
+                exchange: "test".to_string(),
+            }
+        );
+        assert_eq!(
+            &all[1],
+            &TestRow {
+                id: 1,
+                test: 2,
+                another: 3,
+                exchange: "test".to_string(),
+            }
+        )
     }
 
     #[tokio::test]
@@ -1342,19 +1404,20 @@ mod tests {
         };
         let _ = table.insert(row.clone()).unwrap();
 
-        let row = AnotherByTestQuery {
-            another: 3
-        };
+        let row = AnotherByTestQuery { another: 3 };
         table.update_another_by_test(row, 1).await.unwrap();
 
         let row = table.select_by_test(1).unwrap();
 
-        assert_eq!(row, TestRow {
-            id: 0,
-            test: 1,
-            another: 3,
-            exchange: "test".to_string(),
-        })
+        assert_eq!(
+            row,
+            TestRow {
+                id: 0,
+                test: 1,
+                another: 3,
+                exchange: "test".to_string(),
+            }
+        )
     }
 
     #[tokio::test]
@@ -1368,18 +1431,19 @@ mod tests {
         };
         let pk = table.insert(row.clone()).unwrap();
 
-        let row = AnotherByIdQuery {
-            another: 3
-        };
+        let row = AnotherByIdQuery { another: 3 };
         table.update_another_by_id(row, pk).await.unwrap();
 
         let row = table.select_by_test(1).unwrap();
 
-        assert_eq!(row, TestRow {
-            id: 0,
-            test: 1,
-            another: 3,
-            exchange: "test".to_string(),
-        })
+        assert_eq!(
+            row,
+            TestRow {
+                id: 0,
+                test: 1,
+                another: 3,
+                exchange: "test".to_string(),
+            }
+        )
     }
 }

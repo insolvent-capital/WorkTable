@@ -37,10 +37,21 @@ impl Generator {
         let iter_with_async = Self::gen_iter_with_async(row_type);
         let select_executor = self.gen_select_executor();
         let select_result_executor = self.gen_select_result_executor();
+        let table = if let Some(page_size) = &self.config.as_ref().map(|c| c.page_size).flatten() {
+            let literal = Literal::usize_unsuffixed(*page_size as usize);
+            quote! {
+                #[derive(Debug, Default)]
+                pub struct #ident(WorkTable<#row_type, #pk_type, #index_type, <#pk_type as TablePrimaryKey>::Generator, #literal>);
+            }
+        } else {
+            quote! {
+                #[derive(Debug, Default)]
+                pub struct #ident(WorkTable<#row_type, #pk_type, #index_type>);
+            }
+        };
 
         quote! {
-            #[derive(Debug, Default)]
-            pub struct #ident(WorkTable<#row_type, #pk_type, #index_type>);
+            #table
 
             impl #ident {
                 pub fn select(&self, pk: #pk_type) -> Option<#row_type> {
