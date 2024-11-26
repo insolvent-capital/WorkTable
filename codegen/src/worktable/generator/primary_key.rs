@@ -10,20 +10,23 @@ impl Generator {
     pub fn gen_pk_def(&mut self) -> syn::Result<TokenStream> {
         let name = &self.name;
         let ident = Ident::new(format!("{name}PrimaryKey").as_str(), Span::mixed_site());
-        let vals = self.columns.primary_keys.iter().map(|i| {
-            (i.clone(), self.columns.columns_map.get(i).unwrap().clone())
-        }).collect::<HashMap<_, _>>();
+        let vals = self
+            .columns
+            .primary_keys
+            .iter()
+            .map(|i| (i.clone(), self.columns.columns_map.get(i).unwrap().clone()))
+            .collect::<HashMap<_, _>>();
 
         let def = if vals.len() == 1 {
             let type_ = vals.values().next().unwrap();
             quote! {
-                #[derive(Clone, Debug, From, Eq, Into, PartialEq, PartialOrd, Ord)]
+                #[derive(Clone, rkyv::Archive, Debug, rkyv::Deserialize, rkyv::Serialize, From, Eq, Into, PartialEq, PartialOrd, Ord)]
                 pub struct #ident(#type_);
             }
         } else {
             let types = vals.values();
             quote! {
-                #[derive(Clone, Debug, From, Eq, Into, PartialEq, PartialOrd, Ord)]
+                #[derive(Clone, rkyv::Archive, Debug, rkyv::Deserialize, rkyv::Serialize, From, Eq, Into, PartialEq, PartialOrd, Ord)]
                 pub struct #ident(#(#types),*);
             }
         };
@@ -45,13 +48,12 @@ impl Generator {
                     }
                 }
             }
-            GeneratorType::Custom => {quote! {}}
+            GeneratorType::Custom => {
+                quote! {}
+            }
         };
 
-        self.pk = Some(PrimaryKey {
-            ident,
-            vals
-        });
+        self.pk = Some(PrimaryKey { ident, vals });
 
         Ok(quote! {
             #def
@@ -69,7 +71,12 @@ impl Generator {
             "i16" => quote! { std::sync::atomic::AtomicI16 },
             "i32" => quote! { std::sync::atomic::AtomicI32 },
             "i64" => quote! { std::sync::atomic::AtomicI64 },
-            _ => return Err(syn::Error::new(i.span(), "Type is not supported for autoincrement"))
+            _ => {
+                return Err(syn::Error::new(
+                    i.span(),
+                    "Type is not supported for autoincrement",
+                ))
+            }
         })
     }
 }
@@ -92,12 +99,15 @@ mod tests {
         let columns = parser.parse_columns().unwrap();
 
         let ident = Ident::new("Test", Span::call_site());
-        let mut generator = Generator::new(ident, columns);
+        let mut generator = Generator::new(ident, false, columns);
 
         let pk_def = generator.gen_pk_def();
 
         assert_eq!(generator.pk.unwrap().ident.to_string(), "TestPrimaryKey");
-        assert_eq!(pk_def.unwrap().to_string(), "pub type TestPrimaryKey = i64 ;");
+        assert_eq!(
+            pk_def.unwrap().to_string(),
+            "pub type TestPrimaryKey = i64 ;"
+        );
     }
 
     #[test]
@@ -110,7 +120,7 @@ mod tests {
         let columns = parser.parse_columns().unwrap();
 
         let ident = Ident::new("Test", Span::call_site());
-        let mut generator = Generator::new(ident, columns);
+        let mut generator = Generator::new(ident, false, columns);
 
         let pk_def = generator.gen_pk_def();
 

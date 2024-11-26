@@ -4,20 +4,19 @@ use crate::select::{Order, QueryParams};
 use crate::WorkTableError;
 
 pub trait SelectQueryExecutor<'a, Row>
-where Self: Sized
+where
+    Self: Sized,
 {
     fn execute(&self, q: SelectQueryBuilder<'a, Row, Self>) -> Result<Vec<Row>, WorkTableError>;
 }
 
-pub struct SelectQueryBuilder<'a, Row,W>
-{
+pub struct SelectQueryBuilder<'a, Row, W> {
     table: &'a W,
     pub params: QueryParams,
-    phantom_data: PhantomData<Row>
+    phantom_data: PhantomData<Row>,
 }
 
-impl<'a, Row, W> SelectQueryBuilder<'a, Row, W>
-{
+impl<'a, Row, W> SelectQueryBuilder<'a, Row, W> {
     pub fn new(table: &'a W) -> Self {
         Self {
             table,
@@ -42,7 +41,8 @@ impl<'a, Row, W> SelectQueryBuilder<'a, Row, W>
     }
 
     pub fn execute(self) -> Result<Vec<Row>, WorkTableError>
-    where W: SelectQueryExecutor<'a, Row>
+    where
+        W: SelectQueryExecutor<'a, Row>,
     {
         self.table.execute(self)
     }

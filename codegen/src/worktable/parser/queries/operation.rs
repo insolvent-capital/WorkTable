@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use proc_macro2::{Ident, TokenTree};
+use std::collections::HashMap;
 use syn::spanned::Spanned;
 
 use crate::worktable::model::Operation;
@@ -11,10 +11,7 @@ impl Parser {
         while self.has_next() {
             let row = self.parse_operation()?;
             if ops.get(&row.name).is_some() {
-                return Err(syn::Error::new(
-                    row.name.span(),
-                    "Non-unique query name",
-                ));
+                return Err(syn::Error::new(row.name.span(), "Non-unique query name"));
             }
             ops.insert(row.name.clone(), row);
             self.try_parse_comma()?
@@ -62,16 +59,10 @@ impl Parser {
         ))?;
         if let TokenTree::Ident(by) = by {
             if by.to_string().as_str() != "by" {
-                return Err(syn::Error::new(
-                    by.span(),
-                    "Expected `by` identifier",
-                ));
+                return Err(syn::Error::new(by.span(), "Expected `by` identifier"));
             }
         } else {
-            return Err(syn::Error::new(
-                by.span(),
-                "Expected `by` identifier.",
-            ));
+            return Err(syn::Error::new(by.span(), "Expected `by` identifier."));
         };
 
         let ident = self.input_iter.next().ok_or(syn::Error::new(
@@ -90,7 +81,7 @@ impl Parser {
         Ok(Operation {
             name,
             columns,
-            by: by_name
+            by: by_name,
         })
     }
 
@@ -118,7 +109,7 @@ mod tests {
 
     #[test]
     fn test_operation() {
-        let tokens =  quote! {
+        let tokens = quote! {
             TestQuery(id, test) by name,
         };
 

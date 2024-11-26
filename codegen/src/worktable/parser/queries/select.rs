@@ -14,10 +14,7 @@ impl Parser {
         ))?;
         if let TokenTree::Ident(ident) = ident {
             if ident.to_string().as_str() != "select" {
-                return Err(syn::Error::new(
-                    ident.span(),
-                    "Expected `select` field",
-                ));
+                return Err(syn::Error::new(ident.span(), "Expected `select` field"));
             }
         } else {
             return Err(syn::Error::new(
@@ -63,7 +60,9 @@ mod tests {
         let ops = parser.parse_updates().unwrap();
 
         assert_eq!(ops.len(), 2);
-        let op = ops.get(&Ident::new("TestQuery", Span::mixed_site())).unwrap();
+        let op = ops
+            .get(&Ident::new("TestQuery", Span::mixed_site()))
+            .unwrap();
 
         assert_eq!(op.name, "TestQuery");
         assert_eq!(op.columns.len(), 2);

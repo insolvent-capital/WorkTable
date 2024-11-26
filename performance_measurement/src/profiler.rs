@@ -1,7 +1,5 @@
-use std::collections::HashMap;
-use std::sync::Mutex;
+use std::f64;
 use std::time::{Duration, Instant};
-use std::{cmp, f64};
 
 use derive_more::Display;
 use lazy_static::lazy_static;

@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU16, Ordering};
+use std::sync::Arc;
 
 use lockfree::map::Map;
 
@@ -25,9 +25,7 @@ impl LockMap {
     }
 
     pub fn get(&self, id: &LockId) -> Option<Arc<Lock>> {
-        self.set.get(id).map(|v| {
-            v.val().clone()
-        })
+        self.set.get(id).map(|v| v.val().clone())
     }
 
     pub fn remove(&self, id: &LockId) {

@@ -1,9 +1,10 @@
-use std::marker::PhantomData;
 use crate::prelude::Order;
 use crate::select::QueryParams;
+use std::marker::PhantomData;
 
 pub trait SelectResultExecutor<Row>
-where Self: Sized
+where
+    Self: Sized,
 {
     fn execute(q: SelectResult<Row, Self>) -> Vec<Row>;
 }
@@ -15,7 +16,8 @@ pub struct SelectResult<Row, W> {
 }
 
 impl<Row, W> SelectResult<Row, W>
-where W: SelectResultExecutor<Row>
+where
+    W: SelectResultExecutor<Row>,
 {
     pub fn new(vals: Vec<Row>) -> Self {
         Self {

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use scc::TreeIndex;
 
-use crate::in_memory::page::Link;
+use crate::prelude::Link;
 use crate::prelude::LockFreeSet;
 use crate::WorkTableError;
 
@@ -24,5 +24,5 @@ impl<Row> TableIndex<Row> for () {
 
 pub enum IndexType<'a, T> {
     Unique(&'a TreeIndex<T, Link>),
-    NonUnique(&'a TreeIndex<T, Arc<LockFreeSet<Link>>>,)
+    NonUnique(&'a TreeIndex<T, Arc<LockFreeSet<Link>>>),
 }

@@ -1,5 +1,5 @@
-pub mod r#type;
-mod locks;
-mod update;
-mod select;
 mod delete;
+mod locks;
+mod select;
+pub mod r#type;
+mod update;

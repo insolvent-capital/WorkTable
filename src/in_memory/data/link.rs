@@ -1,6 +1,5 @@
+use data_bucket::page::PageId;
 use rkyv::{Archive, Deserialize, Serialize};
-
-use crate::in_memory::page;
 
 pub const LINK_LENGTH: usize = 12;
 
@@ -8,15 +7,15 @@ pub const LINK_LENGTH: usize = 12;
     Archive, Copy, Clone, Deserialize, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize,
 )]
 pub struct Link {
-    pub page_id: page::Id,
+    pub page_id: PageId,
     pub offset: u32,
     pub length: u32,
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::in_memory::page::link::LINK_LENGTH;
-    use crate::in_memory::page::Link;
+    use crate::in_memory::data::link::LINK_LENGTH;
+    use crate::prelude::Link;
 
     #[test]
     fn link_length_valid() {

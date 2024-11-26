@@ -1,13 +1,13 @@
 mod column;
-mod index;
-mod primary_key;
-pub mod operation;
-mod queries;
 mod config;
+mod index;
+pub mod operation;
+mod primary_key;
+mod queries;
 
 pub use column::{Columns, Row};
-pub use index::Index;
-pub use primary_key::{PrimaryKey, GeneratorType};
-pub use operation::Operation;
-pub use queries::Queries;
 pub use config::Config;
+pub use index::Index;
+pub use operation::Operation;
+pub use primary_key::{GeneratorType, PrimaryKey};
+pub use queries::Queries;

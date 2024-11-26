@@ -1,7 +1,7 @@
-mod update;
+mod delete;
 mod operation;
 mod select;
-mod delete;
+mod update;
 
 use proc_macro2::TokenTree;
 use syn::spanned::Spanned;
@@ -43,16 +43,14 @@ impl Parser {
                     "update" => {
                         let updates = parser.parse_updates()?;
                         queries.updates = updates;
-                    },
+                    }
                     "delete" => {
                         let deletes = parser.parse_deletes()?;
                         queries.deletes = deletes;
-                    },
+                    }
                     _ => return Err(syn::Error::new(ident.span(), "Unexpected identifier")),
                 }
             }
-
-
         } else {
             return Err(syn::Error::new(
                 ops.span(),

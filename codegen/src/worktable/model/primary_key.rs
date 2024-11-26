@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use proc_macro2::{Ident, TokenStream};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub struct PrimaryKey {
@@ -11,5 +11,5 @@ pub struct PrimaryKey {
 pub enum GeneratorType {
     None,
     Autoincrement,
-    Custom
+    Custom,
 }

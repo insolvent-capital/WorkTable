@@ -1,9 +1,9 @@
 mod index;
 mod primary_key;
+mod queries;
 mod row;
 mod table;
 mod wrapper;
-mod queries;
 
 use proc_macro2::Ident;
 
@@ -11,6 +11,7 @@ use crate::worktable::model::{Columns, Config, PrimaryKey, Queries};
 
 pub struct Generator {
     pub name: Ident,
+    pub is_persist: bool,
     pub table_name: Option<Ident>,
     pub row_name: Option<Ident>,
     pub wrapper_name: Option<Ident>,
@@ -23,9 +24,10 @@ pub struct Generator {
 }
 
 impl Generator {
-    pub fn new(name: Ident, columns: Columns) -> Self {
+    pub fn new(name: Ident, is_persist: bool, columns: Columns) -> Self {
         Self {
             name,
+            is_persist,
             table_name: None,
             row_name: None,
             wrapper_name: None,

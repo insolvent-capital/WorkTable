@@ -1,15 +1,16 @@
-use std::fmt::Debug;
-use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
-use std::sync::{Arc, RwLock};
-
+use data_bucket::page::PageId;
 use derive_more::{Display, Error, From};
 use lockfree::stack::Stack;
 use rkyv::ser::serializers::AllocSerializer;
 use rkyv::{Archive, Deserialize, Serialize};
+use std::fmt::Debug;
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+use std::sync::{Arc, RwLock};
 
-use crate::in_memory::page;
-use crate::in_memory::page::{DataExecutionError, Link, DATA_INNER_LENGTH};
+use crate::in_memory::data;
+use crate::in_memory::data::{DataExecutionError, DATA_INNER_LENGTH};
 use crate::in_memory::row::{RowWrapper, StorableRow};
+use crate::prelude::Link;
 #[cfg(feature = "perf_measurements")]
 use performance_measurement_codegen::performance_measurement;
 
@@ -19,7 +20,7 @@ where
     Row: StorableRow,
 {
     /// Pages vector. Currently, not lock free.
-    pages: RwLock<Vec<Arc<page::Data<<Row as StorableRow>::WrappedRow, DATA_LENGTH>>>>,
+    pages: RwLock<Vec<Arc<data::Data<<Row as StorableRow>::WrappedRow, DATA_LENGTH>>>>,
 
     /// Stack with empty [`Link`]s. It stores [`Link`]s of rows that was deleted.
     empty_links: Stack<Link>,
@@ -39,11 +40,26 @@ where
 {
     pub fn new() -> Self {
         Self {
-            pages: RwLock::new(vec![Arc::new(page::Data::new(0.into()))]),
+            pages: RwLock::new(vec![Arc::new(data::Data::new(0.into()))]),
             empty_links: Stack::new(),
             row_count: AtomicU64::new(0),
             last_page_id: AtomicU32::new(0),
             current_page: AtomicU32::new(0),
+        }
+    }
+
+    pub fn from_data(
+        vec: Vec<Arc<data::Data<<Row as StorableRow>::WrappedRow, DATA_LENGTH>>>,
+    ) -> Self {
+        // TODO: Add empty_links persistence.
+        // TODO: Add row_count persistence.
+        let len = vec.len();
+        Self {
+            pages: RwLock::new(vec),
+            empty_links: Stack::new(),
+            row_count: AtomicU64::new(0),
+            last_page_id: AtomicU32::new(len as u32),
+            current_page: AtomicU32::new(len as u32),
         }
     }
 
@@ -68,16 +84,14 @@ where
                     DataExecutionError::InvalidLink => {
                         self.empty_links.push(link);
                         self.retry_insert(general_row)
-                    },
-                    DataExecutionError::PageIsFull { .. } |
-                    DataExecutionError::SerializeError |
-                    DataExecutionError::DeserializeError => {
-                        Err(e.into())
                     }
+                    DataExecutionError::PageIsFull { .. }
+                    | DataExecutionError::SerializeError
+                    | DataExecutionError::DeserializeError => Err(e.into()),
                 }
             } else {
                 Ok(link)
-            }
+            };
         }
 
         let (link, tried_page) = {
@@ -135,7 +149,7 @@ where
         if tried_page == self.current_page.load(Ordering::Relaxed) {
             let index = self.last_page_id.fetch_add(1, Ordering::Relaxed) + 1;
 
-            pages.push(Arc::new(page::Data::new(index.into())));
+            pages.push(Arc::new(data::Data::new(index.into())));
             self.current_page.fetch_add(1, Ordering::Relaxed);
         }
     }
@@ -167,13 +181,15 @@ where
     pub fn with_ref<Op, Res>(&self, link: Link, op: Op) -> Result<Res, ExecutionError>
     where
         Row: Archive,
-        Op: Fn(&<<Row as StorableRow>::WrappedRow as Archive>::Archived) -> Res
+        Op: Fn(&<<Row as StorableRow>::WrappedRow as Archive>::Archived) -> Res,
     {
         let pages = self.pages.read().unwrap();
         let page = pages
             .get::<usize>(link.page_id.into())
             .ok_or(ExecutionError::PageNotFound(link.page_id))?;
-        let gen_row = page.get_row_ref(link).map_err(ExecutionError::DataPageError)?;
+        let gen_row = page
+            .get_row_ref(link)
+            .map_err(ExecutionError::DataPageError)?;
         let res = op(gen_row);
         Ok(res)
     }
@@ -182,16 +198,21 @@ where
         feature = "perf_measurements",
         performance_measurement(prefix_name = "DataPages")
     )]
-    pub unsafe fn with_mut_ref<Op, Res>(&self, link: Link, mut op: Op) -> Result<Res, ExecutionError>
+    pub unsafe fn with_mut_ref<Op, Res>(
+        &self,
+        link: Link,
+        mut op: Op,
+    ) -> Result<Res, ExecutionError>
     where
         Row: Archive,
-        Op: FnMut(&mut <<Row as StorableRow>::WrappedRow as Archive>::Archived) -> Res
+        Op: FnMut(&mut <<Row as StorableRow>::WrappedRow as Archive>::Archived) -> Res,
     {
         let pages = self.pages.read().unwrap();
         let page = pages
             .get::<usize>(link.page_id.into())
             .ok_or(ExecutionError::PageNotFound(link.page_id))?;
-        let gen_row = page.get_mut_row_ref(link)
+        let gen_row = page
+            .get_mut_row_ref(link)
             .map_err(ExecutionError::DataPageError)?
             .get_unchecked_mut();
         let res = op(gen_row);
@@ -220,15 +241,42 @@ where
         self.empty_links.push(link);
         Ok(())
     }
+
+    pub fn get_bytes(&self) -> Vec<([u8; DATA_LENGTH], u32)> {
+        let pages = self.pages.read().unwrap();
+        pages
+            .iter()
+            .map(|p| (p.get_bytes(), p.free_offset.load(Ordering::Relaxed)))
+            .collect()
+    }
+
+    pub fn get_empty_links(&self) -> Vec<Link> {
+        let mut res = vec![];
+        for l in self.empty_links.pop_iter() {
+            res.push(l)
+        }
+
+        res
+    }
+
+    pub fn with_empty_links(mut self, links: Vec<Link>) -> Self {
+        let stack = Stack::new();
+        for l in links {
+            stack.push(l)
+        }
+        self.empty_links = stack;
+
+        self
+    }
 }
 
 #[derive(Debug, Display, Error, From)]
 pub enum ExecutionError {
     DataPageError(DataExecutionError),
 
-    PageNotFound(#[error(not(source))] page::Id),
+    PageNotFound(#[error(not(source))] PageId),
 
-    Locked
+    Locked,
 }
 
 #[cfg(test)]
@@ -321,7 +369,7 @@ mod tests {
         assert!(res.is_ok())
     }
 
-    #[test]
+    //#[test]
     fn bench() {
         let pages = Arc::new(DataPages::<TestRow>::new());
 

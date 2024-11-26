@@ -1,5 +1,6 @@
 pub mod select;
 
+use data_bucket::{Link, INNER_PAGE_SIZE};
 use derive_more::{Display, Error, From};
 #[cfg(feature = "perf_measurements")]
 use performance_measurement_codegen::performance_measurement;
@@ -8,7 +9,6 @@ use rkyv::{Archive, Deserialize, Serialize};
 use scc::ebr::Guard;
 use scc::tree_index::TreeIndex;
 
-use crate::in_memory::page::{Link, DATA_INNER_LENGTH};
 use crate::in_memory::{DataPages, RowWrapper, StorableRow};
 use crate::lock::LockMap;
 use crate::primary_key::{PrimaryKeyGenerator, TablePrimaryKey};
@@ -20,7 +20,7 @@ pub struct WorkTable<
     Pk,
     I = (),
     PkGen = <Pk as TablePrimaryKey>::Generator,
-    const DATA_LENGTH: usize = DATA_INNER_LENGTH,
+    const DATA_LENGTH: usize = INNER_PAGE_SIZE,
 > where
     Pk: Clone + Ord + 'static,
     Row: StorableRow,
@@ -34,6 +34,8 @@ pub struct WorkTable<
     pub pk_gen: PkGen,
 
     pub lock_map: LockMap,
+
+    pub table_name: &'static str,
 }
 
 // Manual implementations to avoid unneeded trait bounds.
@@ -53,6 +55,7 @@ where
             indexes: I::default(),
             pk_gen: Default::default(),
             lock_map: LockMap::new(),
+            table_name: "",
         }
     }
 }
@@ -157,6 +160,13 @@ mod tests {
             }
         }
     );
+
+    #[test]
+    fn table_name() {
+        let table = TestWorkTable::default();
+        let name = table.name();
+        assert_eq!(name, "Test")
+    }
 
     #[test]
     fn iter_with() {
@@ -520,10 +530,9 @@ mod tests {
     }
 
     mod custom_pk {
-        use std::sync::atomic::{AtomicU64, Ordering};
-
         use derive_more::From;
         use rkyv::{Archive, Deserialize, Serialize};
+        use std::sync::atomic::{AtomicU64, Ordering};
         use worktable_codegen::worktable;
 
         use crate::prelude::*;
@@ -541,6 +550,7 @@ mod tests {
             PartialEq,
             Ord,
             Serialize,
+            SizeMeasure,
         )]
         #[archive(compare(PartialEq))]
         #[archive_attr(derive(Debug))]

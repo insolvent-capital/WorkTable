@@ -1,9 +1,9 @@
-use std::collections::HashMap;
+use crate::worktable::generator::Generator;
+use crate::worktable::model::Operation;
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
-use crate::worktable::generator::Generator;
-use crate::worktable::model::Operation;
+use std::collections::HashMap;
 
 impl Generator {
     pub fn gen_query_delete_impl(&mut self) -> syn::Result<TokenStream> {
@@ -55,32 +55,47 @@ impl Generator {
     }
 
     fn gen_custom_deletes(&mut self, deleted: HashMap<Ident, Operation>) -> TokenStream {
-        let defs = deleted.iter().map(|(name, op)| {
-            let snake_case_name = name.to_string().from_case(Case::Pascal).to_case(Case::Snake);
-            let method_ident = Ident::new(format!("delete_{snake_case_name}").as_str(), Span::mixed_site());
-            let index = self.columns.indexes.values().find(|idx| {
-                idx.field.to_string() == op.by.to_string()
-            });
-            let type_ = self.columns.columns_map.get(&op.by).unwrap();
-            if let Some(index) = index {
-                let index_name = &index.name;
+        let defs = deleted
+            .iter()
+            .map(|(name, op)| {
+                let snake_case_name = name
+                    .to_string()
+                    .from_case(Case::Pascal)
+                    .to_case(Case::Snake);
+                let method_ident = Ident::new(
+                    format!("delete_{snake_case_name}").as_str(),
+                    Span::mixed_site(),
+                );
+                let index = self
+                    .columns
+                    .indexes
+                    .values()
+                    .find(|idx| idx.field.to_string() == op.by.to_string());
+                let type_ = self.columns.columns_map.get(&op.by).unwrap();
+                if let Some(index) = index {
+                    let index_name = &index.name;
 
-                if index.is_unique {
-                    Self::gen_unique_delete(&type_, &method_ident, index_name)
+                    if index.is_unique {
+                        Self::gen_unique_delete(&type_, &method_ident, index_name)
+                    } else {
+                        Self::gen_non_unique_delete(&type_, &method_ident, index_name)
+                    }
                 } else {
-                    Self::gen_non_unique_delete(&type_, &method_ident, index_name)
+                    Self::gen_brute_force_delete_field(&op.by, &type_, &method_ident)
                 }
-            } else {
-                Self::gen_brute_force_delete_field(&op.by, &type_, &method_ident)
-            }
-        }).collect::<Vec<_>>();
+            })
+            .collect::<Vec<_>>();
 
         quote! {
             #(#defs)*
         }
     }
 
-    fn gen_brute_force_delete_field(field: &Ident, type_: &TokenStream, name: &Ident) -> TokenStream {
+    fn gen_brute_force_delete_field(
+        field: &Ident,
+        type_: &TokenStream,
+        name: &Ident,
+    ) -> TokenStream {
         quote! {
             pub async fn #name(&self, by: #type_) -> core::result::Result<(), WorkTableError> {
                 self.iter_with_async(|row| {
@@ -99,7 +114,7 @@ impl Generator {
         }
     }
 
-    fn gen_non_unique_delete(type_: &TokenStream, name: &Ident, index: &Ident, ) -> TokenStream {
+    fn gen_non_unique_delete(type_: &TokenStream, name: &Ident, index: &Ident) -> TokenStream {
         quote! {
             pub async fn #name(&self, by: #type_) -> core::result::Result<(), WorkTableError> {
                 let rows_to_update = {
@@ -117,7 +132,7 @@ impl Generator {
         }
     }
 
-    fn gen_unique_delete(type_: &TokenStream, name: &Ident, index: &Ident, ) -> TokenStream {
+    fn gen_unique_delete(type_: &TokenStream, name: &Ident, index: &Ident) -> TokenStream {
         quote! {
             pub async fn #name(&self, by: #type_) -> core::result::Result<(), WorkTableError> {
                 let row_to_update = {

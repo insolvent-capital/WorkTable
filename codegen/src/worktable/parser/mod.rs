@@ -1,9 +1,10 @@
+mod attribute;
 mod columns;
+mod config;
 mod index;
 mod name;
 mod punct;
 pub mod queries;
-mod config;
 
 use proc_macro2::{TokenStream, TokenTree};
 use std::iter::Peekable;

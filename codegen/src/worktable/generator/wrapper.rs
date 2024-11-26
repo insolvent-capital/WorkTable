@@ -1,4 +1,3 @@
-
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
@@ -61,7 +60,10 @@ impl Generator {
             })
             .collect::<Vec<_>>();
 
-        let archived_wrapper = Ident::new(format!("Archived{}", &wrapper_name).as_str(), Span::mixed_site());
+        let archived_wrapper = Ident::new(
+            format!("Archived{}", &wrapper_name).as_str(),
+            Span::mixed_site(),
+        );
         let archived_impl = quote! {
             impl ArchivedRow for #archived_wrapper {
                 fn is_locked(&self) -> Option<u16> {

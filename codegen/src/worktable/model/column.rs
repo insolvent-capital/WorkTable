@@ -1,17 +1,17 @@
 use std::collections::HashMap;
 
+use crate::worktable::model::index::Index;
+use crate::worktable::model::GeneratorType;
 use proc_macro2::{Ident, TokenStream};
 use quote::quote;
 use syn::spanned::Spanned;
-use crate::worktable::model::GeneratorType;
-use crate::worktable::model::index::Index;
 
 #[derive(Debug, Clone)]
 pub struct Columns {
     pub columns_map: HashMap<Ident, TokenStream>,
     pub indexes: HashMap<Ident, Index>,
     pub primary_keys: Vec<Ident>,
-    pub generator_type: GeneratorType
+    pub generator_type: GeneratorType,
 }
 
 #[derive(Debug)]
@@ -20,7 +20,7 @@ pub struct Row {
     pub type_: Ident,
     pub is_primary_key: bool,
     pub gen_type: GeneratorType,
-    pub optional: bool
+    pub optional: bool,
 }
 
 impl Columns {
@@ -31,7 +31,7 @@ impl Columns {
 
         for row in rows {
             let type_ = &row.type_;
-            let type_  = if row.optional {
+            let type_ = if row.optional {
                 quote! { core::option::Option<#type_> }
             } else {
                 quote! { #type_ }
@@ -58,7 +58,7 @@ impl Columns {
             columns_map,
             indexes: Default::default(),
             primary_keys: pk,
-            generator_type: gen_type.expect("set")
+            generator_type: gen_type.expect("set"),
         })
     }
 }

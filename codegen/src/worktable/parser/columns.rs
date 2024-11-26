@@ -121,7 +121,7 @@ impl Parser {
             type_,
             is_primary_key,
             gen_type,
-            optional
+            optional,
         })
     }
 }
@@ -200,7 +200,10 @@ mod tests {
             .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect();
         assert_eq!(map.get("id"), Some(&"i64".to_string()));
-        assert_eq!(map.get("test"),  Some(&"core :: option :: Option < u64 >".to_string()));
+        assert_eq!(
+            map.get("test"),
+            Some(&"core :: option :: Option < u64 >".to_string())
+        );
     }
 
     #[test]

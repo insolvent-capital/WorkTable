@@ -11,13 +11,15 @@ use rkyv::{Archive, Deserialize, Serialize};
 
 pub use set::LockMap;
 
-#[derive(Archive, Clone, Copy, Deserialize, Debug, Eq, From, Hash, Ord, Serialize, PartialEq, PartialOrd)]
+#[derive(
+    Archive, Clone, Copy, Deserialize, Debug, Eq, From, Hash, Ord, Serialize, PartialEq, PartialOrd,
+)]
 pub struct LockId(u16);
 
 #[derive(Debug)]
 pub struct Lock {
     locked: AtomicBool,
-    waker: AtomicWaker
+    waker: AtomicWaker,
 }
 
 impl Future for &Lock {
