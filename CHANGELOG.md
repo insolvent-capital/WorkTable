@@ -5,6 +5,19 @@ Change Log
 
 ### Added
 
+### BC Breaks
+
+- `.wt` files which are generated now have names as snake-case of table's name.
+- `new` function now has only `DatabaseManager` as argument.
+
+### Fixed
+
+- `new` function generated if `persist: true` now is public.
+
+## [0.4.0]
+
+### Added
+
 - `SelectQueryBuilder` object that is used to customize `select_all` query. It has `limit` and `order_by` methods that 
 can be used to limit returned row's count. `order_by` has not full functionality and is only available for indexed columns
 and only `Oreder::Asc`.

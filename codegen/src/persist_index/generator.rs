@@ -124,12 +124,12 @@ impl Generator {
                     map
                 }
 
-                pub fn get_last_header_mut(&mut self) -> &mut GeneralHeader {
+                pub fn get_last_header_mut(&mut self) -> Option<&mut GeneralHeader> {
                     let mut header = None;
 
                     #(#last_header)*
 
-                    header.unwrap()
+                    header
                 }
 
                 pub fn persist(&mut self, file: &mut std::fs::File) -> eyre::Result<()> {
