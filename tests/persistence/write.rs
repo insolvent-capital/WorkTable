@@ -11,6 +11,6 @@ fn test_persist() {
 
     assert!(check_if_files_are_same(
         "tests/data/test.wt".to_string(),
-        "tests/data/expected/test_persist.wt".to_string()
+        "tests/data/expected/test.wt".to_string()
     ))
 }
