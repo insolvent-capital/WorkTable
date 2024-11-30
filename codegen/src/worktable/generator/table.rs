@@ -55,7 +55,7 @@ impl Generator {
         let new_impl = if self.is_persist {
             quote! {
                  impl #ident {
-                    fn new(manager:  std::sync::Arc<DatabaseManager>) -> Self {
+                    pub fn new(manager:  std::sync::Arc<DatabaseManager>) -> Self {
                         let mut inner = WorkTable::default();
                         inner.table_name = #table_name_lit;
                         Self(inner, manager)
