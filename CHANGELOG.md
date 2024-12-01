@@ -13,6 +13,7 @@ Change Log
 ### Fixed
 
 - `new` function generated if `persist: true` now is public.
+- Bugs with insets and deletes after table load from file.
 
 ## [0.4.0]
 
