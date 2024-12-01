@@ -4,6 +4,7 @@ use std::io::{BufReader, Read};
 use std::path::Path;
 
 mod persistence;
+mod worktable;
 
 pub fn check_if_files_are_same(got: String, expected: String) -> bool {
     let got = File::open(got).unwrap();
