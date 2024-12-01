@@ -30,7 +30,7 @@ where
 
     last_page_id: AtomicU32,
 
-    current_page: AtomicU32,
+    current_page_index: AtomicU32,
 }
 
 impl<Row, const DATA_LENGTH: usize> DataPages<Row, DATA_LENGTH>
@@ -44,22 +44,21 @@ where
             empty_links: Stack::new(),
             row_count: AtomicU64::new(0),
             last_page_id: AtomicU32::new(0),
-            current_page: AtomicU32::new(0),
+            current_page_index: AtomicU32::new(0),
         }
     }
 
     pub fn from_data(
         vec: Vec<Arc<data::Data<<Row as StorableRow>::WrappedRow, DATA_LENGTH>>>,
     ) -> Self {
-        // TODO: Add empty_links persistence.
         // TODO: Add row_count persistence.
-        let len = vec.len();
+        let last_page_id = vec.len() - 1;
         Self {
             pages: RwLock::new(vec),
             empty_links: Stack::new(),
             row_count: AtomicU64::new(0),
-            last_page_id: AtomicU32::new(len as u32),
-            current_page: AtomicU32::new(len as u32),
+            last_page_id: AtomicU32::new(last_page_id as u32),
+            current_page_index: AtomicU32::new(last_page_id as u32),
         }
     }
 
@@ -96,7 +95,7 @@ where
 
         let (link, tried_page) = {
             let pages = self.pages.read().unwrap();
-            let current_page = self.current_page.load(Ordering::Relaxed);
+            let current_page = self.current_page_index.load(Ordering::Relaxed);
             let page = &pages[current_page as usize];
 
             (page.save_row::<N>(&general_row), current_page)
@@ -108,7 +107,7 @@ where
             }
             Err(e) => {
                 return if let DataExecutionError::PageIsFull { .. } = e {
-                    if tried_page == self.current_page.load(Ordering::Relaxed) {
+                    if tried_page == self.current_page_index.load(Ordering::Relaxed) {
                         self.add_next_page(tried_page);
                     }
                     self.retry_insert(general_row)
@@ -130,7 +129,7 @@ where
         <Row as StorableRow>::WrappedRow: Archive + Serialize<AllocSerializer<N>>,
     {
         let pages = self.pages.read().unwrap();
-        let current_page = self.current_page.load(Ordering::Relaxed);
+        let current_page = self.current_page_index.load(Ordering::Relaxed);
         let page = &pages[current_page as usize];
 
         let res = page
@@ -145,12 +144,12 @@ where
     }
 
     fn add_next_page(&self, tried_page: u32) {
-        let mut pages = self.pages.write().unwrap();
-        if tried_page == self.current_page.load(Ordering::Relaxed) {
+        let mut pages = self.pages.write().expect("lock should be not poisoned");
+        if tried_page == self.current_page_index.load(Ordering::Relaxed) {
             let index = self.last_page_id.fetch_add(1, Ordering::Relaxed) + 1;
 
             pages.push(Arc::new(data::Data::new(index.into())));
-            self.current_page.fetch_add(1, Ordering::Relaxed);
+            self.current_page_index.fetch_add(1, Ordering::Relaxed);
         }
     }
 

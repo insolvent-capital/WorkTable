@@ -64,6 +64,10 @@ impl<Row, const DATA_LENGTH: usize> Data<Row, DATA_LENGTH> {
         }
     }
 
+    pub fn set_page_id(&mut self, id: PageId) {
+        self.id = id;
+    }
+
     #[cfg_attr(
         feature = "perf_measurements",
         performance_measurement(prefix_name = "DataRow")
