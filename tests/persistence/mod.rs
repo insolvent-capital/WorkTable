@@ -27,6 +27,8 @@ worktable! (
     },
 );
 
+pub const TEST_ROW_COUNT: usize = 100;
+
 pub fn get_empty_test_wt() -> TestPersistWorkTable
 {
     let manager = Arc::new(DatabaseManager {
@@ -59,10 +61,10 @@ pub fn get_test_wt_without_secondary_indexes() -> TestWithoutSecondaryIndexesWor
 
     let table = TestWithoutSecondaryIndexesWorkTable::new(manager);
 
-    for i in 1..100 {
+    for i in 1..TEST_ROW_COUNT {
         let row = TestWithoutSecondaryIndexesRow {
             another: i as u64,
-            id: i,
+            id: i as u128,
         };
         table.insert(row).unwrap();
     }

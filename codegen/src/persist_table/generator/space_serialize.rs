@@ -76,7 +76,6 @@ impl Generator {
         Ok(quote! {
             pub fn load_from_file(manager: std::sync::Arc<DatabaseManager>) -> eyre::Result<Self> {
                 let filename = format!("{}/{}.wt", manager.database_files_dir.as_str(), #name_underscore);
-                println!("{:?}", filename);
                 let filename = std::path::Path::new(filename.as_str());
                 let Ok(mut file) = std::fs::File::open(filename) else {
                     return Ok(#wt_ident::new(manager));
