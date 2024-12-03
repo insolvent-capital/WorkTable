@@ -220,7 +220,9 @@ impl Generator {
     fn gen_space_persist_fn(&self) -> syn::Result<TokenStream> {
         let name = self.struct_def.ident.to_string().replace("WorkTable", "");
         let space_ident = Ident::new(format!("{}Space", name).as_str(), Span::mixed_site());
-        let file_name = Literal::string(format!("{}.wt", name.from_case(Case::Pascal).to_case(Case::Snake)).as_str());
+        let file_name = Literal::string(
+            format!("{}.wt", name.from_case(Case::Pascal).to_case(Case::Snake)).as_str(),
+        );
 
         Ok(quote! {
             impl<const DATA_LENGTH: usize> #space_ident<DATA_LENGTH> {

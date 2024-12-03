@@ -7,6 +7,9 @@ pub struct DatabaseManager {
 
 impl DatabaseManager {
     pub fn new(config_path: String, database_files_dir: String) -> Self {
-        Self { config_path, database_files_dir }
+        Self {
+            config_path,
+            database_files_dir,
+        }
     }
 }

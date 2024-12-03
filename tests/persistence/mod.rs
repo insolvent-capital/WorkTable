@@ -29,8 +29,7 @@ worktable! (
 
 pub const TEST_ROW_COUNT: usize = 100;
 
-pub fn get_empty_test_wt() -> TestPersistWorkTable
-{
+pub fn get_empty_test_wt() -> TestPersistWorkTable {
     let manager = Arc::new(DatabaseManager {
         config_path: "tests/data".to_string(),
         database_files_dir: "test/data".to_string(),

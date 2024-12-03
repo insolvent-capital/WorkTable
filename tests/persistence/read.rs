@@ -4,12 +4,16 @@ use std::sync::Arc;
 use worktable::prelude::*;
 
 // TODO: Fix naming.
-use crate::persistence::{get_empty_test_wt, get_test_wt, TestPersistRow, TestPersistWorkTable, TESTPERSIST_INNER_SIZE, TESTPERSIST_PAGE_SIZE, TEST_ROW_COUNT};
+use crate::persistence::{
+    get_empty_test_wt, get_test_wt, TestPersistRow, TestPersistWorkTable, TESTPERSIST_INNER_SIZE,
+    TESTPERSIST_PAGE_SIZE, TEST_ROW_COUNT,
+};
 
 #[test]
 fn test_info_parse() {
     let mut file = File::open("tests/data/expected/test_persist.wt").unwrap();
-    let info = parse_page::<SpaceInfoData, { TESTPERSIST_INNER_SIZE as u32 }>(&mut file, 0).unwrap();
+    let info =
+        parse_page::<SpaceInfoData, { TESTPERSIST_INNER_SIZE as u32 }>(&mut file, 0).unwrap();
 
     assert_eq!(info.header.space_id, 0.into());
     assert_eq!(info.header.page_id, 0.into());
@@ -37,7 +41,8 @@ fn test_info_parse() {
 #[test]
 fn test_index_parse() {
     let mut file = File::open("tests/data/expected/test_persist.wt").unwrap();
-    let index = parse_page::<IndexData<u128>, { TESTPERSIST_PAGE_SIZE as u32 }>(&mut file, 1).unwrap();
+    let index =
+        parse_page::<IndexData<u128>, { TESTPERSIST_PAGE_SIZE as u32 }>(&mut file, 1).unwrap();
 
     assert_eq!(index.header.space_id, 0.into());
     assert_eq!(index.header.page_id, 1.into());
@@ -70,7 +75,9 @@ fn test_index_parse() {
 #[test]
 fn test_data_parse() {
     let mut file = File::open("tests/data/expected/test_persist.wt").unwrap();
-    let data = parse_data_page::<{ TESTPERSIST_PAGE_SIZE }, { TESTPERSIST_INNER_SIZE }>(&mut file, 3).unwrap();
+    let data =
+        parse_data_page::<{ TESTPERSIST_PAGE_SIZE }, { TESTPERSIST_INNER_SIZE }>(&mut file, 3)
+            .unwrap();
 
     assert_eq!(data.header.space_id, 0.into());
     assert_eq!(data.header.page_id, 3.into());
@@ -139,9 +146,15 @@ async fn test_space_delete_after_read() {
     });
     let table = TestPersistWorkTable::load_from_file(manager).unwrap();
 
-    table.delete((TEST_ROW_COUNT as u128 - 1).into()).await.unwrap();
+    table
+        .delete((TEST_ROW_COUNT as u128 - 1).into())
+        .await
+        .unwrap();
     let expected = get_test_wt();
-    expected.delete((TEST_ROW_COUNT as u128 - 1).into()).await.unwrap();
+    expected
+        .delete((TEST_ROW_COUNT as u128 - 1).into())
+        .await
+        .unwrap();
 
     assert_eq!(
         table.select_all().execute().unwrap(),

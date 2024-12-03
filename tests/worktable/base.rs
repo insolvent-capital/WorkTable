@@ -4,30 +4,30 @@ use worktable::prelude::*;
 use worktable::worktable;
 
 worktable! (
-        name: Test,
-        columns: {
-            id: u64 primary_key autoincrement,
-            test: i64,
-            another: u64,
-            exchange: String
+    name: Test,
+    columns: {
+        id: u64 primary_key autoincrement,
+        test: i64,
+        another: u64,
+        exchange: String
+    },
+    indexes: {
+        test_idx: test unique,
+        exchnage_idx: exchange,
+    }
+    queries: {
+        update: {
+            AnotherByExchange(another) by exchange,
+            AnotherByTest(another) by test,
+            AnotherById(another) by id,
         },
-        indexes: {
-            test_idx: test unique,
-            exchnage_idx: exchange,
+        delete: {
+            ByAnother() by another,
+            ByExchange() by exchange,
+            ByTest() by test,
         }
-        queries: {
-            update: {
-                AnotherByExchange(another) by exchange,
-                AnotherByTest(another) by test,
-                AnotherById(another) by id,
-            },
-            delete: {
-                ByAnother() by another,
-                ByExchange() by exchange,
-                ByTest() by test,
-            }
-        }
-    );
+    }
+);
 
 #[test]
 fn table_name() {

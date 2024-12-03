@@ -1,6 +1,6 @@
+use rkyv::{Archive, Deserialize, Serialize};
 use worktable::prelude::*;
 use worktable::worktable;
-use rkyv::{Archive, Deserialize, Serialize};
 
 #[derive(Archive, Clone, Copy, Debug, Deserialize, Serialize, PartialEq, PartialOrd)]
 #[archive(compare(PartialEq))]
