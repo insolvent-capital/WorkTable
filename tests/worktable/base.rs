@@ -6,7 +6,7 @@ use worktable::worktable;
 worktable! (
     name: Test,
     columns: {
-        id: u64 primary_key autoincrement,
+        id: u64 primary_key autoincrement TreeIndex,
         test: i64,
         another: u64,
         exchange: String

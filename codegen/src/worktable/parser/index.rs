@@ -1,6 +1,6 @@
 use crate::worktable::model::Index;
 use crate::worktable::Parser;
-use proc_macro2::{Delimiter, Ident, TokenTree};
+use proc_macro2::{Delimiter, Ident, Span, TokenTree};
 use std::collections::HashMap;
 use syn::spanned::Spanned;
 
@@ -81,30 +81,21 @@ impl Parser {
             return Err(syn::Error::new(row_name.span(), "Expected row name"));
         };
 
-        let is_unique = if let Some(tt) = self.input_iter.peek() {
-            match tt {
-                TokenTree::Ident(index) => {
-                    if index.to_string().as_str() == "unique" {
-                        self.input_iter.next();
-                        true
-                    } else {
-                        return Err(syn::Error::new(index.span(), "Unexpected identifier."));
-                    }
-                }
-                TokenTree::Punct(comma) => {
-                    if comma.as_char() != ',' {
-                        return Err(syn::Error::new(
-                            comma.span(),
-                            format!("Expected `,` found: `{}`", comma.as_char()),
-                        ));
-                    }
-                    self.input_iter.next();
-                    false
-                }
-                _ => false,
+        let is_unique = if let Some(TokenTree::Ident(unique)) = self.input_iter.peek() {
+            if unique.to_string().as_str() == "unique" {
+                self.input_iter.next();
+                true
+            } else {
+                return Err(syn::Error::new(unique.span(), "Unexpected identifier."));
             }
         } else {
-            false
+           false
+        };
+
+        let index_type = if let Some(TokenTree::Ident(index_type)) = self.input_iter.peek() {
+            index_type.clone()
+        } else {
+            Ident::new("TreeIndex", Span::mixed_site())
         };
 
         self.try_parse_comma()?;
@@ -115,6 +106,7 @@ impl Parser {
                 name: ident,
                 field: row_name,
                 is_unique,
+                index_type
             },
         ))
     }

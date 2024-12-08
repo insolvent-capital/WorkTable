@@ -97,7 +97,7 @@ impl Generator {
         let index_type_name = self.index_name.as_ref().unwrap();
 
         quote! {
-            impl TableIndex<#row_type_name> for #index_type_name {
+            impl TableSecondaryIndex<#row_type_name> for #index_type_name {
                 fn save_row(&self, row: #row_type_name, link: Link) -> core::result::Result<(), WorkTableError> {
                     #(#save_rows)*
 

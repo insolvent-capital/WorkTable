@@ -105,8 +105,8 @@ impl Generator {
                         self.gen_non_unique_update(snake_case_name, name, index_name, idents)
                     }
                 } else {
-                    if self.columns.primary_keys.len() == 1 {
-                        if self.columns.primary_keys.first().unwrap().to_string()
+                    if self.columns.primary_keys.0.len() == 1 {
+                        if self.columns.primary_keys.0.first().unwrap().to_string()
                             == op.by.to_string()
                         {
                             self.gen_pk_update(snake_case_name, name, idents)

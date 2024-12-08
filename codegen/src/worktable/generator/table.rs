@@ -32,6 +32,7 @@ impl Generator {
             }
         };
 
+        let primary_index_type =  &self.columns.primary_keys.1;
         let iter_with = Self::gen_iter_with(row_type);
         let iter_with_async = Self::gen_iter_with_async(row_type);
         let select_executor = self.gen_select_executor();
@@ -94,6 +95,7 @@ impl Generator {
                     WorkTable<
                         #row_type,
                         #pk_type,
+                        #primary_index_type<#pk_type, Link>,
                         #index_type,
                         <#pk_type as TablePrimaryKey>::Generator,
                         #inner_const_name
@@ -111,6 +113,7 @@ impl Generator {
                     WorkTable<
                         #row_type,
                         #pk_type,
+                        #primary_index_type<#pk_type, Link>,
                         #index_type
                     >
                     #persist_type_part

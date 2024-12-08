@@ -5,4 +5,5 @@ pub struct Index {
     pub name: Ident,
     pub field: Ident,
     pub is_unique: bool,
+    pub index_type: Ident,
 }

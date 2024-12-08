@@ -1,49 +1,53 @@
 pub mod select;
 
+use std::marker::PhantomData;
 use data_bucket::{Link, INNER_PAGE_SIZE};
 use derive_more::{Display, Error, From};
 #[cfg(feature = "perf_measurements")]
 use performance_measurement_codegen::performance_measurement;
 use rkyv::ser::serializers::AllocSerializer;
 use rkyv::{Archive, Deserialize, Serialize};
-use scc::ebr::Guard;
-use scc::tree_index::TreeIndex;
 
 use crate::in_memory::{DataPages, RowWrapper, StorableRow};
 use crate::lock::LockMap;
 use crate::primary_key::{PrimaryKeyGenerator, TablePrimaryKey};
-use crate::{in_memory, TableIndex, TableRow};
+use crate::{in_memory, TableIndex, TableRow, TableSecondaryIndex};
 
 #[derive(Debug)]
 pub struct WorkTable<
     Row,
-    Pk,
-    I = (),
-    PkGen = <Pk as TablePrimaryKey>::Generator,
+    PrimaryKey,
+    IndexType,
+    SecondaryIndexes = (),
+    PkGen = <PrimaryKey as TablePrimaryKey>::Generator,
     const DATA_LENGTH: usize = INNER_PAGE_SIZE,
 > where
-    Pk: Clone + Ord + 'static,
+    PrimaryKey: Clone + Ord + 'static,
     Row: StorableRow,
+    IndexType: TableIndex<PrimaryKey>
 {
     pub data: DataPages<Row, DATA_LENGTH>,
 
-    pub pk_map: TreeIndex<Pk, Link>,
+    pub pk_map: IndexType,
 
-    pub indexes: I,
+    pub indexes: SecondaryIndexes,
 
     pub pk_gen: PkGen,
 
     pub lock_map: LockMap,
 
     pub table_name: &'static str,
+
+    pub pk_phantom: PhantomData<PrimaryKey>
 }
 
 // Manual implementations to avoid unneeded trait bounds.
-impl<Row, Pk, I, PkGen, const DATA_LENGTH: usize> Default
-    for WorkTable<Row, Pk, I, PkGen, DATA_LENGTH>
+impl<Row, PrimaryKey, IndexType, SecondaryIndexes, PkGen, const DATA_LENGTH: usize> Default
+    for WorkTable<Row, PrimaryKey, IndexType, SecondaryIndexes, PkGen, DATA_LENGTH>
 where
-    Pk: Clone + Ord + TablePrimaryKey,
-    I: Default,
+    PrimaryKey: Clone + Ord + TablePrimaryKey,
+    SecondaryIndexes: Default,
+    IndexType: Default + TableIndex<PrimaryKey>,
     PkGen: Default,
     Row: StorableRow,
     <Row as StorableRow>::WrappedRow: RowWrapper<Row>,
@@ -51,25 +55,28 @@ where
     fn default() -> Self {
         Self {
             data: DataPages::new(),
-            pk_map: TreeIndex::new(),
-            indexes: I::default(),
+            pk_map: IndexType::default(),
+            indexes: SecondaryIndexes::default(),
             pk_gen: Default::default(),
             lock_map: LockMap::new(),
             table_name: "",
+            pk_phantom: PhantomData
         }
     }
 }
 
-impl<Row, Pk, I, PkGen, const DATA_LENGTH: usize> WorkTable<Row, Pk, I, PkGen, DATA_LENGTH>
+impl<Row, PrimaryKey, IndexType, SecondaryIndexes, PkGen, const DATA_LENGTH: usize>
+    WorkTable<Row, PrimaryKey, IndexType, SecondaryIndexes, PkGen, DATA_LENGTH>
 where
-    Row: TableRow<Pk>,
-    Pk: Clone + Ord + TablePrimaryKey,
+    Row: TableRow<PrimaryKey>,
+    PrimaryKey: Clone + Ord + TablePrimaryKey,
+    IndexType: TableIndex<PrimaryKey>,
     Row: StorableRow,
     <Row as StorableRow>::WrappedRow: RowWrapper<Row>,
 {
-    pub fn get_next_pk(&self) -> Pk
+    pub fn get_next_pk(&self) -> PrimaryKey
     where
-        PkGen: PrimaryKeyGenerator<Pk>,
+        PkGen: PrimaryKeyGenerator<PrimaryKey>,
     {
         self.pk_gen.next()
     }
@@ -79,7 +86,7 @@ where
         feature = "perf_measurements",
         performance_measurement(prefix_name = "WorkTable")
     )]
-    pub fn select(&self, pk: Pk) -> Option<Row>
+    pub fn select(&self, pk: PrimaryKey) -> Option<Row>
     where
         Row: Archive,
         <<Row as StorableRow>::WrappedRow as Archive>::Archived: Deserialize<
@@ -87,21 +94,20 @@ where
             rkyv::de::deserializers::SharedDeserializeMap,
         >,
     {
-        let guard = Guard::new();
-        let link = self.pk_map.peek(&pk, &guard)?;
-        self.data.select(*link).ok()
+        let link = self.pk_map.peek(&pk)?;
+        self.data.select(link).ok()
     }
 
     #[cfg_attr(
         feature = "perf_measurements",
         performance_measurement(prefix_name = "WorkTable")
     )]
-    pub fn insert<const ROW_SIZE_HINT: usize>(&self, row: Row) -> Result<Pk, WorkTableError>
+    pub fn insert<const ROW_SIZE_HINT: usize>(&self, row: Row) -> Result<PrimaryKey, WorkTableError>
     where
         Row: Archive + Serialize<AllocSerializer<ROW_SIZE_HINT>> + Clone,
         <Row as StorableRow>::WrappedRow: Archive + Serialize<AllocSerializer<ROW_SIZE_HINT>>,
-        Pk: Clone,
-        I: TableIndex<Row>,
+        PrimaryKey: Clone,
+        SecondaryIndexes: TableSecondaryIndex<Row>,
     {
         let pk = row.get_primary_key().clone();
         let link = self
