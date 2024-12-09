@@ -143,7 +143,7 @@ impl Generator {
                     let pk = row.get_primary_key();
                     let need_to_update = {
                         let guard = Guard::new();
-                        if let Some(_) = self.0.pk_map.peek(&pk, &guard) {
+                        if let Some(_) = TableIndex::peek(&self.0.pk_map, &pk) {
                             true
                         } else {
                             false
@@ -320,7 +320,7 @@ impl Generator {
                         let mut limit = q.params.limit.unwrap_or(usize::MAX);
                         let mut offset = q.params.offset.unwrap_or(0);
                         let guard = Guard::new();
-                        let mut iter = self.0.pk_map.iter(&guard);
+                        let mut iter = TableIndex::iter(&self.0.pk_map);
                         let mut rows = vec![];
 
                         while let Some((_, l)) = iter.next() {
@@ -442,7 +442,7 @@ impl Generator {
             pub fn iter_with<F: Fn(#row) -> core::result::Result<(), WorkTableError>>(&self, f: F) -> core::result::Result<(), WorkTableError> {
                 let first = {
                     let guard = Guard::new();
-                    self.0.pk_map.iter(&guard).next().map(|(k, v)| (k.clone(), *v))
+                    TableIndex::iter(&self.0.pk_map).next().map(|(k, v)| (k.clone(), *v))
                 };
                 let Some((mut k, link)) = first else {
                     return Ok(())
@@ -455,7 +455,7 @@ impl Generator {
                 while !ind {
                     let next = {
                         let guard = Guard::new();
-                        let mut iter = self.0.pk_map.range(k.clone().., &guard);
+                        let mut iter = TableIndex::range(&self.0.pk_map, k.clone()..);
                         let next = iter.next().map(|(k, v)| (k.clone(), *v)).filter(|(key, _)| key != &k);
                         if next.is_some() {
                             next
@@ -482,7 +482,7 @@ impl Generator {
             pub async fn iter_with_async<F: Fn(#row) -> Fut , Fut: std::future::Future<Output = core::result::Result<(), WorkTableError>>>(&self, f: F) ->core::result::Result<(), WorkTableError> {
                 let first = {
                     let guard = Guard::new();
-                    self.0.pk_map.iter(&guard).next().map(|(k, v)| (k.clone(), *v))
+                    TableIndex::iter(&self.0.pk_map).next().map(|(k, v)| (k.clone(), *v))
                 };
                 let Some((mut k, link)) = first else {
                     return Ok(())
@@ -495,7 +495,7 @@ impl Generator {
                 while !ind {
                     let next = {
                         let guard = Guard::new();
-                        let mut iter = self.0.pk_map.range(k.clone().., &guard);
+                        let mut iter = TableIndex::range(&self.0.pk_map, k.clone()..);
                         let next = iter.next().map(|(k, v)| (k.clone(), *v)).filter(|(key, _)| key != &k);
                         if next.is_some() {
                             next

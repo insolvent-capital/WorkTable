@@ -231,8 +231,7 @@ async fn delete() {
         exchange: "test".to_string(),
     };
     let pk = table.insert(row.clone()).unwrap();
-    let guard = Guard::new();
-    let link = *table.0.pk_map.peek(&pk, &guard).unwrap();
+    let link = TableIndex::peek(&table.0.pk_map, &pk).unwrap();
     table.delete(pk.clone()).await.unwrap();
     let selected_row = table.select(pk);
     assert!(selected_row.is_none());
@@ -248,7 +247,7 @@ async fn delete() {
         exchange: "test".to_string(),
     };
     let pk = table.insert(updated.clone()).unwrap();
-    let new_link = *table.0.pk_map.peek(&pk, &guard).unwrap();
+    let new_link = TableIndex::peek(&table.0.pk_map, &pk).unwrap();
 
     assert_eq!(link, new_link)
 }
@@ -333,8 +332,7 @@ async fn delete_and_insert_less() {
         exchange: "test1234567890".to_string(),
     };
     let pk = table.insert(row.clone()).unwrap();
-    let guard = Guard::new();
-    let link = *table.0.pk_map.peek(&pk, &guard).unwrap();
+    let link = TableIndex::peek(&table.0.pk_map, &pk).unwrap();
     table.delete(pk.clone()).await.unwrap();
     let selected_row = table.select(pk);
     assert!(selected_row.is_none());
@@ -346,7 +344,7 @@ async fn delete_and_insert_less() {
         exchange: "test1".to_string(),
     };
     let pk = table.insert(updated.clone()).unwrap();
-    let new_link = *table.0.pk_map.peek(&pk, &guard).unwrap();
+    let new_link = TableIndex::peek(&table.0.pk_map, &pk).unwrap();
 
     assert_ne!(link, new_link)
 }
@@ -368,8 +366,7 @@ async fn delete_and_replace() {
         exchange: "test".to_string(),
     };
     let pk = table.insert(row.clone()).unwrap();
-    let guard = Guard::new();
-    let link = *table.0.pk_map.peek(&pk, &guard).unwrap();
+    let link = TableIndex::peek(&table.0.pk_map, &pk).unwrap();
     table.delete(pk.clone()).await.unwrap();
     let selected_row = table.select(pk);
     assert!(selected_row.is_none());
@@ -381,7 +378,7 @@ async fn delete_and_replace() {
         exchange: "test".to_string(),
     };
     let pk = table.insert(updated.clone()).unwrap();
-    let new_link = *table.0.pk_map.peek(&pk, &guard).unwrap();
+    let new_link = TableIndex::peek(&table.0.pk_map, &pk).unwrap();
 
     assert_eq!(link, new_link)
 }

@@ -53,7 +53,7 @@ impl Generator {
                 let mut row = unsafe { rkyv::archived_root_mut::<#row_ident>(core::pin::Pin::new(&mut bytes[..])).get_unchecked_mut() };
                 let link = {
                     let guard = Guard::new();
-                    *self.0.pk_map.peek(&pk, &guard).ok_or(WorkTableError::NotFound)?
+                    TableIndex::peek(&self.0.pk_map, &pk).ok_or(WorkTableError::NotFound)?
                 };
                 let id = self.0.data.with_ref(link, |archived| {
                     archived.is_locked()
@@ -176,7 +176,7 @@ impl Generator {
                 let mut row = unsafe { rkyv::archived_root_mut::<#query_ident>(core::pin::Pin::new(&mut bytes[..])).get_unchecked_mut() };
                 let link = {
                     let guard = Guard::new();
-                    *self.0.pk_map.peek(&by, &guard).ok_or(WorkTableError::NotFound)?
+                    TableIndex::peek(&self.0.pk_map, &by).ok_or(WorkTableError::NotFound)?
                 };
                 let id = self.0.data.with_ref(link, |archived| {
                     archived.#check_ident()

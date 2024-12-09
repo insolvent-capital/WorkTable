@@ -8,7 +8,7 @@ use crate::prelude::LockFreeSet;
 mod table_index;
 mod table_secondary_index;
 
-pub use table_index::TableIndex;
+pub use table_index::{TableIndex, IndexSet, KeyValue};
 pub use table_secondary_index::TableSecondaryIndex;
 
 pub enum IndexType<'a, T> {

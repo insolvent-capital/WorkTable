@@ -1,22 +1,10 @@
+use std::intrinsics::transmute;
+use std::ops::RangeBounds;
+
 use data_bucket::Link;
 use scc::ebr::Guard;
-use std::mem::transmute;
-use std::ops::RangeBounds;
-use std::rc::Rc;
 
-pub trait TableIndex<K> {
-    fn insert(&self, key: K, link: Link) -> Result<(), (K, Link)>;
-    fn peek(&self, key: &K) -> Option<Link>;
-    fn iter<'a>(&'a self) -> impl Iterator<Item = (&'a K, &'a Link)>
-    where
-        K: 'a;
-    fn range<'a, Q, R: RangeBounds<K>>(
-        &'a self,
-        range: R,
-    ) -> impl Iterator<Item = (&'a K, &'a Link)>
-    where
-        K: 'a;
-}
+use crate::TableIndex;
 
 impl<K> TableIndex<K> for scc::TreeIndex<K, Link>
 where
@@ -31,6 +19,10 @@ where
         scc::TreeIndex::peek(self, key, &guard).cloned()
     }
 
+    fn remove(&self, key: &K) -> bool {
+        scc::TreeIndex::remove(self, key)
+    }
+
     fn iter<'a>(&'a self) -> impl Iterator<Item = (&'a K, &'a Link)>
     where
         K: 'a,
@@ -40,7 +32,7 @@ where
         scc::TreeIndex::iter(self, guard)
     }
 
-    fn range<'a, Q, R: RangeBounds<K>>(
+    fn range<'a, R: RangeBounds<K>>(
         &'a self,
         range: R,
     ) -> impl Iterator<Item = (&'a K, &'a Link)>

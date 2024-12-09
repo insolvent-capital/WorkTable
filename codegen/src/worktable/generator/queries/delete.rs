@@ -34,7 +34,7 @@ impl Generator {
             pub async fn delete(&self, pk: #pk_ident) -> core::result::Result<(), WorkTableError> {
                 let link = {
                     let guard = Guard::new();
-                    *self.0.pk_map.peek(&pk, &guard).ok_or(WorkTableError::NotFound)?
+                    TableIndex::peek(&self.0.pk_map, &pk).ok_or(WorkTableError::NotFound)?
                 };
                 let id = self.0.data.with_ref(link, |archived| {
                     archived.is_locked()
