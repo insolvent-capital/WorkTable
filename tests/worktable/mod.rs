@@ -6,3 +6,4 @@ mod option;
 mod tuple_primary_key;
 mod uuid;
 mod with_enum;
+mod index_type;
