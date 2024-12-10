@@ -5,6 +5,8 @@ Change Log
 
 ### Added
 
+- add ability to choose index type in `worktable!` declaration.
+
 ### BC Breaks
 
 - `.wt` files which are generated now have names as snake-case of table's name.

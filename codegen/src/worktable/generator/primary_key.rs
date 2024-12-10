@@ -13,6 +13,7 @@ impl Generator {
         let vals = self
             .columns
             .primary_keys
+            .0
             .iter()
             .map(|i| (i.clone(), self.columns.columns_map.get(i).unwrap().clone()))
             .collect::<HashMap<_, _>>();

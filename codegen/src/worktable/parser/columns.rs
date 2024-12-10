@@ -1,4 +1,4 @@
-use proc_macro2::{Delimiter, TokenTree};
+use proc_macro2::{Delimiter, Ident, Span, TokenTree};
 use syn::spanned::Spanned as _;
 
 use crate::worktable::model::{Columns, GeneratorType, Row};
@@ -108,10 +108,18 @@ impl Parser {
                 self.input_iter.next();
                 true
             } else {
-                return Err(syn::Error::new(option.span(), "Unexpected identifier."));
+                false
             }
         } else {
             false
+        };
+
+        let index_type = if let Some(TokenTree::Ident(index_type)) = self.input_iter.peek() {
+            let t = index_type.clone();
+            self.input_iter.next();
+            t
+        } else {
+            Ident::new("TreeIndex", Span::mixed_site())
         };
 
         self.try_parse_comma()?;
@@ -122,6 +130,7 @@ impl Parser {
             is_primary_key,
             gen_type,
             optional,
+            index_type,
         })
     }
 }
@@ -147,7 +156,7 @@ mod tests {
         assert!(columns.is_ok());
         let columns = columns.unwrap();
 
-        assert_eq!(columns.primary_keys[0].to_string(), "id");
+        assert_eq!(columns.primary_keys.0[0].to_string(), "id");
 
         let map: HashMap<_, _> = columns
             .columns_map
@@ -170,7 +179,7 @@ mod tests {
         assert!(columns.is_ok());
         let columns = columns.unwrap();
 
-        assert_eq!(columns.primary_keys[0].to_string(), "id");
+        assert_eq!(columns.primary_keys.0[0].to_string(), "id");
 
         let map: HashMap<_, _> = columns
             .columns_map
@@ -192,7 +201,7 @@ mod tests {
 
         let columns = columns.unwrap();
 
-        assert_eq!(columns.primary_keys[0].to_string(), "id");
+        assert_eq!(columns.primary_keys.0[0].to_string(), "id");
 
         let map: HashMap<_, _> = columns
             .columns_map
@@ -218,7 +227,7 @@ mod tests {
 
         let columns = columns.unwrap();
 
-        assert_eq!(columns.primary_keys[0].to_string(), "id");
+        assert_eq!(columns.primary_keys.0[0].to_string(), "id");
 
         let map: HashMap<_, _> = columns
             .columns_map
@@ -263,7 +272,7 @@ mod tests {
 
         #[test]
         fn test_row_parse_no_comma() {
-            let row_tokens = TokenStream::from(quote! {id: i64 primary_key});
+            let row_tokens = TokenStream::from(quote! {id: i64 primary_key TreeIndex});
             let iter = &mut row_tokens.clone().into_iter();
 
             let mut parser = Parser::new(row_tokens);
