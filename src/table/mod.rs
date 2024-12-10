@@ -24,7 +24,7 @@ pub struct WorkTable<
 > where
     PrimaryKey: Clone + Ord + 'static,
     Row: StorableRow,
-    IndexType: TableIndex<PrimaryKey>
+    IndexType: TableIndex<PrimaryKey, Link>
 {
     pub data: DataPages<Row, DATA_LENGTH>,
 
@@ -47,7 +47,7 @@ impl<Row, PrimaryKey, IndexType, SecondaryIndexes, PkGen, const DATA_LENGTH: usi
 where
     PrimaryKey: Clone + Ord + TablePrimaryKey,
     SecondaryIndexes: Default,
-    IndexType: Default + TableIndex<PrimaryKey>,
+    IndexType: Default + TableIndex<PrimaryKey, Link>,
     PkGen: Default,
     Row: StorableRow,
     <Row as StorableRow>::WrappedRow: RowWrapper<Row>,
@@ -70,7 +70,7 @@ impl<Row, PrimaryKey, IndexType, SecondaryIndexes, PkGen, const DATA_LENGTH: usi
 where
     Row: TableRow<PrimaryKey>,
     PrimaryKey: Clone + Ord + TablePrimaryKey,
-    IndexType: TableIndex<PrimaryKey>,
+    IndexType: TableIndex<PrimaryKey, Link>,
     Row: StorableRow,
     <Row as StorableRow>::WrappedRow: RowWrapper<Row>,
 {

@@ -259,10 +259,7 @@ impl Generator {
 
                 self.0.lock_map.insert(op_id.into(), lock.clone());
 
-                let rows_to_update = {
-                    let guard = Guard::new();
-                    self.0.indexes.#index.peek(&by, &guard).ok_or(WorkTableError::NotFound)?.clone()
-                };
+                let rows_to_update = TableIndex::peek(&self.0.indexes.#index, &by).ok_or(WorkTableError::NotFound)?;
                 for link in rows_to_update.iter() {
                     let id = self.0.data.with_ref(*link.as_ref(), |archived| {
                         archived.#check_ident()
@@ -354,10 +351,7 @@ impl Generator {
 
                 let mut bytes = rkyv::to_bytes::<_, { #row_ident::ROW_SIZE }>(&row).map_err(|_| WorkTableError::SerializeError)?;
                 let mut row = unsafe { rkyv::archived_root_mut::<#query_ident>(core::pin::Pin::new(&mut bytes[..])).get_unchecked_mut() };
-                let link = {
-                    let guard = Guard::new();
-                    *self.0.indexes.#index.peek(&by, &guard).ok_or(WorkTableError::NotFound)?
-                };
+                let link = TableIndex::peek(&self.0.indexes.#index, &by).ok_or(WorkTableError::NotFound)?;
                 let id = self.0.data.with_ref(link, |archived| {
                     archived.#check_ident()
                 }).map_err(WorkTableError::PagesError)?;

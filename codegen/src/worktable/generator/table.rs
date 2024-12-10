@@ -247,8 +247,7 @@ impl Generator {
                         #lit => {
                             let mut limit = q.params.limit.unwrap_or(usize::MAX);
                             let mut offset = q.params.offset.unwrap_or(0);
-                            let guard = Guard::new();
-                            let mut iter = self.0.indexes.#idx_name.iter(&guard);
+                            let mut iter = TableIndex::iter(&self.0.indexes.#idx_name);
                             let mut rows = vec![];
 
                             while let Some((_, l)) = iter.next() {
@@ -276,8 +275,7 @@ impl Generator {
                         #lit => {
                             let mut limit = q.params.limit.unwrap_or(usize::MAX);
                             let mut offset = q.params.offset.unwrap_or(0);
-                            let guard = Guard::new();
-                            let mut iter = self.0.indexes.#idx_name.iter(&guard);
+                            let mut iter = TableIndex::iter(&self.0.indexes.#idx_name);
                             let mut rows = vec![];
 
                             while let Some((_, links)) = iter.next() {
@@ -400,8 +398,8 @@ impl Generator {
         Ok(quote! {
             pub fn #fn_name(&self, by: #type_) -> Option<#row_ident> {
                 let guard = Guard::new();
-                let link = self.0.indexes.#field_ident.peek(&by, &guard)?;
-                self.0.data.select(*link).ok()
+                let link = TableIndex::peek(&self.0.indexes.#field_ident, &by)?;
+                self.0.data.select(link).ok()
             }
         })
     }
@@ -421,9 +419,7 @@ impl Generator {
         Ok(quote! {
             pub fn #fn_name(&self, by: #type_) -> core::result::Result<SelectResult<#row_ident, Self>, WorkTableError> {
                 let rows = {
-                    let guard = Guard::new();
-                    self.0.indexes.#field_ident
-                        .peek(&by, &guard)
+                    TableIndex::peek(&self.0.indexes.#field_ident, &by)
                         .ok_or(WorkTableError::NotFound)?
                         .iter()
                         .map(|l| *l.as_ref())

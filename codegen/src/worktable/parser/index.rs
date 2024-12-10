@@ -86,14 +86,16 @@ impl Parser {
                 self.input_iter.next();
                 true
             } else {
-                return Err(syn::Error::new(unique.span(), "Unexpected identifier."));
+                false
             }
         } else {
            false
         };
 
         let index_type = if let Some(TokenTree::Ident(index_type)) = self.input_iter.peek() {
-            index_type.clone()
+            let t = index_type.clone();
+            self.input_iter.next();
+            t
         } else {
             Ident::new("TreeIndex", Span::mixed_site())
         };

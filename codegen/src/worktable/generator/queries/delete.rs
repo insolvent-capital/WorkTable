@@ -117,10 +117,7 @@ impl Generator {
     fn gen_non_unique_delete(type_: &TokenStream, name: &Ident, index: &Ident) -> TokenStream {
         quote! {
             pub async fn #name(&self, by: #type_) -> core::result::Result<(), WorkTableError> {
-                let rows_to_update = {
-                    let guard = Guard::new();
-                    self.0.indexes.#index.peek(&by, &guard).cloned()
-                };
+                let rows_to_update = TableIndex::peek(&self.0.indexes.#index, &by);
                 if let Some(rows) = rows_to_update {
                     for link in rows.iter() {
                         let row = self.0.data.select(*link.as_ref()).map_err(WorkTableError::PagesError)?;
@@ -135,10 +132,7 @@ impl Generator {
     fn gen_unique_delete(type_: &TokenStream, name: &Ident, index: &Ident) -> TokenStream {
         quote! {
             pub async fn #name(&self, by: #type_) -> core::result::Result<(), WorkTableError> {
-                let row_to_update = {
-                    let guard = Guard::new();
-                    self.0.indexes.#index.peek(&by, &guard).cloned()
-                };
+                let row_to_update = TableIndex::peek(&self.0.indexes.#index, &by);
                 if let Some(link) = row_to_update {
                     let row = self.0.data.select(link).map_err(WorkTableError::PagesError)?;
                     self.delete(row.id.into()).await?;

@@ -6,15 +6,16 @@ use scc::ebr::Guard;
 
 use crate::TableIndex;
 
-impl<K> TableIndex<K> for scc::TreeIndex<K, Link>
+impl<K, V> TableIndex<K, V> for scc::TreeIndex<K, V>
 where
     K: Clone + Ord + Send + Sync + 'static,
+    V: Clone + Send + Sync + 'static
 {
-    fn insert(&self, key: K, link: Link) -> Result<(), (K, Link)> {
-        scc::TreeIndex::insert(self, key, link)
+    fn insert(&self, key: K, value: V) -> Result<(), (K, V)> {
+        scc::TreeIndex::insert(self, key, value)
     }
 
-    fn peek(&self, key: &K) -> Option<Link> {
+    fn peek(&self, key: &K) -> Option<V> {
         let guard = Guard::new();
         scc::TreeIndex::peek(self, key, &guard).cloned()
     }
@@ -23,9 +24,10 @@ where
         scc::TreeIndex::remove(self, key)
     }
 
-    fn iter<'a>(&'a self) -> impl Iterator<Item = (&'a K, &'a Link)>
+    fn iter<'a>(&'a self) -> impl Iterator<Item = (&'a K, &'a V)>
     where
         K: 'a,
+        V: 'a
     {
         let guard = Guard::new();
         let guard: &'a Guard = unsafe { transmute(&guard) };
@@ -35,9 +37,10 @@ where
     fn range<'a, R: RangeBounds<K>>(
         &'a self,
         range: R,
-    ) -> impl Iterator<Item = (&'a K, &'a Link)>
+    ) -> impl Iterator<Item = (&'a K, &'a V)>
     where
         K: 'a,
+        V: 'a
     {
         let guard = Guard::new();
         let guard: &'a Guard = unsafe { transmute(&guard) };

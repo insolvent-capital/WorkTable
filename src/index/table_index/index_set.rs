@@ -46,35 +46,32 @@ impl<K, V> Borrow<K> for KeyValue<K, V> {
     }
 }
 
-impl<K> TableIndex<K> for IndexSet<K, Link>
+impl<K, V> TableIndex<K, V> for IndexSet<K, V>
 where
     K: Debug + Clone + Ord + Send + Sync + 'static,
+    V: Debug + Clone + Send + Sync + Default + 'static,
 {
-    fn insert(&self, key: K, link: Link) -> Result<(), (K, Link)> {
+    fn insert(&self, key: K, value: V) -> Result<(), (K, V)> {
         if indexset::concurrent2::set::BTreeSet::insert(self, KeyValue {
             key: key.clone(),
-            value: link,
+            value: value.clone(),
         }) {
             Ok(())
         } else {
             let kv = KeyValue {
                 key: key.clone(),
-                value: link,
+                value: value.clone(),
             };
             let kv = indexset::concurrent2::set::BTreeSet::get(self, &kv).expect("should exist as false returned");
-            Err((kv.get().key.clone(), kv.get().value))
+            Err((kv.get().key.clone(), kv.get().value.clone()))
         }
     }
 
-    fn peek(&self, key: &K) -> Option<Link> {
+    fn peek(&self, key: &K) -> Option<V> {
         indexset::concurrent2::set::BTreeSet::get(self, &KeyValue {
             key: key.clone(),
-            value: Link {
-                page_id: 0.into(),
-                offset: 0,
-                length: 0,
-            },
-        }).map(|r| r.get().value)
+            value: Default::default(),
+        }).map(|r| r.get().value.clone())
     }
 
     fn remove(&self, key: &K) -> bool {
@@ -87,16 +84,18 @@ where
         }
     }
 
-    fn iter<'a>(&'a self) -> impl Iterator<Item=(&'a K, &'a Link)>
+    fn iter<'a>(&'a self) -> impl Iterator<Item=(&'a K, &'a V)>
     where
-        K: 'a
+        K: 'a,
+        V: 'a
     {
         self.iter().map(|kv| (&kv.key, &kv.value))
     }
 
-    fn range<'a, R: RangeBounds<K>>(&'a self, range: R) -> impl Iterator<Item=(&'a K, &'a Link)>
+    fn range<'a, R: RangeBounds<K>>(&'a self, range: R) -> impl Iterator<Item=(&'a K, &'a V)>
     where
-        K: 'a
+        K: 'a,
+        V: 'a
     {
         self.range(range).map(|kv| (&kv.key, &kv.value))
     }
