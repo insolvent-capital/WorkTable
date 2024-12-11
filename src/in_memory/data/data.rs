@@ -1,20 +1,28 @@
-use crate::persistence::page::INNER_PAGE_SIZE;
-use crate::prelude::Link;
+use std::cell::UnsafeCell;
+use std::marker::PhantomData;
+use std::ops::{Deref, DerefMut};
+use std::sync::atomic::{AtomicU32, Ordering};
+
 use data_bucket::page::PageId;
 use data_bucket::{DataPage, GeneralPage};
 use derive_more::{Display, Error};
-use rkyv::ser::serializers::AllocSerializer;
-use rkyv::{
-    with::{Skip, Unsafe},
-    AlignedBytes, Archive, Deserialize, Serialize,
-};
-use std::cell::UnsafeCell;
-use std::marker::PhantomData;
-use std::pin::Pin;
-use std::sync::atomic::{AtomicU32, Ordering};
-
 #[cfg(feature = "perf_measurements")]
 use performance_measurement_codegen::performance_measurement;
+use rkyv::api::high::HighDeserializer;
+use rkyv::rancor::Strategy;
+use rkyv::seal::Seal;
+use rkyv::ser::allocator::ArenaHandle;
+use rkyv::ser::sharing::Share;
+use rkyv::ser::Serializer;
+use rkyv::util::AlignedVec;
+use rkyv::with::{AtomicLoad, Relaxed};
+use rkyv::{
+    with::{Skip, Unsafe},
+    Archive, Deserialize, Portable, Serialize,
+};
+
+use crate::persistence::page::INNER_PAGE_SIZE;
+use crate::prelude::Link;
 
 /// Length of the [`Data`] page header.
 pub const DATA_HEADER_LENGTH: usize = 4;
@@ -22,20 +30,39 @@ pub const DATA_HEADER_LENGTH: usize = 4;
 /// Length of the inner [`Data`] page part.
 pub const DATA_INNER_LENGTH: usize = INNER_PAGE_SIZE - DATA_HEADER_LENGTH;
 
+#[derive(Archive, Clone, Copy, Debug, Deserialize, Serialize)]
+#[repr(C, align(16))]
+pub struct AlignedBytes<const N: usize>(pub [u8; N]);
+
+impl<const N: usize> Deref for AlignedBytes<N> {
+    type Target = [u8; N];
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<const N: usize> DerefMut for AlignedBytes<N> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 #[derive(Archive, Deserialize, Debug, Serialize)]
 pub struct Data<Row, const DATA_LENGTH: usize = DATA_INNER_LENGTH> {
     /// [`Id`] of the [`General`] page of this [`Data`].
     ///
     /// [`Id]: PageId
     /// [`General`]: page::General
-    #[with(Skip)]
+    #[rkyv(with = Skip)]
     id: PageId,
 
     /// Offset to the first free byte on this [`Data`] page.
+    #[rkyv(with = AtomicLoad<Relaxed>)]
     pub free_offset: AtomicU32,
 
     /// Inner array of bytes where deserialized `Row`s will be stored.
-    #[with(Unsafe)]
+    #[rkyv(with = Unsafe)]
     inner_data: UnsafeCell<AlignedBytes<DATA_LENGTH>>,
 
     /// `Row` phantom data.
@@ -50,7 +77,7 @@ impl<Row, const DATA_LENGTH: usize> Data<Row, DATA_LENGTH> {
         Self {
             id,
             free_offset: AtomicU32::default(),
-            inner_data: UnsafeCell::default(),
+            inner_data: UnsafeCell::new(AlignedBytes::<DATA_LENGTH>([0; DATA_LENGTH])),
             _phantom: PhantomData,
         }
     }
@@ -59,7 +86,7 @@ impl<Row, const DATA_LENGTH: usize> Data<Row, DATA_LENGTH> {
         Self {
             id: page.header.page_id,
             free_offset: AtomicU32::from(page.header.data_length),
-            inner_data: UnsafeCell::new(AlignedBytes(page.inner.data)),
+            inner_data: UnsafeCell::new(AlignedBytes::<DATA_LENGTH>(page.inner.data)),
             _phantom: PhantomData,
         }
     }
@@ -74,9 +101,13 @@ impl<Row, const DATA_LENGTH: usize> Data<Row, DATA_LENGTH> {
     )]
     pub fn save_row<const N: usize>(&self, row: &Row) -> Result<Link, ExecutionError>
     where
-        Row: Archive + Serialize<AllocSerializer<N>>,
+        Row: Archive
+            + for<'a> Serialize<
+                Strategy<Serializer<AlignedVec, ArenaHandle<'a>, Share>, rkyv::rancor::Error>,
+            >,
     {
-        let bytes = rkyv::to_bytes(row).map_err(|_| ExecutionError::SerializeError)?;
+        let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(row)
+            .map_err(|_| ExecutionError::SerializeError)?;
         let length = bytes.len() as u32;
         let offset = self.free_offset.fetch_add(length, Ordering::SeqCst);
         if offset > DATA_LENGTH as u32 - length {
@@ -108,7 +139,10 @@ impl<Row, const DATA_LENGTH: usize> Data<Row, DATA_LENGTH> {
         link: Link,
     ) -> Result<Link, ExecutionError>
     where
-        Row: Archive + Serialize<AllocSerializer<N>>,
+        Row: Archive
+            + for<'a> Serialize<
+                Strategy<Serializer<AlignedVec, ArenaHandle<'a>, Share>, rkyv::rancor::Error>,
+            >,
     {
         let bytes = rkyv::to_bytes(row).map_err(|_| ExecutionError::SerializeError)?;
         let length = bytes.len() as u32;
@@ -126,9 +160,10 @@ impl<Row, const DATA_LENGTH: usize> Data<Row, DATA_LENGTH> {
     pub unsafe fn get_mut_row_ref(
         &self,
         link: Link,
-    ) -> Result<Pin<&mut <Row as Archive>::Archived>, ExecutionError>
+    ) -> Result<Seal<<Row as Archive>::Archived>, ExecutionError>
     where
         Row: Archive,
+        <Row as Archive>::Archived: Portable,
     {
         if link.offset > self.free_offset.load(Ordering::Relaxed) {
             return Err(ExecutionError::DeserializeError);
@@ -136,7 +171,7 @@ impl<Row, const DATA_LENGTH: usize> Data<Row, DATA_LENGTH> {
 
         let inner_data = unsafe { &mut *self.inner_data.get() };
         let bytes = &mut inner_data[link.offset as usize..(link.offset + link.length) as usize];
-        Ok(unsafe { rkyv::archived_root_mut::<Row>(Pin::new(&mut bytes[..])) })
+        Ok(unsafe { rkyv::access_unchecked_mut::<<Row as Archive>::Archived>(&mut bytes[..]) })
     }
 
     #[cfg_attr(
@@ -153,7 +188,7 @@ impl<Row, const DATA_LENGTH: usize> Data<Row, DATA_LENGTH> {
 
         let inner_data = unsafe { &*self.inner_data.get() };
         let bytes = &inner_data[link.offset as usize..(link.offset + link.length) as usize];
-        Ok(unsafe { rkyv::archived_root::<Row>(&bytes[..]) })
+        Ok(unsafe { rkyv::access_unchecked::<<Row as Archive>::Archived>(&bytes[..]) })
     }
 
     #[cfg_attr(
@@ -163,13 +198,11 @@ impl<Row, const DATA_LENGTH: usize> Data<Row, DATA_LENGTH> {
     pub fn get_row(&self, link: Link) -> Result<Row, ExecutionError>
     where
         Row: Archive,
-        <Row as Archive>::Archived: Deserialize<Row, rkyv::de::deserializers::SharedDeserializeMap>,
+        <Row as Archive>::Archived: Deserialize<Row, HighDeserializer<rkyv::rancor::Error>>,
     {
-        let archived = self.get_row_ref(link)?;
-        let mut map = rkyv::de::deserializers::SharedDeserializeMap::new();
-        archived
-            .deserialize(&mut map)
-            .map_err(|_| ExecutionError::DeserializeError)
+        let row = self.get_row_ref(link)?;
+        return Ok(rkyv::deserialize::<_, rkyv::rancor::Error>(row)
+            .map_err(|_| ExecutionError::DeserializeError)?);
     }
 
     pub fn get_bytes(&self) -> [u8; DATA_LENGTH] {
@@ -208,8 +241,7 @@ mod tests {
     #[derive(
         Archive, Copy, Clone, Deserialize, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize,
     )]
-    #[archive(compare(PartialEq))]
-    #[archive_attr(derive(Debug))]
+    #[rkyv(compare(PartialEq), derive(Debug))]
     struct TestRow {
         a: u64,
         b: u64,
@@ -218,7 +250,7 @@ mod tests {
     #[test]
     fn data_page_length_valid() {
         let data = Data::<()>::new(1.into());
-        let bytes = rkyv::to_bytes::<_, 4096>(&data).unwrap();
+        let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&data).unwrap();
 
         assert_eq!(bytes.len(), INNER_PAGE_SIZE)
     }
@@ -237,7 +269,7 @@ mod tests {
 
         let inner_data = unsafe { &mut *page.inner_data.get() };
         let bytes = &inner_data[link.offset as usize..link.length as usize];
-        let archived = unsafe { rkyv::archived_root::<TestRow>(bytes) };
+        let archived = unsafe { rkyv::access_unchecked::<ArchivedTestRow>(bytes) };
         assert_eq!(archived, &row)
     }
 
@@ -255,7 +287,7 @@ mod tests {
 
         let inner_data = unsafe { &mut *page.inner_data.get() };
         let bytes = &inner_data[link.offset as usize..link.length as usize];
-        let archived = unsafe { rkyv::archived_root::<TestRow>(bytes) };
+        let archived = unsafe { rkyv::access_unchecked::<ArchivedTestRow>(bytes) };
         assert_eq!(archived, &new_row)
     }
 
@@ -333,7 +365,7 @@ mod tests {
             let link = link.unwrap();
 
             let bytes = &inner_data[link.offset as usize..(link.offset + link.length) as usize];
-            let archived = unsafe { rkyv::archived_root::<TestRow>(bytes) };
+            let archived = unsafe { rkyv::access_unchecked::<ArchivedTestRow>(bytes) };
             let row = rows.get(i).unwrap();
 
             assert_eq!(row, archived)

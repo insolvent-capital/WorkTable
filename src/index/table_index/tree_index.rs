@@ -1,7 +1,6 @@
 use std::intrinsics::transmute;
 use std::ops::RangeBounds;
 
-use data_bucket::Link;
 use scc::ebr::Guard;
 
 use crate::TableIndex;

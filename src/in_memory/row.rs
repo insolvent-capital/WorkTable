@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 use std::sync::atomic::AtomicBool;
 
+use rkyv::with::{AtomicLoad, Relaxed};
 use rkyv::{Archive, Deserialize, Serialize};
 
 /// Common trait for the `Row`s that can be stored on the [`Data`] page.
@@ -28,6 +29,7 @@ pub struct GeneralRow<Inner> {
     pub inner: Inner,
 
     /// Indicator for deleted rows.
+    #[rkyv(with = AtomicLoad<Relaxed>)]
     pub deleted: AtomicBool,
 }
 

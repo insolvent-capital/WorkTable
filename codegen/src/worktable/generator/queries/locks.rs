@@ -37,7 +37,7 @@ impl Generator {
                                 Ident::new(format!("{}_lock", col).as_str(), Span::mixed_site());
                             quote! {
                                 if self.#col != 0 {
-                                    return Some(self.#col);
+                                    return Some(self.#col.into());
                                 }
                             }
                         })
@@ -57,7 +57,7 @@ impl Generator {
                             let col =
                                 Ident::new(format!("{}_lock", col).as_str(), Span::mixed_site());
                             quote! {
-                                self.#col = id;
+                                self.#col = id.into();
                             }
                         })
                         .collect::<Vec<_>>();
@@ -76,7 +76,7 @@ impl Generator {
                             let col =
                                 Ident::new(format!("{}_lock", col).as_str(), Span::mixed_site());
                             quote! {
-                                self.#col = 0;
+                                self.#col = 0u16.into();
                             }
                         })
                         .collect::<Vec<_>>();
@@ -105,7 +105,7 @@ impl Generator {
                     quote! {
                         pub fn #check_ident(&self) -> Option<u16> {
                             if self.lock != 0 {
-                                return Some(self.lock);
+                                return Some(self.lock.into());
                             }
                             #(#checks)*
                             None

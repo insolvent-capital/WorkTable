@@ -1,7 +1,5 @@
 use std::ops::RangeBounds;
 
-use data_bucket::Link;
-
 mod bplus_tree;
 mod index_set;
 mod tree_index;

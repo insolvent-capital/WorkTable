@@ -3,8 +3,7 @@ use worktable::prelude::*;
 use worktable::worktable;
 
 #[derive(Archive, Clone, Copy, Debug, Deserialize, Serialize, PartialEq, PartialOrd)]
-#[archive(compare(PartialEq))]
-#[archive_attr(derive(Debug))]
+#[rkyv(compare(PartialEq), derive(Debug))]
 pub enum SomeEnum {
     First,
     Second,

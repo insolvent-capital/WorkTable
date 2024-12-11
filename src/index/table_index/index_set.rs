@@ -2,8 +2,6 @@ use std::borrow::Borrow;
 use std::fmt::Debug;
 use std::ops::RangeBounds;
 
-use data_bucket::Link;
-
 use crate::TableIndex;
 
 pub type IndexSet<K, V> = indexset::concurrent2::set::BTreeSet<KeyValue<K, V>>;

@@ -54,7 +54,7 @@ impl Generator {
                 let name = Ident::new(format!("{i}_lock").as_str(), Span::mixed_site());
                 quote! {
                     if self.#name != 0 {
-                        return Some(self.#name);
+                        return Some(self.#name.into());
                     }
                 }
             })
@@ -68,7 +68,7 @@ impl Generator {
             impl ArchivedRow for #archived_wrapper {
                 fn is_locked(&self) -> Option<u16> {
                     if self.lock != 0 {
-                        return Some(self.lock);
+                        return Some(self.lock.into());
                     }
                     #(#checks)*
                     None
