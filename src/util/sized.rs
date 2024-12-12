@@ -1,6 +1,5 @@
 use std::mem;
 
-use crate::in_memory::data::LINK_LENGTH;
 use crate::prelude::Link;
 
 /// Marks an objects that can return theirs approximate size after archiving via
@@ -26,7 +25,8 @@ size_measurable_for_sized! {u8, u16, u32, u64, usize, i8, i16, i32, i64, isize, 
 
 impl SizeMeasurable for Link {
     fn approx_size(&self) -> usize {
-        LINK_LENGTH
+        // TODO: Add const for this in DataBucket
+        12
     }
 }
 

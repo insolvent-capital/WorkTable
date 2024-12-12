@@ -1,6 +1,8 @@
-use std::fmt::Debug;
-use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
-use std::sync::{Arc, RwLock};
+use std::{
+    fmt::Debug,
+    sync::atomic::{AtomicU32, AtomicU64, Ordering},
+    sync::{Arc, RwLock},
+};
 
 use data_bucket::page::PageId;
 use derive_more::{Display, Error, From};
@@ -15,10 +17,13 @@ use rkyv::{
     Archive, Deserialize, Portable, Serialize,
 };
 
-use crate::in_memory::data;
-use crate::in_memory::data::{DataExecutionError, DATA_INNER_LENGTH};
-use crate::in_memory::row::{RowWrapper, StorableRow};
-use crate::prelude::Link;
+use crate::{
+    in_memory::{
+        row::{RowWrapper, StorableRow},
+        Data, DataExecutionError, DATA_INNER_LENGTH,
+    },
+    prelude::Link,
+};
 
 #[derive(Debug)]
 pub struct DataPages<Row, const DATA_LENGTH: usize = DATA_INNER_LENGTH>
@@ -26,7 +31,7 @@ where
     Row: StorableRow,
 {
     /// Pages vector. Currently, not lock free.
-    pages: RwLock<Vec<Arc<data::Data<<Row as StorableRow>::WrappedRow, DATA_LENGTH>>>>,
+    pages: RwLock<Vec<Arc<Data<<Row as StorableRow>::WrappedRow, DATA_LENGTH>>>>,
 
     /// Stack with empty [`Link`]s. It stores [`Link`]s of rows that was deleted.
     empty_links: Stack<Link>,
@@ -46,7 +51,7 @@ where
 {
     pub fn new() -> Self {
         Self {
-            pages: RwLock::new(vec![Arc::new(data::Data::new(0.into()))]),
+            pages: RwLock::new(vec![Arc::new(Data::new(0.into()))]),
             empty_links: Stack::new(),
             row_count: AtomicU64::new(0),
             last_page_id: AtomicU32::new(0),
@@ -54,9 +59,7 @@ where
         }
     }
 
-    pub fn from_data(
-        vec: Vec<Arc<data::Data<<Row as StorableRow>::WrappedRow, DATA_LENGTH>>>,
-    ) -> Self {
+    pub fn from_data(vec: Vec<Arc<Data<<Row as StorableRow>::WrappedRow, DATA_LENGTH>>>) -> Self {
         // TODO: Add row_count persistence.
         let last_page_id = vec.len() - 1;
         Self {
@@ -166,7 +169,7 @@ where
         if tried_page == self.current_page_index.load(Ordering::Relaxed) {
             let index = self.last_page_id.fetch_add(1, Ordering::Relaxed) + 1;
 
-            pages.push(Arc::new(data::Data::new(index.into())));
+            pages.push(Arc::new(Data::new(index.into())));
             self.current_page_index.fetch_add(1, Ordering::Relaxed);
         }
     }

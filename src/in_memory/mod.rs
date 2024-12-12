@@ -1,8 +1,7 @@
-pub mod data;
+mod data;
 mod pages;
 mod row;
-pub mod space;
 
-pub use data::Data;
+pub use data::{Data, ExecutionError as DataExecutionError, DATA_INNER_LENGTH};
 pub use pages::{DataPages, ExecutionError as PagesExecutionError};
 pub use row::{ArchivedRow, RowWrapper, StorableRow};

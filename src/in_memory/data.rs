@@ -236,7 +236,7 @@ mod tests {
 
     use rkyv::{Archive, Deserialize, Serialize};
 
-    use crate::in_memory::data::data::{Data, INNER_PAGE_SIZE};
+    use crate::in_memory::data::{Data, INNER_PAGE_SIZE};
 
     #[derive(
         Archive, Copy, Clone, Deserialize, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize,
