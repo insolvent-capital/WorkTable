@@ -6,7 +6,6 @@ mod row;
 mod table;
 pub use data_bucket as persistence;
 mod database;
-pub mod util;
 
 // mod ty;
 // mod value;
