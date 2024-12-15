@@ -281,6 +281,10 @@ where
             .collect()
     }
 
+    pub fn get_page_count(&self) -> usize {
+        self.pages.read().unwrap().len()
+    }
+
     pub fn get_empty_links(&self) -> Vec<Link> {
         let mut res = vec![];
         for l in self.empty_links.pop_iter() {

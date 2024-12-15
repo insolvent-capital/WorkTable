@@ -1,10 +1,14 @@
 use std::ops::RangeBounds;
 
 mod bplus_tree;
+mod hash_map;
 mod index_set;
+mod lockfree_map;
 mod tree_index;
 
+pub use hash_map::LockedHashMap;
 pub use index_set::{IndexSet, KeyValue};
+pub use lockfree::map::Map as LockFreeMap;
 
 pub trait TableIndex<K, V> {
     fn insert(&self, key: K, value: V) -> Result<(), (K, V)>;
