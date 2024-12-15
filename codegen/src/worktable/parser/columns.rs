@@ -119,7 +119,13 @@ impl Parser {
             self.input_iter.next();
             t
         } else {
-            Ident::new("TreeIndex", Span::mixed_site())
+            if cfg!(feature = "tree_index") {
+                Ident::new("TreeIndex", Span::mixed_site())
+            } else if cfg!(feature = "index_set") {
+                Ident::new("IndexSet", Span::mixed_site())
+            } else {
+                return Err(syn::Error::new(self.input.span(), "At least one of `tree_index` or `index_set` features should be enabled"));
+            }
         };
 
         self.try_parse_comma()?;

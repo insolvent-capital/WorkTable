@@ -6,6 +6,7 @@ Change Log
 ### Added
 
 - add ability to choose index type in `worktable!` declaration.
+- added `index_set` and `tree_index` features to use index type as default in declaration.
 
 ### BC Breaks
 
