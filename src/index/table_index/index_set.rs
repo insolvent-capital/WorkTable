@@ -84,15 +84,10 @@ where
     }
 
     fn remove(&self, key: &K) -> bool {
-        if let Some(_) = self.peek(key) {
-            false
-        } else {
-            indexset::concurrent2::set::BTreeSet::remove_range::<std::ops::Range<&K>, K>(
-                self,
-                key..key,
-            );
-            true
-        }
+        indexset::concurrent2::set::BTreeSet::remove(
+            self,
+            key,
+        ).is_some()
     }
 
     fn iter<'a>(&'a self) -> impl Iterator<Item = (&'a K, &'a V)>
