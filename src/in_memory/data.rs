@@ -8,16 +8,13 @@ use data_bucket::{DataPage, GeneralPage};
 use derive_more::{Display, Error};
 #[cfg(feature = "perf_measurements")]
 use performance_measurement_codegen::performance_measurement;
-use rkyv::api::high::HighDeserializer;
-use rkyv::rancor::Strategy;
-use rkyv::seal::Seal;
-use rkyv::ser::allocator::ArenaHandle;
-use rkyv::ser::sharing::Share;
-use rkyv::ser::Serializer;
-use rkyv::util::AlignedVec;
-use rkyv::with::{AtomicLoad, Relaxed};
 use rkyv::{
-    with::{Skip, Unsafe},
+    api::high::HighDeserializer,
+    rancor::Strategy,
+    seal::Seal,
+    ser::{allocator::ArenaHandle, sharing::Share, Serializer},
+    util::AlignedVec,
+    with::{AtomicLoad, Relaxed, Skip, Unsafe},
     Archive, Deserialize, Portable, Serialize,
 };
 

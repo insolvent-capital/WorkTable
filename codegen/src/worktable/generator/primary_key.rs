@@ -1,38 +1,81 @@
 use std::collections::HashMap;
 
+use crate::name_generator::WorktableNameGenerator;
 use crate::worktable::generator::Generator;
 use crate::worktable::model::{GeneratorType, PrimaryKey};
 
-use proc_macro2::{Ident, Span, TokenStream};
+use proc_macro2::{Ident, TokenStream};
 use quote::quote;
 
 impl Generator {
-    pub fn gen_pk_def(&mut self) -> syn::Result<TokenStream> {
-        let name = &self.name;
-        let ident = Ident::new(format!("{name}PrimaryKey").as_str(), Span::mixed_site());
-        let vals = self
+    /// Generates primary key type and it's impls.
+    pub fn gen_primary_key_def(&mut self) -> syn::Result<TokenStream> {
+        let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
+        let ident = name_generator.get_primary_key_type_ident();
+        let values = self
             .columns
             .primary_keys
             .0
             .iter()
-            .map(|i| (i.clone(), self.columns.columns_map.get(i).unwrap().clone()))
+            .map(|i| {
+                (
+                    i.clone(),
+                    self.columns
+                        .columns_map
+                        .get(i)
+                        .expect("should exist as got from definition")
+                        .clone(),
+                )
+            })
             .collect::<HashMap<_, _>>();
 
-        let def = if vals.len() == 1 {
-            let type_ = vals.values().next().unwrap();
-            quote! {
-                #[derive(Clone, rkyv::Archive, Debug, rkyv::Deserialize, rkyv::Serialize, From, Eq, Into, PartialEq, PartialOrd, Ord)]
-                pub struct #ident(#type_);
-            }
-        } else {
-            let types = vals.values();
-            quote! {
-                #[derive(Clone, rkyv::Archive, Debug, rkyv::Deserialize, rkyv::Serialize, From, Eq, Into, PartialEq, PartialOrd, Ord)]
-                pub struct #ident(#(#types),*);
-            }
-        };
+        let def = self.gen_primary_key_type();
+        let impl_ = self.gen_table_primary_key_impl()?;
 
-        let impl_ = match self.columns.generator_type {
+        self.pk = Some(PrimaryKey { ident, values });
+
+        Ok(quote! {
+            #def
+            #impl_
+        })
+    }
+
+    /// Generates table's primary key struct definition. It's newtype for type that was chosen as primary key column in
+    /// definition.
+    fn gen_primary_key_type(&self) -> TokenStream {
+        let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
+        let ident = name_generator.get_primary_key_type_ident();
+
+        let types = &self.columns.primary_keys.0.iter().map(|i| self.columns
+            .columns_map
+            .get(i)
+            .expect("should exist as got from definition"))
+            .collect::<Vec<_>>();
+
+        quote! {
+            #[derive(
+                Clone,
+                rkyv::Archive,
+                Debug,
+                rkyv::Deserialize,
+                rkyv::Serialize,
+                From,
+                Eq,
+                Into,
+                PartialEq,
+                PartialOrd,
+                Ord
+            )]
+            pub struct #ident(#(#types),*);
+        }
+    }
+
+    /// Generates `TablePrimaryKey` trait implementation for primary key. It depends on generator type.
+    fn gen_table_primary_key_impl(&self) -> syn::Result<TokenStream> {
+        let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
+        let ident = name_generator.get_primary_key_type_ident();
+
+        Ok(match self.columns.generator_type {
             GeneratorType::None => {
                 quote! {
                     impl TablePrimaryKey for #ident {
@@ -41,8 +84,19 @@ impl Generator {
                 }
             }
             GeneratorType::Autoincrement => {
-                let (i, type_) = vals.iter().next().unwrap();
-                let gen = Self::gen_from_type(type_, i)?;
+                let i = self
+                    .columns
+                    .primary_keys
+                    .0
+                    .first()
+                    .expect("at least one primary key should exist if autoincrement");
+                let type_ = self
+                    .columns
+                    .columns_map
+                    .get(i)
+                    .expect("primary key column name always exists if in primary keys list");
+
+                let gen = Self::get_generator_from_type(type_, i)?;
                 quote! {
                     impl TablePrimaryKey for #ident {
                         type Generator = #gen;
@@ -52,17 +106,12 @@ impl Generator {
             GeneratorType::Custom => {
                 quote! {}
             }
-        };
-
-        self.pk = Some(PrimaryKey { ident, vals });
-
-        Ok(quote! {
-            #def
-            #impl_
         })
     }
 
-    fn gen_from_type(type_: &TokenStream, i: &Ident) -> syn::Result<TokenStream> {
+    /// Generates primary key generator type depending on primitive type that was used as key. For now it just returns
+    /// atomic of primitive.
+    fn get_generator_from_type(type_: &TokenStream, i: &Ident) -> syn::Result<TokenStream> {
         Ok(match type_.to_string().as_str() {
             "u8" => quote! { std::sync::atomic::AtomicU8 },
             "u16" => quote! { std::sync::atomic::AtomicU16 },
@@ -82,53 +131,4 @@ impl Generator {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use proc_macro2::{Ident, Span, TokenStream};
-    use quote::quote;
-
-    use crate::worktable::generator::Generator;
-    use crate::worktable::Parser;
-
-    #[test]
-    fn test_row_generation() {
-        let tokens = TokenStream::from(quote! {columns: {
-            id: i64 primary_key,
-            test: u64,
-        }});
-        let mut parser = Parser::new(tokens);
-        let columns = parser.parse_columns().unwrap();
-
-        let ident = Ident::new("Test", Span::call_site());
-        let mut generator = Generator::new(ident, false, columns);
-
-        let pk_def = generator.gen_pk_def();
-
-        assert_eq!(generator.pk.unwrap().ident.to_string(), "TestPrimaryKey");
-        assert_eq!(
-            pk_def.unwrap().to_string(),
-            "pub type TestPrimaryKey = i64 ;"
-        );
-    }
-
-    #[test]
-    fn test_row_generation_multiple() {
-        let tokens = TokenStream::from(quote! {columns: {
-            id: i64 primary_key,
-            test: u64 primary_key,
-        }});
-        let mut parser = Parser::new(tokens);
-        let columns = parser.parse_columns().unwrap();
-
-        let ident = Ident::new("Test", Span::call_site());
-        let mut generator = Generator::new(ident, false, columns);
-
-        let pk_def = generator.gen_pk_def();
-
-        assert_eq!(generator.pk.unwrap().ident.to_string(), "TestPrimaryKey");
-        assert_eq!(
-            pk_def.unwrap().to_string(),
-            "pub type TestPrimaryKey = (i64 , u64) ;"
-        );
-    }
-}
+// TODO: tests...

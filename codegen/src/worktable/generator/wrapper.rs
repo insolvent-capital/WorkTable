@@ -1,12 +1,28 @@
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
-
+use crate::name_generator::WorktableNameGenerator;
 use crate::worktable::generator::Generator;
 
 impl Generator {
-    pub fn gen_wrapper_def(&mut self) -> TokenStream {
-        let name = &self.name;
-        let row_name = self.row_name.as_ref().unwrap();
+    pub fn gen_wrapper_def(&self) -> TokenStream {
+        let type_ = self.gen_wrapper_type();
+        let impl_ = self.gen_wrapper_impl();
+        let archived_impl = self.get_wrapper_archived_impl();
+        let storable_impl = self.get_wrapper_storable_impl();
+
+        quote! {
+            #type_
+            #impl_
+            #archived_impl
+            #storable_impl
+        }
+    }
+
+    fn gen_wrapper_type(&self) -> TokenStream {
+        let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
+        let row_ident = name_generator.get_row_type_ident();
+        let wrapper_ident = name_generator.get_wrapper_type_ident();
+
         let row_locks = self
             .columns
             .columns_map
@@ -18,34 +34,60 @@ impl Generator {
                 }
             })
             .collect::<Vec<_>>();
-
-        let wrapper_name = Ident::new(format!("{name}Wrapper").as_str(), Span::mixed_site());
-        self.wrapper_name = Some(wrapper_name.clone());
         quote! {
             #[derive(rkyv::Archive, Debug, rkyv::Deserialize, rkyv::Serialize)]
             #[repr(C)]
-            pub struct #wrapper_name {
-                inner: #row_name,
-
+            pub struct #wrapper_ident {
+                inner: #row_ident,
                 is_deleted: bool,
-
                 lock: u16,
-
                 #(#row_locks)*
             }
         }
     }
 
-    pub fn gen_wrapper_impl(&mut self) -> TokenStream {
-        let row_name = self.row_name.as_ref().unwrap();
-        let wrapper_name = self.wrapper_name.as_ref().unwrap();
+    pub fn gen_wrapper_impl(&self) -> TokenStream {
+        let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
+        let wrapper_ident = name_generator.get_wrapper_type_ident();
+        let row_ident = name_generator.get_row_type_ident();
 
-        let storable_impl = quote! {
-            impl StorableRow for #row_name {
-                type WrappedRow = #wrapper_name;
+        let row_defaults = self
+            .columns
+            .columns_map
+            .iter()
+            .map(|(i, _)| {
+                let name = Ident::new(format!("{i}_lock").as_str(), Span::mixed_site());
+                quote! {
+                    #name: Default::default(),
+                }
+            })
+            .collect::<Vec<_>>();
+
+        quote! {
+            impl RowWrapper<#row_ident> for #wrapper_ident {
+                fn get_inner(self) -> #row_ident {
+                    self.inner
+                }
+
+                fn from_inner(inner: #row_ident) -> Self {
+                    Self {
+                        inner,
+                        is_deleted: Default::default(),
+                        lock: Default::default(),
+                        #(#row_defaults)*
+                    }
+                }
             }
-        };
+        }
+    }
 
+    fn get_wrapper_archived_impl(&self) -> TokenStream {
+        let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
+        let wrapper_ident = name_generator.get_wrapper_type_ident();
+        let archived_wrapper_ident = Ident::new(
+            format!("Archived{}", &wrapper_ident).as_str(),
+            Span::mixed_site(),
+        );
         let checks = self
             .columns
             .columns_map
@@ -60,12 +102,8 @@ impl Generator {
             })
             .collect::<Vec<_>>();
 
-        let archived_wrapper = Ident::new(
-            format!("Archived{}", &wrapper_name).as_str(),
-            Span::mixed_site(),
-        );
-        let archived_impl = quote! {
-            impl ArchivedRow for #archived_wrapper {
+        quote! {
+            impl ArchivedRow for #archived_wrapper_ident {
                 fn is_locked(&self) -> Option<u16> {
                     if self.lock != 0 {
                         return Some(self.lock.into());
@@ -74,41 +112,18 @@ impl Generator {
                     None
                 }
             }
-        };
+        }
+    }
 
-        let row_defaults = self
-            .columns
-            .columns_map
-            .iter()
-            .map(|(i, _)| {
-                let name = Ident::new(format!("{i}_lock").as_str(), Span::mixed_site());
-                quote! {
-                    #name: Default::default(),
-                }
-            })
-            .collect::<Vec<_>>();
-
-        let wrapper_impl = quote! {
-            impl RowWrapper<#row_name> for #wrapper_name {
-                fn get_inner(self) -> #row_name {
-                    self.inner
-                }
-
-                fn from_inner(inner: #row_name) -> Self {
-                    Self {
-                        inner,
-                        is_deleted: Default::default(),
-                        lock: Default::default(),
-                        #(#row_defaults)*
-                    }
-                }
-            }
-        };
+    fn get_wrapper_storable_impl(&self) -> TokenStream {
+        let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
+        let row_ident = name_generator.get_row_type_ident();
+        let wrapper_ident = name_generator.get_wrapper_type_ident();
 
         quote! {
-            #archived_impl
-            #storable_impl
-            #wrapper_impl
+            impl StorableRow for #row_ident {
+                type WrappedRow = #wrapper_ident;
+            }
         }
     }
 }

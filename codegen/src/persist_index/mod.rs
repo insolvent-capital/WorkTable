@@ -8,8 +8,8 @@ mod generator;
 mod parser;
 
 pub fn expand(input: TokenStream) -> syn::Result<TokenStream> {
-    let input_fn = Parser::parse_struct(input)?;
-    let mut gen = Generator::new(input_fn);
+    let input_struct = Parser::parse_struct(input)?;
+    let mut gen = Generator::new(input_struct);
 
     let type_def = gen.gen_persist_type()?;
     let persistable_def = gen.gen_persistable_impl()?;
@@ -18,7 +18,6 @@ pub fn expand(input: TokenStream) -> syn::Result<TokenStream> {
     Ok(quote! {
         #type_def
         #impl_def
-
         #persistable_def
     })
 }

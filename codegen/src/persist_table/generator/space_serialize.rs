@@ -1,27 +1,20 @@
-use convert_case::{Case, Casing};
-use proc_macro2::{Ident, Literal, TokenStream};
-use quote::__private::Span;
+use proc_macro2::TokenStream;
 use quote::quote;
 
+use crate::name_generator::WorktableNameGenerator;
 use crate::persist_table::generator::Generator;
 
 impl Generator {
     pub fn gen_space_type(&self) -> syn::Result<TokenStream> {
-        let name = self.struct_def.ident.to_string().replace("WorkTable", "");
-        let pk_type = &self.pk_ident;
-        let name_ident = Ident::new(format!("{}Space", name).as_str(), Span::mixed_site());
-        let index_persisted_ident = Ident::new(
-            format!("{}IndexPersisted", name).as_str(),
-            Span::mixed_site(),
-        );
-        let inner_const_name = Ident::new(
-            format!("{}_INNER_SIZE", name.to_uppercase()).as_str(),
-            Span::mixed_site(),
-        );
+        let name_generator = WorktableNameGenerator::from_struct_ident(&self.struct_def.ident);
+        let index_persisted_ident = name_generator.get_persisted_index_ident();
+        let inner_const_name = name_generator.get_page_inner_size_const_ident();
+        let pk_type = name_generator.get_primary_key_type_ident();
+        let space_ident = name_generator.get_space_ident();
 
         Ok(quote! {
             #[derive(Debug)]
-            pub struct #name_ident<const DATA_LENGTH: usize = #inner_const_name > {
+            pub struct #space_ident<const DATA_LENGTH: usize = #inner_const_name > {
                 pub path: String,
 
                 pub info: GeneralPage<SpaceInfoData>,
@@ -68,10 +61,10 @@ impl Generator {
     }
 
     fn gen_from_file_fn(&self) -> syn::Result<TokenStream> {
-        let name = self.struct_def.ident.to_string().replace("WorkTable", "");
-        let space_ident = Ident::new(format!("{}Space", name).as_str(), Span::mixed_site());
-        let wt_ident = self.struct_def.ident.clone();
-        let name_underscore = name.from_case(Case::Pascal).to_case(Case::Snake);
+        let name_generator = WorktableNameGenerator::from_struct_ident(&self.struct_def.ident);
+        let space_ident = name_generator.get_space_ident();
+        let wt_ident = name_generator.get_work_table_ident();
+        let name_underscore = name_generator.get_filename();
 
         Ok(quote! {
             pub fn load_from_file(manager: std::sync::Arc<DatabaseManager>) -> eyre::Result<Self> {
@@ -88,9 +81,9 @@ impl Generator {
     }
 
     fn gen_space_info_fn(&self) -> syn::Result<TokenStream> {
-        let name = self.struct_def.ident.to_string().replace("WorkTable", "");
-        let pk = &self.pk_ident;
-        let literal_name = Literal::string(name.as_str());
+        let name_generator = WorktableNameGenerator::from_struct_ident(&self.struct_def.ident);
+        let pk = name_generator.get_primary_key_type_ident();
+        let literal_name = name_generator.get_work_table_literal_name();
 
         Ok(quote! {
             pub fn space_info_default() -> GeneralPage<SpaceInfoData<<<#pk as TablePrimaryKey>::Generator as PrimaryKeyGeneratorState>::State>> {
@@ -123,12 +116,9 @@ impl Generator {
     }
 
     fn gen_persisted_primary_key_fn(&self) -> syn::Result<TokenStream> {
-        let name = self.struct_def.ident.to_string().replace("WorkTable", "");
-        let const_name = Ident::new(
-            format!("{}_INNER_SIZE", name.to_uppercase()).as_str(),
-            Span::mixed_site(),
-        );
-        let pk_type = &self.pk_ident;
+        let name_generator = WorktableNameGenerator::from_struct_ident(&self.struct_def.ident);
+        let pk_type = name_generator.get_primary_key_type_ident();
+        let const_name = name_generator.get_page_inner_size_const_ident();
 
         Ok(quote! {
             pub fn get_peristed_primary_key(&self) -> Vec<IndexData<#pk_type>> {
@@ -138,13 +128,10 @@ impl Generator {
     }
 
     fn gen_into_space(&self) -> syn::Result<TokenStream> {
-        let ident = &self.struct_def.ident;
-        let name = self.struct_def.ident.to_string().replace("WorkTable", "");
-        let const_name = Ident::new(
-            format!("{}_INNER_SIZE", name.to_uppercase()).as_str(),
-            Span::mixed_site(),
-        );
-        let space_ident = Ident::new(format!("{}Space", name).as_str(), Span::mixed_site());
+        let name_generator = WorktableNameGenerator::from_struct_ident(&self.struct_def.ident);
+        let ident = name_generator.get_work_table_ident();
+        let const_name = name_generator.get_page_inner_size_const_ident();
+        let space_ident = name_generator.get_space_ident();
 
         Ok(quote! {
             pub fn into_space(&self) -> #space_ident<#const_name> {
@@ -219,21 +206,19 @@ impl Generator {
     }
 
     fn gen_space_persist_fn(&self) -> syn::Result<TokenStream> {
-        let name = self.struct_def.ident.to_string().replace("WorkTable", "");
-        let space_ident = Ident::new(format!("{}Space", name).as_str(), Span::mixed_site());
-        let file_name = Literal::string(
-            format!("{}.wt", name.from_case(Case::Pascal).to_case(Case::Snake)).as_str(),
-        );
+        let name_generator = WorktableNameGenerator::from_struct_ident(&self.struct_def.ident);
+        let space_ident = name_generator.get_space_ident();
+        let file_name = name_generator.get_filename();
 
         Ok(quote! {
             impl<const DATA_LENGTH: usize> #space_ident<DATA_LENGTH> {
                 pub fn persist(&mut self) -> eyre::Result<()> {
                     let file_name = #file_name;
-                    let path = std::path::Path::new(format!("{}/{}", &self.path , file_name).as_str());
+                    let path = std::path::Path::new(format!("{}/{}.wt", &self.path , file_name).as_str());
                     let prefix = &self.path;
                     std::fs::create_dir_all(prefix).unwrap();
 
-                    let mut file = std::fs::File::create(format!("{}/{}", &self.path , file_name))?;
+                    let mut file = std::fs::File::create(format!("{}/{}.wt", &self.path , file_name))?;
                     persist_page(&mut self.info, &mut file)?;
 
                     for mut primary_index_page in &mut self.primary_index {

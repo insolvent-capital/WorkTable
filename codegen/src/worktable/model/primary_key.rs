@@ -4,7 +4,7 @@ use std::collections::HashMap;
 #[derive(Debug, Clone)]
 pub struct PrimaryKey {
     pub ident: Ident,
-    pub vals: HashMap<Ident, TokenStream>,
+    pub values: HashMap<Ident, TokenStream>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

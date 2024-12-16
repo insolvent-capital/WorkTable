@@ -1,3 +1,4 @@
+mod name_generator;
 mod persist_index;
 mod persist_table;
 mod worktable;

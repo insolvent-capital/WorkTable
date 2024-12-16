@@ -1,26 +1,42 @@
+use crate::name_generator::WorktableNameGenerator;
+use crate::worktable::generator::Generator;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
-use crate::worktable::generator::Generator;
-
 impl Generator {
+    /// Generates row type and it's impls.
     pub fn gen_row_def(&mut self) -> TokenStream {
-        let name = &self.name;
+        let def = self.gen_row_type();
+        let table_row_impl = self.gen_row_table_row_impl();
 
-        let ident = Ident::new(format!("{name}Row").as_str(), Span::mixed_site());
-        let struct_def = quote! {pub struct #ident};
+        quote! {
+            #def
+            #table_row_impl
+        }
+    }
 
-        let pk = self.pk.clone().unwrap();
-        let pk_ident = &pk.ident;
+    /// Generates `TableRow` trait implementation for row.
+    fn gen_row_table_row_impl(&self) -> TokenStream {
+        let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
+        let ident = name_generator.get_row_type_ident();
+        let primary_key_ident = name_generator.get_primary_key_type_ident();
 
-        let def = if pk.vals.len() == 1 {
-            let pk_field = pk.vals.keys().next().unwrap();
+        let primary_key = self
+            .pk
+            .clone()
+            .expect("should be set in `Generator` at this point");
+        let primary_key_columns_clone = if primary_key.values.len() == 1 {
+            let pk_field = primary_key
+                .values
+                .keys()
+                .next()
+                .expect("should exist as length is checked");
             quote! {
                 self.#pk_field.clone().into()
             }
         } else {
-            let vals = pk
-                .vals
+            let vals = primary_key
+                .values
                 .keys()
                 .map(|i| {
                     quote! {
@@ -33,15 +49,21 @@ impl Generator {
             }
         };
 
-        let row_impl = quote! {
-            impl TableRow<#pk_ident> for #ident {
+        quote! {
+            impl TableRow<#primary_key_ident> for #ident {
                 const ROW_SIZE: usize = ::core::mem::size_of::<#ident>();
 
-                fn get_primary_key(&self) -> #pk_ident {
-                    #def
+                fn get_primary_key(&self) -> #primary_key_ident {
+                    #primary_key_columns_clone
                 }
             }
-        };
+        }
+    }
+
+    /// Generates table's row struct definition. It has fields that were described in definition.
+    fn gen_row_type(&self) -> TokenStream {
+        let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
+        let ident = name_generator.get_row_type_ident();
 
         let rows: Vec<_> = self
             .columns
@@ -52,45 +74,15 @@ impl Generator {
             })
             .collect();
 
-        self.row_name = Some(ident);
         quote! {
             #[derive(rkyv::Archive, Debug, rkyv::Deserialize, Clone, rkyv::Serialize, PartialEq)]
             #[rkyv(derive(Debug))]
             #[repr(C)]
-            #struct_def {
+            pub struct #ident {
                 #(#rows)*
             }
-
-            #row_impl
         }
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use proc_macro2::{Ident, Span, TokenStream};
-    use quote::quote;
-
-    use crate::worktable::generator::Generator;
-    use crate::worktable::Parser;
-
-    #[test]
-    fn test_row_generation() {
-        let tokens = TokenStream::from(quote! {columns: {
-            id: i64 primary_key,
-            test: u64,
-        }});
-        let mut parser = Parser::new(tokens);
-
-        let columns = parser.parse_columns().unwrap();
-
-        let ident = Ident::new("Test", Span::call_site());
-        let mut generator = Generator::new(ident, false, columns);
-
-        let pk = generator.gen_pk_def();
-        let row_def = generator.gen_row_def();
-
-        assert_eq!(generator.row_name.unwrap().to_string(), "TestRow");
-        assert_eq!(row_def.to_string(), "TestRow");
-    }
-}
+// TODO: tests...

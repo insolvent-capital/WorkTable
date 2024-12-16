@@ -1,13 +1,14 @@
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
-
+use crate::name_generator::WorktableNameGenerator;
 use crate::worktable::generator::Generator;
 
 impl Generator {
     pub fn gen_query_locks_impl(&mut self) -> syn::Result<TokenStream> {
         if let Some(q) = &self.queries {
-            let wrapper_name = self.wrapper_name.as_ref().unwrap();
+            let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
+            let wrapper_name = name_generator.get_wrapper_type_ident();
             let archived_wrapper = Ident::new(
                 format!("Archived{}", &wrapper_name).as_str(),
                 Span::mixed_site(),

@@ -35,6 +35,8 @@ pub fn get_empty_test_wt() -> TestPersistWorkTable {
         database_files_dir: "test/data".to_string(),
     });
 
+    let a = TestWithoutSecondaryIndexesIndexPersisted::default();
+
     TestPersistWorkTable::new(manager)
 }
 

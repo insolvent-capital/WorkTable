@@ -1,15 +1,20 @@
-use crate::worktable::generator::Generator;
-use crate::worktable::model::Operation;
+use std::collections::HashMap;
+
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
-use std::collections::HashMap;
+
+use crate::name_generator::WorktableNameGenerator;
+use crate::worktable::generator::Generator;
+use crate::worktable::model::Operation;
 
 impl Generator {
     pub fn gen_query_delete_impl(&mut self) -> syn::Result<TokenStream> {
+        let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
+        let table_ident = name_generator.get_work_table_ident();
+
         let custom_deletes = if let Some(q) = &self.queries {
             let custom_deletes = self.gen_custom_deletes(q.deletes.clone());
-
             quote! {
                 #custom_deletes
             }
@@ -18,7 +23,6 @@ impl Generator {
         };
         let full_row_delete = self.gen_full_row_delete();
 
-        let table_ident = self.table_name.as_ref().unwrap();
         Ok(quote! {
             impl #table_ident {
                 #full_row_delete
@@ -32,10 +36,7 @@ impl Generator {
 
         quote! {
             pub async fn delete(&self, pk: #pk_ident) -> core::result::Result<(), WorkTableError> {
-                let link = {
-                    let guard = Guard::new();
-                    TableIndex::peek(&self.0.pk_map, &pk).ok_or(WorkTableError::NotFound)?
-                };
+                let link = TableIndex::peek(&self.0.pk_map, &pk).ok_or(WorkTableError::NotFound)?;
                 let id = self.0.data.with_ref(link, |archived| {
                     archived.is_locked()
                 }).map_err(WorkTableError::PagesError)?;

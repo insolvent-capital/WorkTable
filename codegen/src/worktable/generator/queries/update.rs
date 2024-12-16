@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
-
+use crate::name_generator::WorktableNameGenerator;
 use crate::worktable::generator::Generator;
 use crate::worktable::model::Operation;
 
@@ -20,7 +20,8 @@ impl Generator {
         };
         let full_row_update = self.gen_full_row_update();
 
-        let table_ident = self.table_name.as_ref().unwrap();
+        let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
+        let table_ident = name_generator.get_work_table_ident();
         Ok(quote! {
             impl #table_ident {
                 #full_row_update
@@ -30,7 +31,9 @@ impl Generator {
     }
 
     fn gen_full_row_update(&mut self) -> TokenStream {
-        let row_ident = self.row_name.as_ref().unwrap();
+        let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
+        let row_ident = name_generator.get_row_type_ident();
+
         let row_updates = self
             .columns
             .columns_map

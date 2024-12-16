@@ -5,15 +5,15 @@ use worktable::prelude::*;
 
 // TODO: Fix naming.
 use crate::persistence::{
-    get_empty_test_wt, get_test_wt, TestPersistRow, TestPersistWorkTable, TESTPERSIST_INNER_SIZE,
-    TESTPERSIST_PAGE_SIZE, TEST_ROW_COUNT,
+    get_empty_test_wt, get_test_wt, TestPersistRow, TestPersistWorkTable, TEST_PERSIST_INNER_SIZE,
+    TEST_PERSIST_PAGE_SIZE, TEST_ROW_COUNT,
 };
 
 #[test]
 fn test_info_parse() {
     let mut file = File::open("tests/data/expected/test_persist.wt").unwrap();
     let info =
-        parse_page::<SpaceInfoData, { TESTPERSIST_INNER_SIZE as u32 }>(&mut file, 0).unwrap();
+        parse_page::<SpaceInfoData, { TEST_PERSIST_INNER_SIZE as u32 }>(&mut file, 0).unwrap();
 
     assert_eq!(info.header.space_id, 0.into());
     assert_eq!(info.header.page_id, 0.into());
@@ -42,7 +42,7 @@ fn test_info_parse() {
 fn test_index_parse() {
     let mut file = File::open("tests/data/expected/test_persist.wt").unwrap();
     let index =
-        parse_page::<IndexData<u128>, { TESTPERSIST_PAGE_SIZE as u32 }>(&mut file, 1).unwrap();
+        parse_page::<IndexData<u128>, { TEST_PERSIST_PAGE_SIZE as u32 }>(&mut file, 1).unwrap();
 
     assert_eq!(index.header.space_id, 0.into());
     assert_eq!(index.header.page_id, 1.into());
@@ -76,7 +76,7 @@ fn test_index_parse() {
 fn test_data_parse() {
     let mut file = File::open("tests/data/expected/test_persist.wt").unwrap();
     let data =
-        parse_data_page::<{ TESTPERSIST_PAGE_SIZE }, { TESTPERSIST_INNER_SIZE }>(&mut file, 3)
+        parse_data_page::<{ TEST_PERSIST_PAGE_SIZE }, { TEST_PERSIST_INNER_SIZE }>(&mut file, 3)
             .unwrap();
 
     assert_eq!(data.header.space_id, 0.into());

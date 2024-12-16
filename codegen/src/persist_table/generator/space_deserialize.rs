@@ -1,13 +1,13 @@
-use proc_macro2::{Ident, TokenStream};
-use quote::__private::Span;
+use proc_macro2::TokenStream;
 use quote::quote;
 
+use crate::name_generator::WorktableNameGenerator;
 use crate::persist_table::generator::Generator;
 
 impl Generator {
     pub fn gen_space_deserialize_impls(&self) -> syn::Result<TokenStream> {
-        let name = self.struct_def.ident.to_string().replace("WorkTable", "");
-        let space_ident = Ident::new(format!("{}Space", name).as_str(), Span::mixed_site());
+        let name_generator = WorktableNameGenerator::from_struct_ident(&self.struct_def.ident);
+        let space_ident = name_generator.get_space_ident();
 
         let space_into_table = self.gen_space_into_table()?;
         let parse_space = self.gen_parse_space()?;
@@ -22,8 +22,8 @@ impl Generator {
 
     fn gen_space_into_table(&self) -> syn::Result<TokenStream> {
         let wt_ident = &self.struct_def.ident;
-        let name = self.struct_def.ident.to_string().replace("WorkTable", "");
-        let index_ident = Ident::new(format!("{}Index", name).as_str(), Span::mixed_site());
+        let name_generator = WorktableNameGenerator::from_struct_ident(&self.struct_def.ident);
+        let index_ident = name_generator.get_index_type_ident();
         let index_type_ident = &self.index_type_ident;
 
         Ok(quote! {
@@ -68,20 +68,11 @@ impl Generator {
     }
 
     fn gen_parse_space(&self) -> syn::Result<TokenStream> {
-        let name = self.struct_def.ident.to_string().replace("WorkTable", "");
-        let pk_type = &self.pk_ident;
-        let page_const_name = Ident::new(
-            format!("{}_PAGE_SIZE", name.to_uppercase()).as_str(),
-            Span::mixed_site(),
-        );
-        let inner_const_name = Ident::new(
-            format!("{}_INNER_SIZE", name.to_uppercase()).as_str(),
-            Span::mixed_site(),
-        );
-        let persisted_index_name = Ident::new(
-            format!("{}IndexPersisted", name).as_str(),
-            Span::mixed_site(),
-        );
+        let name_generator = WorktableNameGenerator::from_struct_ident(&self.struct_def.ident);
+        let pk_type = name_generator.get_primary_key_type_ident();
+        let page_const_name = name_generator.get_page_size_const_ident();
+        let inner_const_name = name_generator.get_page_inner_size_const_ident();
+        let persisted_index_name = name_generator.get_persisted_index_ident();
 
         Ok(quote! {
             pub fn parse_file(file: &mut std::fs::File) -> eyre::Result<Self> {
