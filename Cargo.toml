@@ -11,6 +11,7 @@ repository = "https://github.com/pathscale/WorkTable"
 description = "WorkTable is in-memory storage"
 
 [features]
+default = ["index_set"]
 perf_measurements = ["dep:performance_measurement", "dep:performance_measurement_codegen"]
 tree_index = ["worktable_codegen/tree_index"]
 index_set = ["worktable_codegen/index_set"]
@@ -21,21 +22,15 @@ index_set = ["worktable_codegen/index_set"]
 eyre = "0.6.12"
 derive_more = { version = "1.0.0", features = ["from", "error", "display", "into"] }
 tokio = { version = "1", features = ["full"] }
-tracing = "0.1"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-smart-default = { version = "0.7.1" }
-rkyv = { version = "0.8.9", features = ["uuid-1"]}
-csv = "1"
-once_cell = { version = "1.19.0" }
+rkyv = { version = "0.8.9", features = ["uuid-1"] }
 lockfree = { version = "0.5.1" }
 worktable_codegen = { path = "codegen", version = "0.4.0" }
 scc = "2.1.16"
 futures = "0.3.30"
 uuid = { version = "1.10.0", features = ["v4"] }
-data_bucket = {git = "https://github.com/pathscale/DataBucket", branch = "main"}
+data_bucket = { git = "https://github.com/pathscale/DataBucket", branch = "main" }
 # data_bucket = { path = "../DataBucket", version = "0.1.0" }
 performance_measurement_codegen = { path = "performance_measurement/codegen", version = "0.1.0", optional = true }
 performance_measurement = { path = "performance_measurement", version = "0.1.0", optional = true }
-indexset = {git = "https://github.com/brurucy/indexset", branch = "Mutex"}
+indexset = { git = "https://github.com/brurucy/indexset", branch = "Mutex" }
 bplustree = "0.1.0"
