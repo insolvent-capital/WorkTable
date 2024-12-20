@@ -51,7 +51,6 @@ impl Generator {
 
         quote! {
             impl TableRow<#primary_key_ident> for #ident {
-                const ROW_SIZE: usize = ::core::mem::size_of::<#ident>();
 
                 fn get_primary_key(&self) -> #primary_key_ident {
                     #primary_key_columns_clone

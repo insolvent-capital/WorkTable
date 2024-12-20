@@ -4,7 +4,7 @@ use std::ops::RangeBounds;
 
 use crate::TableIndex;
 
-pub type IndexSet<K, V> = indexset::concurrent2::set::BTreeSet<KeyValue<K, V>>;
+pub type IndexSet<K, V> = indexset::concurrent::set::BTreeSet<KeyValue<K, V>>;
 
 #[derive(Copy, Clone, Debug)]
 pub struct KeyValue<K, V> {
@@ -53,7 +53,7 @@ where
     V: Debug + Clone + Send + Sync + Default + 'static,
 {
     fn insert(&self, key: K, value: V) -> Result<(), (K, V)> {
-        if indexset::concurrent2::set::BTreeSet::insert(
+        if indexset::concurrent::set::BTreeSet::insert(
             self,
             KeyValue {
                 key: key.clone(),
@@ -66,14 +66,14 @@ where
                 key: key.clone(),
                 value: value.clone(),
             };
-            let kv = indexset::concurrent2::set::BTreeSet::get(self, &kv)
+            let kv = indexset::concurrent::set::BTreeSet::get(self, &kv)
                 .expect("should exist as false returned");
             Err((kv.get().key.clone(), kv.get().value.clone()))
         }
     }
 
     fn peek(&self, key: &K) -> Option<V> {
-        indexset::concurrent2::set::BTreeSet::get(
+        indexset::concurrent::set::BTreeSet::get(
             self,
             &KeyValue {
                 key: key.clone(),
@@ -84,7 +84,7 @@ where
     }
 
     fn remove(&self, key: &K) -> bool {
-        indexset::concurrent2::set::BTreeSet::remove(self, key).is_some()
+        indexset::concurrent::set::BTreeSet::remove(self, key).is_some()
     }
 
     fn iter<'a>(&'a self) -> impl Iterator<Item = (&'a K, &'a V)>

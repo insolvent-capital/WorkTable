@@ -59,7 +59,9 @@ where
         }
     }
 
-    pub fn from_data(vec: Vec<Arc<Data<<Row as StorableRow>::WrappedRow, DATA_LENGTH>>>) -> Self {
+    pub fn from_data(
+        vec: Vec<Arc<Data<<Row as StorableRow>::WrappedRow, DATA_LENGTH>>>,
+    ) -> Self {
         // TODO: Add row_count persistence.
         let last_page_id = vec.len() - 1;
         Self {
@@ -75,7 +77,7 @@ where
         feature = "perf_measurements",
         performance_measurement(prefix_name = "DataPages")
     )]
-    pub fn insert<const N: usize>(&self, row: Row) -> Result<Link, ExecutionError>
+    pub fn insert(&self, row: Row) -> Result<Link, ExecutionError>
     where
         Row: Archive
             + for<'a> Serialize<
@@ -93,11 +95,11 @@ where
             let current_page: usize = link.page_id.into();
             let page = &pages[current_page];
 
-            return if let Err(e) = unsafe { page.save_row_by_link::<N>(&general_row, link) } {
+            return if let Err(e) = unsafe { page.save_row_by_link(&general_row, link) } {
                 match e {
                     DataExecutionError::InvalidLink => {
                         self.empty_links.push(link);
-                        self.retry_insert::<N>(general_row)
+                        self.retry_insert(general_row)
                     }
                     DataExecutionError::PageIsFull { .. }
                     | DataExecutionError::SerializeError
@@ -113,7 +115,7 @@ where
             let current_page = self.current_page_index.load(Ordering::Relaxed);
             let page = &pages[current_page as usize];
 
-            (page.save_row::<N>(&general_row), current_page)
+            (page.save_row(&general_row), current_page)
         };
         let res = match link {
             Ok(link) => {
@@ -125,7 +127,7 @@ where
                     if tried_page == self.current_page_index.load(Ordering::Relaxed) {
                         self.add_next_page(tried_page);
                     }
-                    self.retry_insert::<N>(general_row)
+                    self.retry_insert(general_row)
                 } else {
                     Err(e.into())
                 }
@@ -135,7 +137,7 @@ where
         Ok(res)
     }
 
-    fn retry_insert<const N: usize>(
+    fn retry_insert(
         &self,
         general_row: <Row as StorableRow>::WrappedRow,
     ) -> Result<Link, ExecutionError>
@@ -154,7 +156,7 @@ where
         let page = &pages[current_page as usize];
 
         let res = page
-            .save_row::<N>(&general_row)
+            .save_row(&general_row)
             .map_err(ExecutionError::DataPageError);
         if let Ok(link) = res {
             self.row_count.fetch_add(1, Ordering::Relaxed);
@@ -264,7 +266,7 @@ where
             .get::<usize>(link.page_id.into())
             .ok_or(ExecutionError::PageNotFound(link.page_id))?;
         let gen_row = <Row as StorableRow>::WrappedRow::from_inner(row);
-        page.save_row_by_link::<N>(&gen_row, link)
+        page.save_row_by_link(&gen_row, link)
             .map_err(ExecutionError::DataPageError)
     }
 
@@ -277,10 +279,14 @@ where
         let pages = self.pages.read().unwrap();
         pages
             .iter()
-            .map(|p| (p.get_bytes(), p.free_offset.load(Ordering::Relaxed)))
+            .map(|p| {
+                (
+                    p.get_bytes(),
+                    p.free_offset.load(Ordering::Relaxed),
+                )
+            })
             .collect()
     }
-
     pub fn get_page_count(&self) -> usize {
         self.pages.read().unwrap().len()
     }
@@ -345,7 +351,7 @@ mod tests {
         let pages = DataPages::<TestRow>::new();
 
         let row = TestRow { a: 10, b: 20 };
-        let link = pages.insert::<24>(row).unwrap();
+        let link = pages.insert(row).unwrap();
 
         assert_eq!(link.page_id, 0.into());
         assert_eq!(link.length, 24);
@@ -359,7 +365,7 @@ mod tests {
         let pages = DataPages::<TestRow>::new();
 
         let row = TestRow { a: 10, b: 20 };
-        let link = pages.insert::<24>(row).unwrap();
+        let link = pages.insert(row).unwrap();
         let res = pages.select(link).unwrap();
 
         assert_eq!(res, row)
@@ -370,7 +376,7 @@ mod tests {
         let pages = DataPages::<TestRow>::new();
 
         let row = TestRow { a: 10, b: 20 };
-        let link = pages.insert::<24>(row).unwrap();
+        let link = pages.insert(row).unwrap();
         let res = pages.select(link).unwrap();
 
         assert_eq!(res, row)
@@ -381,24 +387,24 @@ mod tests {
         let pages = DataPages::<TestRow>::new();
 
         let row = TestRow { a: 10, b: 20 };
-        let link = pages.insert::<24>(row).unwrap();
+        let link = pages.insert(row).unwrap();
         pages.delete(link).unwrap();
 
         assert_eq!(pages.empty_links.pop(), Some(link));
         pages.empty_links.push(link);
 
         let row = TestRow { a: 20, b: 20 };
-        let new_link = pages.insert::<24>(row).unwrap();
+        let new_link = pages.insert(row).unwrap();
         assert_eq!(new_link, link)
     }
 
     #[test]
     fn insert_full() {
-        let pages = DataPages::<TestRow, 24>::new();
+        let pages = DataPages::<TestRow>::new();
 
         let row = TestRow { a: 10, b: 20 };
-        let _ = pages.insert::<16>(row).unwrap();
-        let res = pages.insert::<24>(row);
+        let _ = pages.insert(row).unwrap();
+        let res = pages.insert(row);
 
         assert!(res.is_ok())
     }
@@ -417,7 +423,7 @@ mod tests {
                 for i in 0..1000 {
                     let row = TestRow { a: i, b: j * i + 1 };
 
-                    pages_shared.insert::<24>(row).unwrap();
+                    pages_shared.insert(row).unwrap();
                 }
             });
 

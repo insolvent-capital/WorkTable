@@ -107,7 +107,7 @@ where
         feature = "perf_measurements",
         performance_measurement(prefix_name = "WorkTable")
     )]
-    pub fn insert<const ROW_SIZE_HINT: usize>(&self, row: Row) -> Result<PrimaryKey, WorkTableError>
+    pub fn insert(&self, row: Row) -> Result<PrimaryKey, WorkTableError>
     where
         Row: Archive
             + Clone
@@ -124,7 +124,7 @@ where
         let pk = row.get_primary_key().clone();
         let link = self
             .data
-            .insert::<ROW_SIZE_HINT>(row.clone())
+            .insert(row.clone())
             .map_err(WorkTableError::PagesError)?;
         self.pk_map
             .insert(pk.clone(), link)

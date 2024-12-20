@@ -14,13 +14,13 @@ impl Generator {
 
         Ok(quote! {
             #[derive(Debug)]
-            pub struct #space_ident<const DATA_LENGTH: usize = #inner_const_name > {
+            pub struct #space_ident {
                 pub path: String,
 
                 pub info: GeneralPage<SpaceInfoData>,
                 pub primary_index: Vec<GeneralPage<IndexData<#pk_type>>>,
                 pub indexes: #index_persisted_ident,
-                pub data: Vec<GeneralPage<DataPage<DATA_LENGTH>>>,
+                pub data: Vec<GeneralPage<DataPage<#inner_const_name>>>,
             }
         })
     }
@@ -130,11 +130,10 @@ impl Generator {
     fn gen_into_space(&self) -> syn::Result<TokenStream> {
         let name_generator = WorktableNameGenerator::from_struct_ident(&self.struct_def.ident);
         let ident = name_generator.get_work_table_ident();
-        let const_name = name_generator.get_page_inner_size_const_ident();
         let space_ident = name_generator.get_space_ident();
 
         Ok(quote! {
-            pub fn into_space(&self) -> #space_ident<#const_name> {
+            pub fn into_space(&self) -> #space_ident {
                 let path = self.1.config_path.clone();
 
                 let mut info = #ident::space_info_default();
@@ -211,7 +210,7 @@ impl Generator {
         let file_name = name_generator.get_filename();
 
         Ok(quote! {
-            impl<const DATA_LENGTH: usize> #space_ident<DATA_LENGTH> {
+            impl #space_ident {
                 pub fn persist(&mut self) -> eyre::Result<()> {
                     let file_name = #file_name;
                     let path = std::path::Path::new(format!("{}/{}.wt", &self.path , file_name).as_str());

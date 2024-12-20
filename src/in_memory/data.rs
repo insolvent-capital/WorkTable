@@ -96,7 +96,7 @@ impl<Row, const DATA_LENGTH: usize> Data<Row, DATA_LENGTH> {
         feature = "perf_measurements",
         performance_measurement(prefix_name = "DataRow")
     )]
-    pub fn save_row<const N: usize>(&self, row: &Row) -> Result<Link, ExecutionError>
+    pub fn save_row(&self, row: &Row) -> Result<Link, ExecutionError>
     where
         Row: Archive
             + for<'a> Serialize<
@@ -130,7 +130,7 @@ impl<Row, const DATA_LENGTH: usize> Data<Row, DATA_LENGTH> {
         feature = "perf_measurements",
         performance_measurement(prefix_name = "DataRow")
     )]
-    pub unsafe fn save_row_by_link<const N: usize>(
+    pub unsafe fn save_row_by_link(
         &self,
         row: &Row,
         link: Link,
@@ -257,7 +257,7 @@ mod tests {
         let page = Data::<TestRow>::new(1.into());
         let row = TestRow { a: 10, b: 20 };
 
-        let link = page.save_row::<16>(&row).unwrap();
+        let link = page.save_row(&row).unwrap();
         assert_eq!(link.page_id, page.id);
         assert_eq!(link.length, 16);
         assert_eq!(link.offset, 0);
@@ -275,10 +275,10 @@ mod tests {
         let page = Data::<TestRow>::new(1.into());
         let row = TestRow { a: 10, b: 20 };
 
-        let link = page.save_row::<16>(&row).unwrap();
+        let link = page.save_row(&row).unwrap();
 
         let new_row = TestRow { a: 20, b: 20 };
-        let res = unsafe { page.save_row_by_link::<16>(&new_row, link) }.unwrap();
+        let res = unsafe { page.save_row_by_link(&new_row, link) }.unwrap();
 
         assert_eq!(res, link);
 
@@ -292,10 +292,10 @@ mod tests {
     fn data_page_full() {
         let page = Data::<TestRow, 16>::new(1.into());
         let row = TestRow { a: 10, b: 20 };
-        let _ = page.save_row::<16>(&row).unwrap();
+        let _ = page.save_row(&row).unwrap();
 
         let new_row = TestRow { a: 20, b: 20 };
-        let res = page.save_row::<16>(&new_row);
+        let res = page.save_row(&new_row);
 
         assert!(res.is_err());
     }
@@ -316,7 +316,7 @@ mod tests {
                     b: 20 + i,
                 };
 
-                let link = second_shared.save_row::<16>(&row);
+                let link = second_shared.save_row(&row);
                 links.push(link)
             }
 
@@ -330,7 +330,7 @@ mod tests {
                 b: 40 + i,
             };
 
-            let link = shared.save_row::<16>(&row);
+            let link = shared.save_row(&row);
             links.push(link)
         }
         let other_links = rx.recv().unwrap();
@@ -352,7 +352,7 @@ mod tests {
             };
             rows.push(row);
 
-            let link = page.save_row::<16>(&row);
+            let link = page.save_row(&row);
             links.push(link)
         }
 
@@ -374,7 +374,7 @@ mod tests {
         let page = Data::<TestRow>::new(1.into());
         let row = TestRow { a: 10, b: 20 };
 
-        let link = page.save_row::<16>(&row).unwrap();
+        let link = page.save_row(&row).unwrap();
         let archived = page.get_row_ref(link).unwrap();
         assert_eq!(archived, &row)
     }
@@ -384,7 +384,7 @@ mod tests {
         let page = Data::<TestRow>::new(1.into());
         let row = TestRow { a: 10, b: 20 };
 
-        let link = page.save_row::<16>(&row).unwrap();
+        let link = page.save_row(&row).unwrap();
         let deserialized = page.get_row(link).unwrap();
         assert_eq!(deserialized, row)
     }
@@ -405,7 +405,7 @@ mod tests {
                     b: 20 + i,
                 };
 
-                let link = second_shared.save_row::<16>(&row);
+                let link = second_shared.save_row(&row);
                 links.push(link)
             }
 
@@ -419,7 +419,7 @@ mod tests {
                 b: 40 + i,
             };
 
-            let link = shared.save_row::<16>(&row);
+            let link = shared.save_row(&row);
             links.push(link)
         }
         let other_links = rx.recv().unwrap();
