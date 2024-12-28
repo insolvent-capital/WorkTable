@@ -130,11 +130,7 @@ impl<Row, const DATA_LENGTH: usize> Data<Row, DATA_LENGTH> {
         feature = "perf_measurements",
         performance_measurement(prefix_name = "DataRow")
     )]
-    pub unsafe fn save_row_by_link(
-        &self,
-        row: &Row,
-        link: Link,
-    ) -> Result<Link, ExecutionError>
+    pub unsafe fn save_row_by_link(&self, row: &Row, link: Link) -> Result<Link, ExecutionError>
     where
         Row: Archive
             + for<'a> Serialize<

@@ -6,6 +6,7 @@ use quote::{quote, ToTokens};
 use syn::ItemStruct;
 
 use crate::name_generator::WorktableNameGenerator;
+use crate::persist_table::WT_INDEX_EXTENSION;
 
 pub struct Generator {
     struct_def: ItemStruct,
@@ -158,6 +159,8 @@ impl Generator {
 
     /// Generates `persist` function for persisted index. It calls `persist_page` function for every page in index.
     fn gen_persist_fn(&self) -> TokenStream {
+        let index_extension = Literal::string(WT_INDEX_EXTENSION);
+
         let persist_logic = self
             .struct_def
             .fields
@@ -168,16 +171,20 @@ impl Generator {
                     .expect("index fields should always be named fields")
             })
             .map(|i| {
+                let index_name_literal = Literal::string(i.to_string().as_str());
                 quote! {
-                    for mut page in &mut self.#i {
-                        persist_page(&mut page, file)?;
+                    {
+                        let mut file = std::fs::File::create(format!("{}/{}{}", path, #index_name_literal, #index_extension))?;
+                        for mut page in &mut self.#i {
+                            persist_page(&mut page, &mut file)?;
+                        }
                     }
                 }
             })
             .collect::<Vec<_>>();
 
         quote! {
-            pub fn persist(&mut self, file: &mut std::fs::File) -> eyre::Result<()> {
+            pub fn persist(&mut self, path: &String) -> eyre::Result<()> {
                 #(#persist_logic)*
                 Ok(())
             }
@@ -238,6 +245,7 @@ impl Generator {
     fn gen_parse_from_file_fn(&self) -> TokenStream {
         let name_generator = WorktableNameGenerator::from_index_ident(&self.struct_def.ident);
         let page_const_name = name_generator.get_page_size_const_ident();
+        let index_extension = Literal::string(WT_INDEX_EXTENSION);
 
         let field_names_literals: Vec<_> = self
             .struct_def
@@ -256,16 +264,20 @@ impl Generator {
                     .expect("index fields should always be named fields")
             ))
             .map(|(l, i)| quote! {
-                let mut #i = vec![];
-                let intervals = map.get(#l).expect("index name should exist");
-                for interval in intervals {
-                    for page_id in interval.0..interval.1 {
-                        let index = parse_page::<IndexData<_>, { #page_const_name as u32 }>(file, page_id as u32)?;
+                let #i = {
+                    let mut #i = vec![];
+                    let intervals = map.get(#l).expect("index name should exist");
+                    let mut file = std::fs::File::open(format!("{}/{}{}", path, #l, #index_extension))?;
+                    for interval in intervals {
+                        for page_id in interval.0..interval.1 {
+                            let index = parse_page::<IndexData<_>, { #page_const_name as u32 }>(&mut file, page_id as u32)?;
+                            #i.push(index);
+                        }
+                        let index = parse_page::<IndexData<_>, { #page_const_name as u32 }>(&mut file, interval.1 as u32)?;
                         #i.push(index);
                     }
-                    let index = parse_page::<IndexData<_>, { #page_const_name as u32 }>(file, interval.1 as u32)?;
-                    #i.push(index);
-                }
+                    #i
+                };
             })
             .collect();
 
@@ -281,7 +293,7 @@ impl Generator {
             .collect::<Vec<_>>();
 
         quote! {
-            pub fn parse_from_file(file: &mut std::fs::File, map: &std::collections::HashMap<String, Vec<Interval>>) -> eyre::Result<Self> {
+            pub fn parse_from_file(path: &String, map: &std::collections::HashMap<String, Vec<Interval>>) -> eyre::Result<Self> {
                 #(#field_names_literals)*
 
                 Ok(Self {
@@ -359,7 +371,9 @@ impl Generator {
             .iter()
             .map(|f| {
                 (
-                    f.ident.as_ref().expect("index fields should always be named fields"),
+                    f.ident
+                        .as_ref()
+                        .expect("index fields should always be named fields"),
                     !f.ty
                         .to_token_stream()
                         .to_string()
@@ -368,34 +382,28 @@ impl Generator {
                 )
             })
             .map(|(i, is_unique)| {
-                let ty = self.field_types.get(i).expect("should be available as constructed from same values");
+                let ty = self
+                    .field_types
+                    .get(i)
+                    .expect("should be available as constructed from same values");
                 if is_unique {
                     quote! {
                         let mut #i = map_index_pages_to_general(
                             map_unique_tree_index::<#ty, #const_name>(TableIndex::iter(&self.#i)),
-                            previous_header
                         );
-                        previous_header = &mut #i.last_mut()
-                            .expect("at least one page should be presented, even if index contains no values")
-                            .header;
                     }
                 } else {
                     quote! {
                         let mut #i =  map_index_pages_to_general(
                             map_tree_index::<#ty, #const_name>(TableIndex::iter(&self.#i)),
-                            previous_header
                         );
-                        previous_header = &mut #i.last_mut()
-                            .expect("at least one page should be presented, even if index contains no values")
-                            .header;
                     }
                 }
             })
             .collect();
 
         quote! {
-            fn get_persisted_index(&self, header: &mut GeneralHeader) -> Self::PersistedIndex {
-                let mut previous_header = header;
+            fn get_persisted_index(&self) -> Self::PersistedIndex {
                 #(#field_names_init)*
                 Self::PersistedIndex {
                     #(#idents,)*

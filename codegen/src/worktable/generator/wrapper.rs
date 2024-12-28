@@ -1,7 +1,7 @@
-use proc_macro2::{Ident, Span, TokenStream};
-use quote::quote;
 use crate::name_generator::WorktableNameGenerator;
 use crate::worktable::generator::Generator;
+use proc_macro2::{Ident, Span, TokenStream};
+use quote::quote;
 
 impl Generator {
     pub fn gen_wrapper_def(&self) -> TokenStream {

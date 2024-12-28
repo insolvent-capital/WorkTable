@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
-use convert_case::{Case, Casing};
-use proc_macro2::{Ident, Span, TokenStream};
-use quote::quote;
 use crate::name_generator::WorktableNameGenerator;
 use crate::worktable::generator::Generator;
 use crate::worktable::model::Operation;
+use convert_case::{Case, Casing};
+use proc_macro2::{Ident, Span, TokenStream};
+use quote::quote;
 
 impl Generator {
     pub fn gen_query_update_impl(&mut self) -> syn::Result<TokenStream> {

@@ -1,7 +1,7 @@
+use crate::name_generator::WorktableNameGenerator;
 use crate::worktable::generator::Generator;
 use proc_macro2::TokenStream;
 use quote::quote;
-use crate::name_generator::WorktableNameGenerator;
 
 impl Generator {
     pub fn gen_query_select_impl(&mut self) -> syn::Result<TokenStream> {

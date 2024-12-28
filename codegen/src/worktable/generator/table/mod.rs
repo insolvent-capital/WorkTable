@@ -5,8 +5,8 @@ use crate::name_generator::WorktableNameGenerator;
 use crate::worktable::generator::Generator;
 
 mod impls;
-mod select_executor;
 mod index_fns;
+mod select_executor;
 
 impl Generator {
     pub fn gen_table_def(&mut self) -> syn::Result<TokenStream> {

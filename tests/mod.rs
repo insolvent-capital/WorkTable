@@ -29,8 +29,29 @@ pub fn check_if_files_are_same(got: String, expected: String) -> bool {
     true
 }
 
+pub fn check_if_dirs_are_same(got: String, expected: String) -> bool {
+    let paths = fs::read_dir(&expected).unwrap();
+    for file in paths {
+        let file_name = file.unwrap().file_name();
+        if !check_if_files_are_same(
+            format!("{}/{}", got, file_name.to_str().unwrap()),
+            format!("{}/{}", expected, file_name.to_str().unwrap()),
+        ) {
+            return false;
+        }
+    }
+
+    true
+}
+
 pub fn remove_file_if_exists(path: String) {
     if Path::new(path.as_str()).exists() {
         fs::remove_file(path.as_str()).unwrap();
+    }
+}
+
+pub fn remove_dir_if_exists(path: String) {
+    if Path::new(path.as_str()).exists() {
+        fs::read_dir(path).unwrap();
     }
 }

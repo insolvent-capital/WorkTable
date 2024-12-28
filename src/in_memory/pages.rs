@@ -59,9 +59,7 @@ where
         }
     }
 
-    pub fn from_data(
-        vec: Vec<Arc<Data<<Row as StorableRow>::WrappedRow, DATA_LENGTH>>>,
-    ) -> Self {
+    pub fn from_data(vec: Vec<Arc<Data<<Row as StorableRow>::WrappedRow, DATA_LENGTH>>>) -> Self {
         // TODO: Add row_count persistence.
         let last_page_id = vec.len() - 1;
         Self {
@@ -279,12 +277,7 @@ where
         let pages = self.pages.read().unwrap();
         pages
             .iter()
-            .map(|p| {
-                (
-                    p.get_bytes(),
-                    p.free_offset.load(Ordering::Relaxed),
-                )
-            })
+            .map(|p| (p.get_bytes(), p.free_offset.load(Ordering::Relaxed)))
             .collect()
     }
     pub fn get_page_count(&self) -> usize {

@@ -71,16 +71,16 @@ impl Generator {
     }
 
     fn gen_table_insert_fn(&self) -> TokenStream {
-    let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
-    let row_type = name_generator.get_row_type_ident();
-    let primary_key_type = name_generator.get_primary_key_type_ident();
+        let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
+        let row_type = name_generator.get_row_type_ident();
+        let primary_key_type = name_generator.get_primary_key_type_ident();
 
-    quote! {
-        pub fn insert(&self, row: #row_type) -> core::result::Result<#primary_key_type, WorkTableError> {
-            self.0.insert(row)
+        quote! {
+            pub fn insert(&self, row: #row_type) -> core::result::Result<#primary_key_type, WorkTableError> {
+                self.0.insert(row)
+            }
         }
     }
-}
     fn gen_table_upsert_fn(&self) -> TokenStream {
         let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
         let row_type = name_generator.get_row_type_ident();

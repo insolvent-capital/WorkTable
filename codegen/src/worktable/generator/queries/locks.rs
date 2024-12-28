@@ -1,8 +1,8 @@
+use crate::name_generator::WorktableNameGenerator;
+use crate::worktable::generator::Generator;
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
-use crate::name_generator::WorktableNameGenerator;
-use crate::worktable::generator::Generator;
 
 impl Generator {
     pub fn gen_query_locks_impl(&mut self) -> syn::Result<TokenStream> {

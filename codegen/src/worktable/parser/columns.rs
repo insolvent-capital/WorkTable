@@ -124,7 +124,10 @@ impl Parser {
             } else if cfg!(feature = "index_set") {
                 Ident::new("IndexSet", Span::mixed_site())
             } else {
-                return Err(syn::Error::new(self.input.span(), "At least one of `tree_index` or `index_set` features should be enabled"));
+                return Err(syn::Error::new(
+                    self.input.span(),
+                    "At least one of `tree_index` or `index_set` features should be enabled",
+                ));
             }
         };
 

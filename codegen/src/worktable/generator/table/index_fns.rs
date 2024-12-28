@@ -19,12 +19,7 @@ impl Generator {
             .iter()
             .map(|(i, idx)| {
                 if idx.is_unique {
-                    Self::gen_unique_index_fn(
-                        i,
-                        idx,
-                        &self.columns.columns_map,
-                        row_ident.clone(),
-                    )
+                    Self::gen_unique_index_fn(i, idx, &self.columns.columns_map, row_ident.clone())
                 } else {
                     Self::gen_non_unique_index_fn(
                         i,
