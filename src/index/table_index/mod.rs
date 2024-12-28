@@ -7,7 +7,7 @@ mod lockfree_map;
 mod tree_index;
 
 pub use hash_map::LockedHashMap;
-pub use index_set::{IndexSet, KeyValue};
+pub use indexset::concurrent::map::BTreeMap as IndexSet;
 pub use lockfree::map::Map as LockFreeMap;
 
 pub trait TableIndex<K, V> {
