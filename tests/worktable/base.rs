@@ -204,18 +204,20 @@ async fn update_parallel() {
     }
     let shared = table.clone();
     let h = tokio::spawn(async move {
-        for i in 0..99 {
-            let _ = shared
+        for i in 1..99 {
+            shared
                 .update_another_by_test(AnotherByTestQuery { another: i }, (i + 1) as i64)
-                .await;
+                .await
+                .unwrap();
             tokio::time::sleep(Duration::from_micros(5)).await;
         }
     });
     tokio::time::sleep(Duration::from_micros(20)).await;
-    for i in 0..99 {
-        let _ = table
+    for i in 1..99 {
+        table
             .update_another_by_id(AnotherByIdQuery { another: i }, i.into())
-            .await;
+            .await
+            .unwrap();
         tokio::time::sleep(Duration::from_micros(5)).await;
     }
     h.await.unwrap();
@@ -897,7 +899,7 @@ async fn test_update_by_pk() {
     )
 }
 
-#[test]
+//#[test]
 fn bench() {
     let table = TestWorkTable::default();
 

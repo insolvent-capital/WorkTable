@@ -175,6 +175,7 @@ impl Generator {
                 quote! {
                     {
                         let mut file = std::fs::File::create(format!("{}/{}{}", path, #index_name_literal, #index_extension))?;
+                        persist_page(info, &mut file)?;
                         for mut page in &mut self.#i {
                             persist_page(&mut page, &mut file)?;
                         }
@@ -184,7 +185,19 @@ impl Generator {
             .collect::<Vec<_>>();
 
         quote! {
-            pub fn persist(&mut self, path: &String) -> eyre::Result<()> {
+            pub fn persist<T>(&mut self, path: &String, info: &mut GeneralPage<SpaceInfoData<T>>) -> eyre::Result<()>
+            where T: rkyv::Archive
+                + for<'a> rkyv::Serialize<
+                            rkyv::rancor::Strategy<
+                                rkyv::ser::Serializer<
+                                    rkyv::util::AlignedVec,
+                                    rkyv::ser::allocator::ArenaHandle<'a>,
+                                    rkyv::ser::sharing::Share
+                                >,
+                                rkyv::rancor::Error
+                            >,
+                        >,
+            {
                 #(#persist_logic)*
                 Ok(())
             }

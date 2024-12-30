@@ -1,6 +1,6 @@
 use crate::name_generator::WorktableNameGenerator;
 use crate::worktable::generator::Generator;
-use proc_macro2::{Ident, Span, TokenStream};
+use proc_macro2::TokenStream;
 use quote::quote;
 
 impl Generator {

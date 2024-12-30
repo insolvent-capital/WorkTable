@@ -6,7 +6,6 @@ use quote::quote;
 use crate::name_generator::WorktableNameGenerator;
 use crate::persist_table::generator::Generator;
 
-pub const WT_INFO_EXTENSION: &str = ".wt.info";
 pub const WT_INDEX_EXTENSION: &str = ".wt.idx";
 pub const WT_DATA_EXTENSION: &str = ".wt.data";
 
@@ -47,7 +46,6 @@ impl Generator {
     fn gen_space_persist_impl(&self) -> TokenStream {
         let name_generator = WorktableNameGenerator::from_struct_ident(&self.struct_def.ident);
         let space_ident = name_generator.get_space_file_ident();
-        let info_extension = Literal::string(WT_INFO_EXTENSION);
         let index_extension = Literal::string(WT_INDEX_EXTENSION);
         let data_extension = Literal::string(WT_DATA_EXTENSION);
 
@@ -58,20 +56,18 @@ impl Generator {
                     std::fs::create_dir_all(prefix)?;
 
                     {
-                        let mut info_file = std::fs::File::create(format!("{}/{}", &self.path, #info_extension))?;
-                        persist_page(&mut self.info, &mut info_file)?;
-                    }
-                    {
                         let mut primary_index_file = std::fs::File::create(format!("{}/primary{}", &self.path, #index_extension))?;
+                        persist_page(&mut self.info, &mut primary_index_file)?;
                         for mut primary_index_page in &mut self.primary_index {
                             persist_page(&mut primary_index_page, &mut primary_index_file)?;
                         }
                     }
 
-                    self.indexes.persist(&prefix)?;
+                    self.indexes.persist(&prefix, &mut self.info)?;
 
                     {
                         let mut data_file = std::fs::File::create(format!("{}/{}", &self.path, #data_extension))?;
+                        persist_page(&mut self.info, &mut data_file)?;
                         for mut data_page in &mut self.data {
                             persist_page(&mut data_page, &mut data_file)?;
                         }
@@ -106,7 +102,7 @@ impl Generator {
 
         quote! {
             pub fn into_worktable(self, db_manager: std::sync::Arc<DatabaseManager>) -> #wt_ident {
-                let mut page_id = 0;
+                let mut page_id = 1;
                 let data = self.data.into_iter().map(|p| {
                     let mut data = Data::from_data_page(p);
                     data.set_page_id(page_id.into());
@@ -151,15 +147,14 @@ impl Generator {
         let page_const_name = name_generator.get_page_size_const_ident();
         let inner_const_name = name_generator.get_page_inner_size_const_ident();
         let persisted_index_name = name_generator.get_persisted_index_ident();
-        let info_extension = Literal::string(WT_INFO_EXTENSION);
         let index_extension = Literal::string(WT_INDEX_EXTENSION);
         let data_extension = Literal::string(WT_DATA_EXTENSION);
 
         quote! {
             pub fn parse_file(path: &String) -> eyre::Result<Self> {
                 let info = {
-                    let mut info_file = std::fs::File::open(format!("{}/{}", path, #info_extension))?;
-                    parse_page::<SpaceInfoData<<<#pk_type as TablePrimaryKey>::Generator as PrimaryKeyGeneratorState>::State>, { #page_const_name as u32 }>(&mut info_file, 0)?
+                    let mut data_file = std::fs::File::open(format!("{}/{}", path, #data_extension))?;
+                    parse_page::<SpaceInfoData<<<#pk_type as TablePrimaryKey>::Generator as PrimaryKeyGeneratorState>::State>, { #page_const_name as u32 }>(&mut data_file, 0)?
                 };
 
                 let mut primary_index = {

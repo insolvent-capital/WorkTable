@@ -7,7 +7,7 @@ use crate::persist_table::parser::Parser;
 mod generator;
 mod parser;
 
-pub use generator::{WT_DATA_EXTENSION, WT_INDEX_EXTENSION, WT_INFO_EXTENSION};
+pub use generator::{WT_DATA_EXTENSION, WT_INDEX_EXTENSION};
 
 pub fn expand(input: TokenStream) -> syn::Result<TokenStream> {
     let input_fn = Parser::parse_struct(input)?;

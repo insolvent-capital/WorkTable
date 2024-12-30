@@ -1,12 +1,10 @@
-use std::str::FromStr;
-
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span};
 use syn::ItemStruct;
 
 use crate::name_generator::WorktableNameGenerator;
 
-pub use space_file::{WT_DATA_EXTENSION, WT_INDEX_EXTENSION, WT_INFO_EXTENSION};
+pub use space_file::{WT_DATA_EXTENSION, WT_INDEX_EXTENSION};
 
 mod size_measurable;
 mod space_file;

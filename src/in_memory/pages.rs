@@ -25,6 +25,10 @@ use crate::{
     prelude::Link,
 };
 
+fn page_id_mapper(page_id: usize) -> usize {
+    page_id - 1usize
+}
+
 #[derive(Debug)]
 pub struct DataPages<Row, const DATA_LENGTH: usize = DATA_INNER_LENGTH>
 where
@@ -41,7 +45,7 @@ where
 
     last_page_id: AtomicU32,
 
-    current_page_index: AtomicU32,
+    current_page_id: AtomicU32,
 }
 
 impl<Row, const DATA_LENGTH: usize> DataPages<Row, DATA_LENGTH>
@@ -51,23 +55,24 @@ where
 {
     pub fn new() -> Self {
         Self {
-            pages: RwLock::new(vec![Arc::new(Data::new(0.into()))]),
+            // We are starting ID's from `1` because `0`'s page in file is info page.
+            pages: RwLock::new(vec![Arc::new(Data::new(1.into()))]),
             empty_links: Stack::new(),
             row_count: AtomicU64::new(0),
-            last_page_id: AtomicU32::new(0),
-            current_page_index: AtomicU32::new(0),
+            last_page_id: AtomicU32::new(1),
+            current_page_id: AtomicU32::new(1),
         }
     }
 
     pub fn from_data(vec: Vec<Arc<Data<<Row as StorableRow>::WrappedRow, DATA_LENGTH>>>) -> Self {
         // TODO: Add row_count persistence.
-        let last_page_id = vec.len() - 1;
+        let last_page_id = vec.len();
         Self {
             pages: RwLock::new(vec),
             empty_links: Stack::new(),
             row_count: AtomicU64::new(0),
             last_page_id: AtomicU32::new(last_page_id as u32),
-            current_page_index: AtomicU32::new(last_page_id as u32),
+            current_page_id: AtomicU32::new(last_page_id as u32),
         }
     }
 
@@ -90,7 +95,7 @@ where
 
         if let Some(link) = self.empty_links.pop() {
             let pages = self.pages.read().unwrap();
-            let current_page: usize = link.page_id.into();
+            let current_page: usize = page_id_mapper(link.page_id.into());
             let page = &pages[current_page];
 
             return if let Err(e) = unsafe { page.save_row_by_link(&general_row, link) } {
@@ -110,7 +115,8 @@ where
 
         let (link, tried_page) = {
             let pages = self.pages.read().unwrap();
-            let current_page = self.current_page_index.load(Ordering::Relaxed);
+            let current_page =
+                page_id_mapper(self.current_page_id.load(Ordering::Relaxed) as usize);
             let page = &pages[current_page as usize];
 
             (page.save_row(&general_row), current_page)
@@ -122,7 +128,9 @@ where
             }
             Err(e) => {
                 return if let DataExecutionError::PageIsFull { .. } = e {
-                    if tried_page == self.current_page_index.load(Ordering::Relaxed) {
+                    if tried_page
+                        == page_id_mapper(self.current_page_id.load(Ordering::Relaxed) as usize)
+                    {
                         self.add_next_page(tried_page);
                     }
                     self.retry_insert(general_row)
@@ -150,8 +158,8 @@ where
             >,
     {
         let pages = self.pages.read().unwrap();
-        let current_page = self.current_page_index.load(Ordering::Relaxed);
-        let page = &pages[current_page as usize];
+        let current_page = page_id_mapper(self.current_page_id.load(Ordering::Relaxed) as usize);
+        let page = &pages[current_page];
 
         let res = page
             .save_row(&general_row)
@@ -164,13 +172,13 @@ where
         }
     }
 
-    fn add_next_page(&self, tried_page: u32) {
+    fn add_next_page(&self, tried_page: usize) {
         let mut pages = self.pages.write().expect("lock should be not poisoned");
-        if tried_page == self.current_page_index.load(Ordering::Relaxed) {
+        if tried_page == page_id_mapper(self.current_page_id.load(Ordering::Relaxed) as usize) {
             let index = self.last_page_id.fetch_add(1, Ordering::Relaxed) + 1;
 
             pages.push(Arc::new(Data::new(index.into())));
-            self.current_page_index.fetch_add(1, Ordering::Relaxed);
+            self.current_page_id.fetch_add(1, Ordering::Relaxed);
         }
     }
 
@@ -189,7 +197,8 @@ where
     {
         let pages = self.pages.read().unwrap();
         let page = pages
-            .get::<usize>(link.page_id.into())
+            // - 1 is used because page ids are starting from 1.
+            .get(page_id_mapper(link.page_id.into()))
             .ok_or(ExecutionError::PageNotFound(link.page_id))?;
         let gen_row = page.get_row(link).map_err(ExecutionError::DataPageError)?;
         Ok(gen_row.get_inner())
@@ -209,7 +218,7 @@ where
     {
         let pages = self.pages.read().unwrap();
         let page = pages
-            .get::<usize>(link.page_id.into())
+            .get::<usize>(page_id_mapper(link.page_id.into()))
             .ok_or(ExecutionError::PageNotFound(link.page_id))?;
         let gen_row = page
             .get_row_ref(link)
@@ -237,7 +246,7 @@ where
     {
         let pages = self.pages.read().unwrap();
         let page = pages
-            .get::<usize>(link.page_id.into())
+            .get(page_id_mapper(link.page_id.into()))
             .ok_or(ExecutionError::PageNotFound(link.page_id))?;
         let gen_row = page
             .get_mut_row_ref(link)
@@ -261,7 +270,7 @@ where
     {
         let pages = self.pages.read().unwrap();
         let page = pages
-            .get::<usize>(link.page_id.into())
+            .get(page_id_mapper(link.page_id.into()))
             .ok_or(ExecutionError::PageNotFound(link.page_id))?;
         let gen_row = <Row as StorableRow>::WrappedRow::from_inner(row);
         page.save_row_by_link(&gen_row, link)
@@ -346,7 +355,7 @@ mod tests {
         let row = TestRow { a: 10, b: 20 };
         let link = pages.insert(row).unwrap();
 
-        assert_eq!(link.page_id, 0.into());
+        assert_eq!(link.page_id, 1.into());
         assert_eq!(link.length, 24);
         assert_eq!(link.offset, 0);
 
@@ -403,7 +412,7 @@ mod tests {
     }
 
     //#[test]
-    fn bench() {
+    fn _bench() {
         let pages = Arc::new(DataPages::<TestRow>::new());
 
         let mut v = Vec::new();

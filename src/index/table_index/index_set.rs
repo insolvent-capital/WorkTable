@@ -1,4 +1,3 @@
-use std::borrow::Borrow;
 use std::fmt::Debug;
 use std::ops::RangeBounds;
 
@@ -33,11 +32,11 @@ where
         indexset::concurrent::map::BTreeMap::iter(self)
     }
 
-    fn range<'a, R: RangeBounds<K>>(&'a self, _: R) -> impl Iterator<Item = (&'a K, &'a V)>
+    fn range<'a, R: RangeBounds<K>>(&'a self, range: R) -> impl Iterator<Item = (&'a K, &'a V)>
     where
         K: 'a,
         V: 'a,
     {
-        indexset::concurrent::map::BTreeMap::iter(self)
+        indexset::concurrent::map::BTreeMap::range(self, range)
     }
 }

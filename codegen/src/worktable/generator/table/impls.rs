@@ -170,7 +170,6 @@ impl Generator {
             let mut ind = false;
             while !ind {
                 let next = {
-                    let guard = Guard::new();
                     let mut iter = TableIndex::range(&self.0.pk_map, k.clone()..);
                     let next = iter.next().map(|(k, v)| (k.clone(), *v)).filter(|(key, _)| key != &k);
                     if next.is_some() {
