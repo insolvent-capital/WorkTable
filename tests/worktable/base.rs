@@ -33,7 +33,7 @@ worktable! (
 fn table_name() {
     let table = TestWorkTable::default();
     let name = table.name();
-    assert_eq!(name, "Test")
+    assert_eq!(name, "Test");
 }
 
 #[test]
