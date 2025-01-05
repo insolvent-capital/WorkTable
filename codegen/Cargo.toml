@@ -1,6 +1,6 @@
 [package]
 name = "worktable_codegen"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2021"
 license = "MIT"
 description = "WorkTable codegeneration crate"
@@ -19,9 +19,8 @@ scc = "2.2.5"
 lockfree = "0.5.1"
 
 [dependencies]
-rkyv = {version = "0.7.45"}
-syn = { version = "2.0.74", features = ["full"]}
+rkyv = { version = "0.7.45" }
+syn = { version = "2.0.74", features = ["full"] }
 quote = "1.0.36"
 proc-macro2 = "1.0.86"
-regex = "1.10.6"
 convert_case = "0.6.0"
