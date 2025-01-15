@@ -213,4 +213,3 @@ smart lock logic that allows simultaneous update of not overlapping row fields.
 ## WorkTable internals structure
 
 TODO
-
