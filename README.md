@@ -4,7 +4,7 @@
 
 ## Usage
 
-`WorkTable` can be used just in user's code with `worktable!` macro. It will generate table struct and other related
+`WorkTable` can be used just in user's code with `worktable!` macro. It will generate table structs and other related
 structs that will be used for table logic.
 
 ```rust
