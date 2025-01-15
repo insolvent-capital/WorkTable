@@ -166,7 +166,7 @@ This struct is used in `WorkTable` interface and will be used by users.
 
 `indexes` field is used to define table's index schema. Default usage is `<index_name>: <column_name> <unique>?`.
 
-Index allows faster access to data by some field. Adding `indexes` field adds methods to generated `WorkTable`. This
+Index allows faster access to data by some field. Adding `indexes` field adds methods to the generated `WorkTable`. This
 method for now is `select_by_<indexed_column_name>`. It will be described below.
 
 ### Default implemented `queries`
