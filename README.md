@@ -212,4 +212,92 @@ smart lock logic that allows simultaneous update of not overlapping row fields.
 
 ## WorkTable internals structure
 
-TODO
+```rust 
+worktable
+    pub struct WorkTable   -- The main container that holds all data and manages its structure.
+
+Fields
+
+    data: DataPages<Row, DATA_LENGTH>       // stores data as pages (DataPages)
+    pk_map: IndexType                       // primary index ensuring the uniqueness of records
+    indexes: SecondaryIndexes               // secondary indexes for efficient searches across other columns
+    pk_gen: PkGen                           // Primary Key Generator 
+    lock_map: LockMap                       // from indexset crate, supports data ordering with LockMap
+    table_name: &'static str                // table name (e.g., Test, which generates TestWorkTable and TestRow
+    pk_phantom: PhantomData<PrimaryKey>     // a helper field for type management
+
+Implementations 
+
+   pub fn default() -- creates default WorkTable
+
+```
+
+```rust
+worktable::in_memory
+    pub struct DataPages  -- A container for managing data pages
+
+Fields (/*private*/)
+
+    pages: RwLock<Vec<Arc<Data<...>>>>,  // an array of pages (Data) that hold the records
+    empty_links: Stack<Link>,            // a stack for storing links to deleted records
+    row_count: AtomicU64,                // a counter for the current number of records
+    last_page_id: AtomicU32,             // identifier for last page 
+    current_page_id: AtomicU32,          // identifier for current page
+
+Implementations
+
+   pub fn new() -> Self
+   pub fn from_data(vec: Vec<Arc<Data<<Row as StorableRow>::WrappedRow, DATA_LENGTH>>>,) -> Self
+   pub fn insert(&self, row: Row) -> Result<Link, ExecutionError>   
+   pub fn select(&self, link: Link) -> Result<Row, ExecutionError>
+   pub fn with_ref<Op, Res>(&self, link: Link, op: Op,) -> Result<Res, ExecutionError>
+   pub unsafe fn with_mut_ref<Op, Res>(&self, link: Link, op: Op,) -> Result<Res, ExecutionError>
+   pub unsafe fn update<const N: usize>(&self, row: Row, link: Link,) -> Result<Link, ExecutionError>
+   pub fn delete(&self, link: Link) -> Result<(), ExecutionError>
+   pub fn get_bytes(&self) -> Vec<([u8; DATA_LENGTH], u32)>
+   pub fn get_page_count(&self) -> usize
+   pub fn get_empty_links(&self) -> Vec<Link>
+   pub fn with_empty_links(self, links: Vec<Link>) -> Self
+```
+
+```rust 
+in-memory::data
+    pub struct Data  -- Data itself 
+
+Fields
+    pub free_offset: AtomicU32,                        // the offset to the first free byte 
+    (/* private */)   
+    id: PageId,                                        // the identifier of the page
+    inner_data: UnsafeCell<AlignedBytes<DATA_LENGTH>>, // a byte array where rows are stored 
+    _phantom: PhantomData<Row>,                        // a helper field for type management
+
+Implementations 
+
+   pub fn new(id: PageId) -> Self 
+   pub fn from_data_page(page: GeneralPage<DataPage<DATA_LENGTH>>) -> Self 
+   pub fn set_page_id(&mut self, id: PageId) 
+   pub fn save_row(&self, row: &Row) -> Result<Link, ExecutionError
+   pub unsafe fn save_row_by_link(&self, row: &Row, link: Link) -> Result<Link, ExecutionError
+   pub unsafe fn get_mut_row_ref
+   pub fn get_row_ref(&self, link: Link) -> Result<&<Row as Archive>::Archived, ExecutionError
+   pub fn get_row(&self, link: Link) -> Result<Row, ExecutionError
+   pub fn get_bytes(&self) -> [u8; DATA_LENGTH] 
+
+
+
+```
+
+```rust 
+enum WorkTableError
+    NotFound,
+    AlreadyExists,
+    SerializeError,
+    PagesError(in_memory::PagesExecutionError),
+```
+
+
+## Examples 
+
+Check out - [Examples](./examples)
+
+

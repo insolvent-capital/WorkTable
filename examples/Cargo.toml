@@ -1,0 +1,15 @@
+[package]
+name = "wt-examples"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+
+worktable = { path = "..", version = "0.4.1", features = ["perf_measurements"]}
+rkyv = { version = "0.8.9", features = ["uuid-1"] }
+lockfree = "0.5.1"
+derive_more = { version = "1.0.0", features = ["full"] }
+eyre = "0.6.12"
+futures = "0.3.30"
+async-std = "1.10"
+
