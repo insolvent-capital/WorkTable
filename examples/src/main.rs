@@ -20,6 +20,7 @@ fn main() {
         queries: {
             update: {
                 ValByAttr(val) by attribute,
+                AttrById(attribute) by id,
             },
             delete: {
                 ByAttr() by attribute,
@@ -74,14 +75,23 @@ fn main() {
     );
 
     // Update all recrods val by attr TEST2
-    let update_val = my_table.update_val_by_attr(ValByAttrQuery { val: 777 }, "TEST2".to_string());
-    let _ = task::block_on(update_val);
+    //let update_val = my_table.update_val_by_attr(ValByAttrQuery { val: 777 }, "TEST2".to_string());
+    //let _ = task::block_on(update_val);
+    //
+    //let select_updated = my_table.select_by_attribute("TEST2".to_string());
+    //println!(
+    //    "Select updated by Attribute TEST2: {:?}",
+    //    select_updated.unwrap().vals
+    //);
 
-    let select_updated = my_table.select_by_attribute("TEST2".to_string());
-    println!(
-        "Select updated by Attribute TEST2: {:?}",
-        select_updated.unwrap().vals
+    // Update attr by ID
+    let update_attr = my_table.update_attr_by_id(
+        AttrByIdQuery {
+            attribute: "TEST2".to_string(),
+        },
+        MyPrimaryKey(3),
     );
+    let _ = task::block_on(update_attr);
 
     // Update record attribute TEST2 -> TEST3 with id 1
     let update_exchange =
@@ -94,11 +104,11 @@ fn main() {
         select_all_after_update.execute()
     );
 
-    let test_delete = my_table.delete_by_attr("TEST3".to_string());
+    let test_delete = my_table.delete_by_attr("TEST2".to_string());
     let _ = task::block_on(test_delete);
 
     println!(
-        "Select after deleted TEST3 {:?}",
+        "Select after deleted TEST2 {:?}",
         my_table.select_all().execute()
     );
 }

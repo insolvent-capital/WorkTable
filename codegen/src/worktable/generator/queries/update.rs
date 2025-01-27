@@ -95,6 +95,17 @@ impl Generator {
                     .values()
                     .find(|idx| idx.field.to_string() == op.by.to_string());
 
+                let index_columns = self
+                    .columns
+                    .indexes
+                    .values()
+                    .filter(|idx| !idx.is_unique)
+                    .find(|idx| {
+                        op.columns
+                            .iter()
+                            .any(|col| col.to_string() == idx.field.to_string())
+                    });
+
                 let idents = &op.columns;
                 if let Some(index) = index {
                     let index_name = &index.name;
@@ -109,7 +120,11 @@ impl Generator {
                         if self.columns.primary_keys.0.first().unwrap().to_string()
                             == op.by.to_string()
                         {
-                            self.gen_pk_update(snake_case_name, name, idents)
+                            if let Some(index) = index_columns {
+                                self.gen_pk_update(snake_case_name, name, idents, Some(&index.name))
+                            } else {
+                                self.gen_pk_update(snake_case_name, name, idents, None)
+                            }
                         } else {
                             todo!()
                         }
@@ -130,6 +145,7 @@ impl Generator {
         snake_case_name: String,
         name: &Ident,
         idents: &Vec<Ident>,
+        index_name: Option<&Ident>,
     ) -> TokenStream {
         let pk_ident = &self.pk.as_ref().unwrap().ident;
         let method_ident = Ident::new(
@@ -164,6 +180,25 @@ impl Generator {
             })
             .collect::<Vec<_>>();
 
+        let new_index_value = if let Some(index_name) = index_name {
+            idents
+                .iter()
+                .map(|i| {
+                    quote! {
+                      let _ = TableIndex::remove(&self.0.indexes.#index_name, &row.#i.to_string());
+                      if let Some(set) = TableIndex::peek(&self.0.indexes.#index_name,  &row.#i.to_string()) {
+                         set.insert(link).expect("`Link` should not be already in set");
+                      } else {
+                         let set = LockFreeSet::new();
+                         set.insert(link).expect("`Link` should not be already in set");
+                         TableIndex::insert(&self.0.indexes.#index_name, row.#i.to_string(), std::sync::Arc::new(set));
+                      }
+                    }
+                }).collect::<Vec<_>>()
+        } else {
+            Vec::new()
+        };
+
         quote! {
             pub async fn #method_ident(&self, row: #query_ident, by: #pk_ident) -> core::result::Result<(), WorkTableError> {
                 let op_id = self.0.lock_map.next_id();
@@ -177,6 +212,7 @@ impl Generator {
                     let guard = Guard::new();
                     TableIndex::peek(&self.0.pk_map, &by).ok_or(WorkTableError::NotFound)?
                 };
+                 #(#new_index_value)*
                 let id = self.0.data.with_ref(link, |archived| {
                     archived.#check_ident()
                 }).map_err(WorkTableError::PagesError)?;
