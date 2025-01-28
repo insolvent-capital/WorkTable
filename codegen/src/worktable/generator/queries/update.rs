@@ -95,6 +95,8 @@ impl Generator {
                     .values()
                     .find(|idx| idx.field.to_string() == op.by.to_string());
 
+
+
                 let index_columns = self
                     .columns
                     .indexes
@@ -107,6 +109,11 @@ impl Generator {
                     });
 
                 let idents = &op.columns;
+
+               let column_type = idents.iter().find_map(|ident| {
+                  self.columns.columns_map
+                 .get(ident) 
+                  });
                 if let Some(index) = index {
                     let index_name = &index.name;
 
@@ -121,9 +128,11 @@ impl Generator {
                             == op.by.to_string()
                         {
                             if let Some(index) = index_columns {
-                                self.gen_pk_update(snake_case_name, name, idents, Some(&index.name))
+                                self.gen_pk_update(snake_case_name, name, idents, Some(&index.name), column_type.unwrap(),
+                                    )
                             } else {
-                                self.gen_pk_update(snake_case_name, name, idents, None)
+                                self.gen_pk_update(snake_case_name, name, idents, None, column_type.unwrap(), 
+                                    )
                             }
                         } else {
                             todo!()
@@ -140,12 +149,14 @@ impl Generator {
         }
     }
 
+
     fn gen_pk_update(
         &self,
         snake_case_name: String,
         name: &Ident,
         idents: &Vec<Ident>,
         index_name: Option<&Ident>,
+        column_type: &TokenStream,
     ) -> TokenStream {
         let pk_ident = &self.pk.as_ref().unwrap().ident;
         let method_ident = Ident::new(
@@ -171,11 +182,24 @@ impl Generator {
             format!("verify_{snake_case_name}_lock").as_str(),
             Span::mixed_site(),
         );
+
+        let postfix = if column_type.to_string() == "String" {
+             quote! { to_string() }
+        } else {
+             quote! { into() }
+        };
+       
         let row_updates = idents
             .iter()
             .map(|i| {
                 quote! {
+                            
+                  if let Some(set) = TableIndex::peek(&self.0.indexes.#index_name, &archived.inner.#i.#postfix) {
+                        set.remove(&link);
+                    }
                     std::mem::swap(&mut archived.inner.#i, &mut row.#i);
+                   
+
                 }
             })
             .collect::<Vec<_>>();
@@ -185,34 +209,42 @@ impl Generator {
                 .iter()
                 .map(|i| {
                     quote! {
-                      let _ = TableIndex::remove(&self.0.indexes.#index_name, &row.#i.to_string());
-                      if let Some(set) = TableIndex::peek(&self.0.indexes.#index_name,  &row.#i.to_string()) {
+
+
+                      if let Some(set) = TableIndex::peek(&self.0.indexes.#index_name,  &row.#i.#postfix) {
                          set.insert(link).expect("`Link` should not be already in set");
                       } else {
                          let set = LockFreeSet::new();
                          set.insert(link).expect("`Link` should not be already in set");
-                         TableIndex::insert(&self.0.indexes.#index_name, row.#i.to_string(), std::sync::Arc::new(set));
+                         TableIndex::insert(&self.0.indexes.#index_name, row.#i.#postfix, std::sync::Arc::new(set));
                       }
+
+                     
                     }
                 }).collect::<Vec<_>>()
         } else {
             Vec::new()
         };
 
-        quote! {
+        let t = quote! {
             pub async fn #method_ident(&self, row: #query_ident, by: #pk_ident) -> core::result::Result<(), WorkTableError> {
+                println!("{:?}", row);
                 let op_id = self.0.lock_map.next_id();
                 let lock = std::sync::Arc::new(Lock::new());
 
                 self.0.lock_map.insert(op_id.into(), lock.clone());
 
+
                 let mut bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&row).map_err(|_| WorkTableError::SerializeError)?;
                 let mut row = unsafe { rkyv::access_unchecked_mut::<<#query_ident as rkyv::Archive>::Archived>(&mut bytes[..]).unseal_unchecked() };
+
                 let link = {
                     let guard = Guard::new();
                     TableIndex::peek(&self.0.pk_map, &by).ok_or(WorkTableError::NotFound)?
                 };
-                 #(#new_index_value)*
+
+                #(#new_index_value)*
+
                 let id = self.0.data.with_ref(link, |archived| {
                     archived.#check_ident()
                 }).map_err(WorkTableError::PagesError)?;
@@ -243,7 +275,9 @@ impl Generator {
 
                 core::result::Result::Ok(())
             }
-        }
+        };
+        println!("{}", t.to_string());
+        t
     }
 
     fn gen_non_unique_update(
