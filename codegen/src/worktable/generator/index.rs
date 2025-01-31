@@ -56,13 +56,18 @@ impl Generator {
 
         let save_row_fn = self.gen_save_row_index_fn();
         let delete_row_fn = self.gen_delete_row_index_fn();
+        let process_differences_row_fn = self.gen_process_difference_index_fn();
 
-        quote! {
+        let t = quote! {
             impl TableSecondaryIndex<#row_type_ident> for #index_type_ident {
                 #save_row_fn
                 #delete_row_fn
+                #process_differences_row_fn
             }
-        }
+        };
+        println!("{}", t);
+
+        t
     }
 
     /// Generates `save_row` function of `TableIndex` trait for index. It saves `Link` to all secondary indexes. Logic
@@ -136,6 +141,37 @@ impl Generator {
         quote! {
             fn delete_row(&self, row: #row_type_ident, link: Link) -> core::result::Result<(), WorkTableError> {
                 #(#delete_rows)*
+                core::result::Result::Ok(())
+            }
+        }
+    }
+
+    fn gen_process_difference_index_fn(&self) -> TokenStream {
+        let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
+        let row_type_ident = name_generator.get_row_type_ident();
+
+        let process_difference_rows = self
+            .columns
+            .indexes
+            .iter()
+            .map(|(_i, idx)| {
+                let _index_field_name = &idx.name;
+                //let difference_type_ident =
+                if idx.is_unique {
+                    quote! {
+                        todo()!;
+                    }
+                } else {
+                    quote! {
+                            todo()!;
+                    }
+                }
+            })
+            .collect::<Vec<_>>();
+
+        quote! {
+            fn process_difference(&self, row: #row_type_ident, link: Link, difference: HashMap<#row_type_ident, Difference >) -> core::result::Result<(), WorkTableError> {
+                #(#process_difference_rows)*
                 core::result::Result::Ok(())
             }
         }

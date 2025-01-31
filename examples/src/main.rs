@@ -22,6 +22,7 @@ fn main() {
                 ValByAttr(val) by attr,
                 AttrById(attr) by id,
                 Attr2ById(attr2) by id,
+                AllAttrById(attr, attr2) by id,
             },
             delete: {
                 ByAttr() by attr,
@@ -78,6 +79,15 @@ fn main() {
         "Select by Attribute TEST2: {:?}",
         select_by_attr.unwrap().vals
     );
+
+    let update_val = my_table.update_all_attr_by_id(
+        AllAttrByIdQuery {
+            attr: "TEST5".to_string(),
+            attr2: 1337,
+        },
+        MyPrimaryKey(3),
+    );
+    let _ = task::block_on(update_val);
 
     // Update all recrods val by attr TEST2
     let update_val = my_table.update_val_by_attr(ValByAttrQuery { val: 777 }, "TEST2".to_string());
@@ -139,8 +149,5 @@ fn main() {
         select_by_attr.unwrap().vals
     );
 
-    println!(
-        "Select after deleted TEST2 {:?}",
-        my_table.select_all().execute()
-    );
+    println!("Select ALL {:?}", my_table.select_all().execute());
 }

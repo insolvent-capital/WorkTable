@@ -7,6 +7,8 @@ use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
+
+
 impl Generator {
     pub fn gen_query_update_impl(&mut self) -> syn::Result<TokenStream> {
         let custom_updates = if let Some(q) = &self.queries {
@@ -108,14 +110,14 @@ impl Generator {
                             .any(|col| col.to_string() == idx.field.to_string())
                     });
 
-                let idents = &op.columns;
+               let idents = &op.columns;
 
                let column_type = idents.iter().find_map(|ident| {
                   self.columns.columns_map
                  .get(ident) 
                   });
                 if let Some(index) = index {
-                    let index_name = &index.name;
+                    let index_name = &index. name;
 
                     if index.is_unique {
                         self.gen_unique_update(snake_case_name, name, index_name, idents)
@@ -197,8 +199,9 @@ impl Generator {
                   if let Some(set) = TableIndex::peek(&self.0.indexes.#index_name, &archived.inner.#i.#postfix) {
                         set.remove(&link);
                     }
+
+
                     std::mem::swap(&mut archived.inner.#i, &mut row.#i);
-                   
 
                 }
             })
@@ -209,6 +212,13 @@ impl Generator {
                 .iter()
                 .map(|i| {
                     quote! {
+
+                     let diff = self.0.data.with_ref(link, |archived| {
+                        Difference {
+                            old_value: archived.inner.#i,
+                            new_value: row.#i,
+                        }
+                    });
 
 
                       if let Some(set) = TableIndex::peek(&self.0.indexes.#index_name,  &row.#i.#postfix) {
@@ -242,6 +252,8 @@ impl Generator {
                     let guard = Guard::new();
                     TableIndex::peek(&self.0.pk_map, &by).ok_or(WorkTableError::NotFound)?
                 };
+
+                 
 
                 #(#new_index_value)*
 
