@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use crate::WorkTableError;
 
 #[derive(Debug)]
-pub enum AvailableType {
+pub enum AvailableTypes {
     I16(i16),
     U16(u16),
     STRING(String),
@@ -12,8 +12,8 @@ pub enum AvailableType {
 
 #[derive(Debug)]
 pub struct Difference {
-    pub old_value: AvailableType,
-    pub new_value: AvailableType,
+    pub old_value: AvailableTypes,
+    pub new_value: AvailableTypes,
 }
 
 pub trait TableSecondaryIndex<Row> {

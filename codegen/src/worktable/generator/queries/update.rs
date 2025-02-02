@@ -7,8 +7,6 @@ use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
-
-
 impl Generator {
     pub fn gen_query_update_impl(&mut self) -> syn::Result<TokenStream> {
         let custom_updates = if let Some(q) = &self.queries {
@@ -97,8 +95,6 @@ impl Generator {
                     .values()
                     .find(|idx| idx.field.to_string() == op.by.to_string());
 
-
-
                 let index_columns = self
                     .columns
                     .indexes
@@ -110,14 +106,13 @@ impl Generator {
                             .any(|col| col.to_string() == idx.field.to_string())
                     });
 
-               let idents = &op.columns;
+                let idents = &op.columns;
 
-               let column_type = idents.iter().find_map(|ident| {
-                  self.columns.columns_map
-                 .get(ident) 
-                  });
+                let column_type = idents
+                    .iter()
+                    .find_map(|ident| self.columns.columns_map.get(ident));
                 if let Some(index) = index {
-                    let index_name = &index. name;
+                    let index_name = &index.name;
 
                     if index.is_unique {
                         self.gen_unique_update(snake_case_name, name, index_name, idents)
@@ -130,11 +125,21 @@ impl Generator {
                             == op.by.to_string()
                         {
                             if let Some(index) = index_columns {
-                                self.gen_pk_update(snake_case_name, name, idents, Some(&index.name), column_type.unwrap(),
-                                    )
+                                self.gen_pk_update(
+                                    snake_case_name,
+                                    name,
+                                    idents,
+                                    Some(&index.name),
+                                    column_type.unwrap(),
+                                )
                             } else {
-                                self.gen_pk_update(snake_case_name, name, idents, None, column_type.unwrap(), 
-                                    )
+                                self.gen_pk_update(
+                                    snake_case_name,
+                                    name,
+                                    idents,
+                                    None,
+                                    column_type.unwrap(),
+                                )
                             }
                         } else {
                             todo!()
@@ -150,7 +155,6 @@ impl Generator {
             #(#defs)*
         }
     }
-
 
     fn gen_pk_update(
         &self,
@@ -185,21 +189,10 @@ impl Generator {
             Span::mixed_site(),
         );
 
-        let postfix = if column_type.to_string() == "String" {
-             quote! { to_string() }
-        } else {
-             quote! { into() }
-        };
-       
         let row_updates = idents
             .iter()
             .map(|i| {
                 quote! {
-                            
-                  if let Some(set) = TableIndex::peek(&self.0.indexes.#index_name, &archived.inner.#i.#postfix) {
-                        set.remove(&link);
-                    }
-
 
                     std::mem::swap(&mut archived.inner.#i, &mut row.#i);
 
@@ -207,31 +200,22 @@ impl Generator {
             })
             .collect::<Vec<_>>();
 
-        let new_index_value = if let Some(index_name) = index_name {
+        let new_index_value = if let Some(_index_name) = index_name {
             idents
                 .iter()
                 .map(|i| {
                     quote! {
+                       // let value = archived.inner.#i.as_ref();
 
-                     let diff = self.0.data.with_ref(link, |archived| {
-                        Difference {
-                            old_value: archived.inner.#i,
-                            new_value: row.#i,
-                        }
-                    });
-
-
-                      if let Some(set) = TableIndex::peek(&self.0.indexes.#index_name,  &row.#i.#postfix) {
-                         set.insert(link).expect("`Link` should not be already in set");
-                      } else {
-                         let set = LockFreeSet::new();
-                         set.insert(link).expect("`Link` should not be already in set");
-                         TableIndex::insert(&self.0.indexes.#index_name, row.#i.#postfix, std::sync::Arc::new(set));
-                      }
-
-                     
+                        let diff = self.0.data.with_ref(link, |archived| {
+                           Difference {
+                               old_value: archived.inner.#i.into(),
+                               new_value: row.#i.clone().into(),
+                           }
+                       });
                     }
-                }).collect::<Vec<_>>()
+                })
+                .collect::<Vec<_>>()
         } else {
             Vec::new()
         };
@@ -253,7 +237,7 @@ impl Generator {
                     TableIndex::peek(&self.0.pk_map, &by).ok_or(WorkTableError::NotFound)?
                 };
 
-                 
+
 
                 #(#new_index_value)*
 

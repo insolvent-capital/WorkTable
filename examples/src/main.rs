@@ -1,4 +1,5 @@
 use async_std::task;
+use std::collections::HashMap;
 use worktable::prelude::*;
 use worktable::worktable;
 
@@ -20,9 +21,9 @@ fn main() {
         queries: {
             update: {
                 ValByAttr(val) by attr,
-                AttrById(attr) by id,
-                Attr2ById(attr2) by id,
-                AllAttrById(attr, attr2) by id,
+               // AttrById(attr) by id,
+               // Attr2ById(attr2) by id,
+               AllAttrById(attr, attr2) by id,
             },
             delete: {
                 ByAttr() by attr,
@@ -80,14 +81,14 @@ fn main() {
         select_by_attr.unwrap().vals
     );
 
-    let update_val = my_table.update_all_attr_by_id(
-        AllAttrByIdQuery {
-            attr: "TEST5".to_string(),
-            attr2: 1337,
-        },
-        MyPrimaryKey(3),
-    );
-    let _ = task::block_on(update_val);
+    //let update_val = my_table.update_all_attr_by_id(
+    //    AllAttrByIdQuery {
+    //        attr: "TEST5".to_string(),
+    //        attr2: 1337,
+    //    },
+    //    MyPrimaryKey(3),
+    //);
+    //let _ = task::block_on(update_val);
 
     // Update all recrods val by attr TEST2
     let update_val = my_table.update_val_by_attr(ValByAttrQuery { val: 777 }, "TEST2".to_string());
@@ -101,20 +102,19 @@ fn main() {
 
     // Update attr by ID
     println!("update attr TEST3 -> TEST2");
-    let update_attr = my_table.update_attr_by_id(
-        AttrByIdQuery {
-            attr: "TEST2".to_string(),
-        },
-        MyPrimaryKey(3),
-    );
-    let _ = task::block_on(update_attr);
+    //  let update_attr = my_table.update_attr_by_id(
+    //            attr: "TEST2".to_string(),
+    //      },
+    //    MyPrimaryKey(3),
+    //);
+    // let _ = task::block_on(update_attr);
 
     println!("FINISH update attr TEST3 -> TEST2");
 
     // Update attr2 by ID
     println!("update attr2 67 -> 1337");
-    let update_attr = my_table.update_attr_2_by_id(Attr2ByIdQuery { attr2: 1337 }, MyPrimaryKey(3));
-    let _ = task::block_on(update_attr);
+    // let update_attr = my_table.update_attr_2_by_id(Attr2ByIdQuery { attr2: 1337 }, MyPrimaryKey(3));
+    // let _ = task::block_on(update_attr);
 
     println!("FINISH update attr2");
 
@@ -143,11 +143,11 @@ fn main() {
         select_by_attr.unwrap().vals
     );
 
-    let select_by_attr = my_table.select_by_attr2(65);
-    println!(
-        "Select by Attribute 65 after del: {:?}",
-        select_by_attr.unwrap().vals
-    );
+    //let select_by_attr = my_table.select_by_attr2(65);
+    // println!(
+    //     "Select by Attribute 65 after del: {:?}",
+    //     select_by_attr.unwrap().vals
+    // );
 
     println!("Select ALL {:?}", my_table.select_all().execute());
 }

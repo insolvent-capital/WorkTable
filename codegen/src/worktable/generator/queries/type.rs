@@ -34,6 +34,12 @@ impl Generator {
                 #(#rows)*
             }
 
+            impl From<rkyv::string::ArchivedString> for #type_ident {
+                 fn from(s: rkyv::string::ArchivedString) -> Self {
+                     #type_ident::STRING(s.to_string())
+                 }
+              }
+
             #[derive(rkyv::Archive, Debug, rkyv::Deserialize, Clone, rkyv::Serialize)]
             #[repr(C)]
             pub struct #diff_ident {
