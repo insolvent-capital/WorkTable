@@ -16,7 +16,7 @@ fn main() {
         },
         indexes: {
             attr_idx: attr,
-            //attr2_idx: attr2,
+            attr2_idx: attr2,
         },
         queries: {
             update: {
@@ -66,9 +66,9 @@ fn main() {
 
     // insert
     let _ = my_table.upsert(row);
-    //let _ = my_table.insert(row1);
-    //let _ = my_table.insert(row2);
-    //let _ = my_table.insert(row3);
+    let _ = my_table.insert(row1);
+    let _ = my_table.insert(row2);
+    let _ = my_table.insert(row3);
 
     // Select ALL records from WT
     let select_all = my_table.select_all().execute();
