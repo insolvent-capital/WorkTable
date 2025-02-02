@@ -162,7 +162,7 @@ impl Generator {
         name: &Ident,
         idents: &Vec<Ident>,
         index_name: Option<&Ident>,
-        column_type: &TokenStream,
+        _column_type: &TokenStream,
     ) -> TokenStream {
         let pk_ident = &self.pk.as_ref().unwrap().ident;
         let method_ident = Ident::new(
@@ -200,7 +200,7 @@ impl Generator {
             })
             .collect::<Vec<_>>();
 
-        let new_index_value = if let Some(_index_name) = index_name {
+        let _new_index_value = if let Some(_index_name) = index_name {
             idents
                 .iter()
                 .map(|i| {
@@ -210,7 +210,7 @@ impl Generator {
                         let diff = self.0.data.with_ref(link, |archived| {
                            Difference {
                                old_value: archived.inner.#i.into(),
-                               new_value: row.#i.clone().into(),
+                               new_value: row.#i.into(),
                            }
                        });
                     }
@@ -239,7 +239,7 @@ impl Generator {
 
 
 
-                #(#new_index_value)*
+              //  #(#new_index_value)*
 
                 let id = self.0.data.with_ref(link, |archived| {
                     archived.#check_ident()

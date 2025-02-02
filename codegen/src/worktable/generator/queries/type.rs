@@ -25,7 +25,6 @@ impl Generator {
             .collect::<Result<Vec<_>, _>>()?;
 
         let type_ident = Ident::new(format!("AvailableTypes").as_str(), Span::mixed_site());
-        let diff_ident = Ident::new(format!("Difference").as_str(), Span::mixed_site());
 
         let defs = Ok::<_, syn::Error>(quote! {
             #[derive(rkyv::Archive, Debug, rkyv::Deserialize, Clone, rkyv::Serialize)]
@@ -34,22 +33,25 @@ impl Generator {
                 #(#rows)*
             }
 
+            impl Default for #type_ident {
+                 fn default() -> Self {
+
+                   #type_ident::STRING(String::default())
+
+                 }
+            }
+
             impl From<rkyv::string::ArchivedString> for #type_ident {
                  fn from(s: rkyv::string::ArchivedString) -> Self {
                      #type_ident::STRING(s.to_string())
                  }
               }
 
-            #[derive(rkyv::Archive, Debug, rkyv::Deserialize, Clone, rkyv::Serialize)]
-            #[repr(C)]
-            pub struct #diff_ident {
-                old_value: #type_ident,
-                new_value: #type_ident,
-            }
+
         });
 
         let t = defs?;
-        println!("{}", t.to_string());
+        // println!("{}", t.to_string());
         Ok(t)
     }
 

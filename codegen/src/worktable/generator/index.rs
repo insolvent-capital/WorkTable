@@ -10,11 +10,14 @@ impl Generator {
         let type_def = self.gen_type_def();
         let impl_def = self.gen_impl_def();
 
-        quote! {
+        let t = quote! {
             #type_def
 
             #impl_def
-        }
+        };
+
+        println!("index gen {}", t);
+        t
     }
 
     /// Generates table's secondary index struct definition. It has fields with index names and types varying on index
@@ -40,12 +43,14 @@ impl Generator {
             })
             .collect::<Vec<_>>();
 
-        quote! {
+        let t = quote! {
             #[derive(Debug, Default, PersistIndex)]
             pub struct #ident {
                 #(#index_rows),*
             }
-        }
+        };
+        println!("{}", t);
+        t
     }
 
     /// Generates implementation of `TableIndex` trait for index.
@@ -59,7 +64,7 @@ impl Generator {
         let process_differences_row_fn = self.gen_process_difference_index_fn();
 
         let t = quote! {
-            impl TableSecondaryIndex<#row_type_ident> for #index_type_ident {
+            impl TableSecondaryIndex<#row_type_ident, AvailableTypes> for #index_type_ident {
                 #save_row_fn
                 #delete_row_fn
                 #process_differences_row_fn
@@ -170,7 +175,7 @@ impl Generator {
             .collect::<Vec<_>>();
 
         quote! {
-            fn process_difference(&self, row: #row_type_ident, link: Link, difference: HashMap<#row_type_ident, Difference >) -> core::result::Result<(), WorkTableError> {
+            fn process_difference(&self, row: #row_type_ident, link: Link, difference: HashMap<&str, Difference<AvailableTypes> >) -> core::result::Result<(), WorkTableError> {
                 #(#process_difference_rows)*
                 core::result::Result::Ok(())
             }

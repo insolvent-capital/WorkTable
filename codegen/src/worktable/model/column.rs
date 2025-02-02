@@ -24,19 +24,6 @@ pub struct Row {
     pub optional: bool,
 }
 
-#[derive(Debug)]
-pub enum AvailableTypes {
-    I16(i16),
-    U16(u16),
-    STRING(String),
-}
-
-#[derive(Debug)]
-pub struct Difference {
-    pub old_value: AvailableTypes,
-    pub new_value: AvailableTypes,
-}
-
 impl Columns {
     pub fn try_from_rows(rows: Vec<Row>, input: &TokenStream) -> syn::Result<Self> {
         let mut columns_map = HashMap::new();

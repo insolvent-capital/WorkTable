@@ -22,6 +22,7 @@ pub struct WorkTable<
     Row,
     PrimaryKey,
     IndexType,
+    AvailableTypes,
     SecondaryIndexes = (),
     PkGen = <PrimaryKey as TablePrimaryKey>::Generator,
     const DATA_LENGTH: usize = INNER_PAGE_SIZE,
@@ -43,14 +44,25 @@ pub struct WorkTable<
     pub table_name: &'static str,
 
     pub pk_phantom: PhantomData<PrimaryKey>,
+
+    pub available_types_phantom: PhantomData<AvailableTypes>,
 }
 
 // Manual implementations to avoid unneeded trait bounds.
-impl<Row, PrimaryKey, IndexType, SecondaryIndexes, PkGen, const DATA_LENGTH: usize> Default
-    for WorkTable<Row, PrimaryKey, IndexType, SecondaryIndexes, PkGen, DATA_LENGTH>
+impl<
+        Row,
+        PrimaryKey,
+        IndexType,
+        AvailableTypes,
+        SecondaryIndexes,
+        PkGen,
+        const DATA_LENGTH: usize,
+    > Default
+    for WorkTable<Row, PrimaryKey, IndexType, AvailableTypes, SecondaryIndexes, PkGen, DATA_LENGTH>
 where
     PrimaryKey: Clone + Ord + TablePrimaryKey,
     SecondaryIndexes: Default,
+    AvailableTypes: Default,
     IndexType: Default + TableIndex<PrimaryKey, Link>,
     PkGen: Default,
     Row: StorableRow,
@@ -65,18 +77,28 @@ where
             lock_map: LockMap::new(),
             table_name: "",
             pk_phantom: PhantomData,
+            available_types_phantom: PhantomData,
         }
     }
 }
 
-impl<Row, PrimaryKey, IndexType, SecondaryIndexes, PkGen, const DATA_LENGTH: usize>
-    WorkTable<Row, PrimaryKey, IndexType, SecondaryIndexes, PkGen, DATA_LENGTH>
+impl<
+        Row,
+        PrimaryKey,
+        IndexType,
+        AvailableTypes,
+        SecondaryIndexes,
+        PkGen,
+        const DATA_LENGTH: usize,
+    > WorkTable<Row, PrimaryKey, IndexType, AvailableTypes, SecondaryIndexes, PkGen, DATA_LENGTH>
 where
     Row: TableRow<PrimaryKey>,
     PrimaryKey: Clone + Ord + TablePrimaryKey,
     IndexType: TableIndex<PrimaryKey, Link>,
     Row: StorableRow,
     <Row as StorableRow>::WrappedRow: RowWrapper<Row>,
+    AvailableTypes: 'static,
+    SecondaryIndexes: TableSecondaryIndex<Row, AvailableTypes>,
 {
     pub fn get_next_pk(&self) -> PrimaryKey
     where
@@ -119,7 +141,8 @@ where
                 Strategy<Serializer<AlignedVec, ArenaHandle<'a>, Share>, rkyv::rancor::Error>,
             >,
         PrimaryKey: Clone,
-        SecondaryIndexes: TableSecondaryIndex<Row>,
+        AvailableTypes: 'static,
+        SecondaryIndexes: TableSecondaryIndex<Row, AvailableTypes>,
     {
         let pk = row.get_primary_key().clone();
         let link = self

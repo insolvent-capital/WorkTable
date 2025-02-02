@@ -83,6 +83,7 @@ impl Generator {
                         #row_type,
                         #primary_key_type,
                         #primary_index_type<#primary_key_type, Link>,
+                        AvailableTypes,
                         #index_type,
                         <#primary_key_type as TablePrimaryKey>::Generator,
                         #inner_const_name
@@ -98,6 +99,7 @@ impl Generator {
                         #row_type,
                         #primary_key_type,
                         #primary_index_type<#primary_key_type, Link>,
+                        AvailableTypes,
                         #index_type
                     >
                     #persist_type_part

@@ -1,22 +1,19 @@
 use data_bucket::Link;
 use std::collections::HashMap;
+use std::fmt::Debug;
 
 use crate::WorkTableError;
 
 #[derive(Debug)]
-pub enum AvailableTypes {
-    I16(i16),
-    U16(u16),
-    STRING(String),
-}
-
-#[derive(Debug)]
-pub struct Difference {
+pub struct Difference<AvailableTypes> {
     pub old_value: AvailableTypes,
     pub new_value: AvailableTypes,
 }
 
-pub trait TableSecondaryIndex<Row> {
+pub trait TableSecondaryIndex<Row, AvailableTypes>
+where
+    AvailableTypes: 'static,
+{
     fn save_row(&self, row: Row, link: Link) -> Result<(), WorkTableError>;
 
     fn delete_row(&self, row: Row, link: Link) -> Result<(), WorkTableError>;
@@ -25,11 +22,14 @@ pub trait TableSecondaryIndex<Row> {
         &self,
         row: Row,
         link: Link,
-        differences: HashMap<Row, Difference>,
+        differences: HashMap<&str, Difference<AvailableTypes>>,
     ) -> Result<(), WorkTableError>;
 }
 
-impl<Row> TableSecondaryIndex<Row> for () {
+impl<Row, AvailableTypes> TableSecondaryIndex<Row, AvailableTypes> for ()
+where
+    AvailableTypes: 'static,
+{
     fn save_row(&self, _: Row, _: Link) -> Result<(), WorkTableError> {
         Ok(())
     }
@@ -42,7 +42,7 @@ impl<Row> TableSecondaryIndex<Row> for () {
         &self,
         _: Row,
         _: Link,
-        _: HashMap<Row, Difference>,
+        _: HashMap<&str, Difference<AvailableTypes>>,
     ) -> Result<(), WorkTableError> {
         Ok(())
     }

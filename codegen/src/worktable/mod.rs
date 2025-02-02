@@ -62,18 +62,18 @@ pub fn expand(input: TokenStream) -> syn::Result<TokenStream> {
     let t = TokenStream::from(quote! {
         #pk_def
         #row_def
+        #query_available_def
         #wrapper_def
         #index_def
         #table_def
         #query_types_def
-        #query_available_def
         #query_locks_impls
         #select_impls
         #update_impls
         #delete_impls
     });
 
-    println!("MAIN {}", t.to_string());
+    //  println!("MAIN {}", t.to_string());
 
     Ok(t)
 }
