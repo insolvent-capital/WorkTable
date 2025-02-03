@@ -15,7 +15,6 @@ impl Generator {
         let values = self
             .columns
             .primary_keys
-            .0
             .iter()
             .map(|i| {
                 (
@@ -49,7 +48,6 @@ impl Generator {
         let types = &self
             .columns
             .primary_keys
-            .0
             .iter()
             .map(|i| {
                 self.columns
@@ -94,7 +92,6 @@ impl Generator {
                 let i = self
                     .columns
                     .primary_keys
-                    .0
                     .first()
                     .expect("at least one primary key should exist if autoincrement");
                 let type_ = self

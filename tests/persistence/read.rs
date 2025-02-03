@@ -20,7 +20,7 @@ fn test_info_parse() {
     assert_eq!(info.header.previous_id, 0.into());
     assert_eq!(info.header.next_id, 0.into());
     assert_eq!(info.header.page_type, PageType::SpaceInfo);
-    assert_eq!(info.header.data_length, 176);
+    assert_eq!(info.header.data_length, 188);
 
     assert_eq!(info.inner.id, 0.into());
     assert_eq!(info.inner.page_count, 2);

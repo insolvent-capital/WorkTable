@@ -1,7 +1,7 @@
 use crate::name_generator::WorktableNameGenerator;
 use crate::worktable::generator::Generator;
 
-use proc_macro2::TokenStream;
+use proc_macro2::{Literal, TokenStream};
 use quote::quote;
 
 impl Generator {
@@ -12,7 +12,6 @@ impl Generator {
 
         quote! {
             #type_def
-
             #impl_def
         }
     }
@@ -28,14 +27,13 @@ impl Generator {
             .indexes
             .iter()
             .map(|(i, idx)| {
-                let index_type = &idx.index_type;
                 let t = self.columns.columns_map.get(&i);
                 let i = &idx.name;
 
                 if idx.is_unique {
-                    quote! {#i: #index_type<#t, Link>}
+                    quote! {#i: IndexMap<#t, Link>}
                 } else {
-                    quote! {#i: #index_type<#t, std::sync::Arc<LockFreeSet<Link>>>}
+                    quote! {#i: IndexMultiMap<#t, Link>}
                 }
             })
             .collect::<Vec<_>>();
@@ -48,7 +46,7 @@ impl Generator {
         }
     }
 
-    /// Generates implementation of `TableIndex` trait for index.
+    /// Generates implementation of `TableSecondaryIndex` trait for index.
     fn gen_impl_def(&mut self) -> TokenStream {
         let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
         let row_type_ident = name_generator.get_row_type_ident();
@@ -65,9 +63,9 @@ impl Generator {
         }
     }
 
-    /// Generates `save_row` function of `TableIndex` trait for index. It saves `Link` to all secondary indexes. Logic
-    /// varies on index uniqueness. For unique index we can just insert `Link` in index, but for non-unique we need to
-    /// get set from index first and then insert `Link` in set.
+    /// Generates `save_row` function of `TableSecondaryIndex` trait for index. It saves `Link` to all secondary
+    /// indexes. Logic varies on index uniqueness. For unique index we can just insert `Link` in index, but for
+    /// non-unique we need to get set from index first and then insert `Link` in set.
     fn gen_save_row_index_fn(&self) -> TokenStream {
         let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
         let row_type_ident = name_generator.get_row_type_ident();
@@ -78,22 +76,9 @@ impl Generator {
             .iter()
             .map(|(i, idx)| {
                 let index_field_name = &idx.name;
-                if idx.is_unique {
-                    quote! {
-                        TableIndex::insert(&self.#index_field_name, row.#i, link)
-                            .map_err(|_| WorkTableError::AlreadyExists)?;
-                    }
-                } else {
-                    quote! {
-                        if let Some(set) = TableIndex::peek(&self.#index_field_name, &row.#i) {
-                            set.insert(link).expect("is ok");
-                        } else {
-                            let set = LockFreeSet::new();
-                            set.insert(link).expect("`Link` should not be already in set");
-                            TableIndex::insert(&self.#index_field_name, row.#i, std::sync::Arc::new(set))
-                                .map_err(|_| WorkTableError::AlreadyExists)?;
-                        }
-                    }
+                quote! {
+                    self.#index_field_name.insert(row.#i, link)
+                    .map_or(Ok(()), |_| Err(WorkTableError::AlreadyExists))?;
                 }
             })
             .collect::<Vec<_>>();
@@ -119,15 +104,18 @@ impl Generator {
             .iter()
             .map(|(i, idx)| {
                 let index_field_name = &idx.name;
+                let lit = Literal::string(index_field_name.to_string().as_str());
                 if idx.is_unique {
                     quote! {
-                        TableIndex::remove(&self.#index_field_name, &row.#i);
+                        println!("{} remove", #lit);
+                        self.#index_field_name.remove(&row.#i);
+                        println!("{} removed", #lit);
                     }
                 } else {
                     quote! {
-                        if let Some(set) = TableIndex::peek(&self.#index_field_name, &row.#i) {
-                            set.remove(&link);
-                        }
+                        println!("{} remove", #lit);
+                        self.#index_field_name.remove(&row.#i, &link);
+                        println!("{} removed", #lit);
                     }
                 }
             })

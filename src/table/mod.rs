@@ -1,9 +1,7 @@
 pub mod select;
 
-use crate::in_memory::{DataPages, RowWrapper, StorableRow};
-use crate::lock::LockMap;
-use crate::primary_key::{PrimaryKeyGenerator, TablePrimaryKey};
-use crate::{in_memory, TableIndex, TableRow, TableSecondaryIndex};
+use std::marker::PhantomData;
+
 use data_bucket::{Link, INNER_PAGE_SIZE};
 use derive_more::{Display, Error, From};
 #[cfg(feature = "perf_measurements")]
@@ -15,24 +13,26 @@ use rkyv::ser::sharing::Share;
 use rkyv::ser::Serializer;
 use rkyv::util::AlignedVec;
 use rkyv::{Archive, Deserialize, Serialize};
-use std::marker::PhantomData;
+
+use crate::in_memory::{DataPages, RowWrapper, StorableRow};
+use crate::lock::LockMap;
+use crate::primary_key::{PrimaryKeyGenerator, TablePrimaryKey};
+use crate::{in_memory, IndexMap, TableRow, TableSecondaryIndex};
 
 #[derive(Debug)]
 pub struct WorkTable<
     Row,
     PrimaryKey,
-    IndexType,
     SecondaryIndexes = (),
     PkGen = <PrimaryKey as TablePrimaryKey>::Generator,
     const DATA_LENGTH: usize = INNER_PAGE_SIZE,
 > where
-    PrimaryKey: Clone + Ord + 'static,
+    PrimaryKey: Clone + Ord + Send + 'static,
     Row: StorableRow,
-    IndexType: TableIndex<PrimaryKey, Link>,
 {
     pub data: DataPages<Row, DATA_LENGTH>,
 
-    pub pk_map: IndexType,
+    pub pk_map: IndexMap<PrimaryKey, Link>,
 
     pub indexes: SecondaryIndexes,
 
@@ -46,12 +46,11 @@ pub struct WorkTable<
 }
 
 // Manual implementations to avoid unneeded trait bounds.
-impl<Row, PrimaryKey, IndexType, SecondaryIndexes, PkGen, const DATA_LENGTH: usize> Default
-    for WorkTable<Row, PrimaryKey, IndexType, SecondaryIndexes, PkGen, DATA_LENGTH>
+impl<Row, PrimaryKey, SecondaryIndexes, PkGen, const DATA_LENGTH: usize> Default
+    for WorkTable<Row, PrimaryKey, SecondaryIndexes, PkGen, DATA_LENGTH>
 where
-    PrimaryKey: Clone + Ord + TablePrimaryKey,
+    PrimaryKey: Clone + Ord + Send + TablePrimaryKey,
     SecondaryIndexes: Default,
-    IndexType: Default + TableIndex<PrimaryKey, Link>,
     PkGen: Default,
     Row: StorableRow,
     <Row as StorableRow>::WrappedRow: RowWrapper<Row>,
@@ -59,7 +58,7 @@ where
     fn default() -> Self {
         Self {
             data: DataPages::new(),
-            pk_map: IndexType::default(),
+            pk_map: IndexMap::default(),
             indexes: SecondaryIndexes::default(),
             pk_gen: Default::default(),
             lock_map: LockMap::new(),
@@ -69,12 +68,11 @@ where
     }
 }
 
-impl<Row, PrimaryKey, IndexType, SecondaryIndexes, PkGen, const DATA_LENGTH: usize>
-    WorkTable<Row, PrimaryKey, IndexType, SecondaryIndexes, PkGen, DATA_LENGTH>
+impl<Row, PrimaryKey, SecondaryIndexes, PkGen, const DATA_LENGTH: usize>
+    WorkTable<Row, PrimaryKey, SecondaryIndexes, PkGen, DATA_LENGTH>
 where
     Row: TableRow<PrimaryKey>,
-    PrimaryKey: Clone + Ord + TablePrimaryKey,
-    IndexType: TableIndex<PrimaryKey, Link>,
+    PrimaryKey: Clone + Ord + Send + TablePrimaryKey,
     Row: StorableRow,
     <Row as StorableRow>::WrappedRow: RowWrapper<Row>,
 {
@@ -99,7 +97,7 @@ where
         <<Row as StorableRow>::WrappedRow as Archive>::Archived:
             Deserialize<<Row as StorableRow>::WrappedRow, HighDeserializer<rkyv::rancor::Error>>,
     {
-        let link = self.pk_map.peek(&pk)?;
+        let link = self.pk_map.get(&pk).map(|v| v.get().value)?;
         self.data.select(link).ok()
     }
 
@@ -128,7 +126,7 @@ where
             .map_err(WorkTableError::PagesError)?;
         self.pk_map
             .insert(pk.clone(), link)
-            .map_err(|_| WorkTableError::AlreadyExists)?;
+            .map_or(Ok(()), |_| Err(WorkTableError::AlreadyExists))?;
         self.indexes.save_row(row, link)?;
 
         Ok(pk)

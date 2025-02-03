@@ -7,17 +7,15 @@ use crate::persist_table::parser::Parser;
 mod generator;
 mod parser;
 
-pub use generator::{WT_DATA_EXTENSION, WT_INDEX_EXTENSION};
+pub use generator::WT_INDEX_EXTENSION;
 
 pub fn expand(input: TokenStream) -> syn::Result<TokenStream> {
     let input_fn = Parser::parse_struct(input)?;
     let pk_ident = Parser::parse_pk_ident(&input_fn);
-    let index_type_ident = Parser::parse_index_ident(&input_fn);
 
     let gen = Generator {
         struct_def: input_fn,
         pk_ident,
-        index_type_ident,
     };
 
     let space_file_def = gen.gen_space_file_def();

@@ -36,7 +36,12 @@ impl Generator {
 
         quote! {
             pub async fn delete(&self, pk: #pk_ident) -> core::result::Result<(), WorkTableError> {
-                let link = TableIndex::peek(&self.0.pk_map, &pk).ok_or(WorkTableError::NotFound)?;
+                let link = self.0
+                    .pk_map
+                    .get(&pk)
+                    .map(|v| v.get().value)
+                    .ok_or(WorkTableError::NotFound)?;
+
                 let id = self.0.data.with_ref(link, |archived| {
                     archived.is_locked()
                 }).map_err(WorkTableError::PagesError)?;
@@ -118,12 +123,10 @@ impl Generator {
     fn gen_non_unique_delete(type_: &TokenStream, name: &Ident, index: &Ident) -> TokenStream {
         quote! {
             pub async fn #name(&self, by: #type_) -> core::result::Result<(), WorkTableError> {
-                let rows_to_update = TableIndex::peek(&self.0.indexes.#index, &by);
-                if let Some(rows) = rows_to_update {
-                    for link in rows.iter() {
-                        let row = self.0.data.select(*link.as_ref()).map_err(WorkTableError::PagesError)?;
-                        self.delete(row.id.into()).await?;
-                    }
+                let rows_to_update = self.0.indexes.#index.get(&by).map(|kv| kv.1).collect::<Vec<_>>();
+                for link in rows_to_update {
+                    let row = self.0.data.select(*link).map_err(WorkTableError::PagesError)?;
+                    self.delete(row.id.into()).await?;
                 }
                 core::result::Result::Ok(())
             }
@@ -133,7 +136,7 @@ impl Generator {
     fn gen_unique_delete(type_: &TokenStream, name: &Ident, index: &Ident) -> TokenStream {
         quote! {
             pub async fn #name(&self, by: #type_) -> core::result::Result<(), WorkTableError> {
-                let row_to_update = TableIndex::peek(&self.0.indexes.#index, &by);
+                let row_to_update = self.0.indexes.#index.get(&by).map(|v| v.get().value);
                 if let Some(link) = row_to_update {
                     let row = self.0.data.select(link).map_err(WorkTableError::PagesError)?;
                     self.delete(row.id.into()).await?;

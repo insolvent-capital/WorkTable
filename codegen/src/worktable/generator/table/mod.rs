@@ -54,7 +54,6 @@ impl Generator {
         let ident = name_generator.get_work_table_ident();
         let row_type = name_generator.get_row_type_ident();
         let primary_key_type = name_generator.get_primary_key_type_ident();
-        let primary_index_type = &self.columns.primary_keys.1;
         let index_type = name_generator.get_index_type_ident();
         let inner_const_name = name_generator.get_page_inner_size_const_ident();
 
@@ -82,7 +81,6 @@ impl Generator {
                     WorkTable<
                         #row_type,
                         #primary_key_type,
-                        #primary_index_type<#primary_key_type, Link>,
                         #index_type,
                         <#primary_key_type as TablePrimaryKey>::Generator,
                         #inner_const_name
@@ -97,7 +95,6 @@ impl Generator {
                     WorkTable<
                         #row_type,
                         #primary_key_type,
-                        #primary_index_type<#primary_key_type, Link>,
                         #index_type
                     >
                     #persist_type_part

@@ -4,7 +4,7 @@ use syn::ItemStruct;
 
 use crate::name_generator::WorktableNameGenerator;
 
-pub use space_file::{WT_DATA_EXTENSION, WT_INDEX_EXTENSION};
+pub use space_file::WT_INDEX_EXTENSION;
 
 mod size_measurable;
 mod space_file;
@@ -12,7 +12,6 @@ mod space_file;
 pub struct Generator {
     pub struct_def: ItemStruct,
     pub pk_ident: Ident,
-    pub index_type_ident: Ident,
 }
 
 impl WorktableNameGenerator {

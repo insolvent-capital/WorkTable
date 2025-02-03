@@ -89,8 +89,8 @@ impl Generator {
             pub async fn upsert(&self, row: #row_type) -> core::result::Result<(), WorkTableError> {
                 let pk = row.get_primary_key();
                 let need_to_update = {
-                    let guard = Guard::new();
-                    if let Some(_) = TableIndex::peek(&self.0.pk_map, &pk) {
+                    if let Some(_) = self.0.pk_map.get(&pk)
+                    {
                         true
                     } else {
                         false
@@ -159,7 +159,7 @@ impl Generator {
 
     fn gen_table_iter_inner(&self, func: TokenStream) -> TokenStream {
         quote! {
-            let first = TableIndex::iter(&self.0.pk_map).next().map(|(k, v)| (k.clone(), *v));
+            let first = self.0.pk_map.iter().next().map(|(k, v)| (k.clone(), *v));
             let Some((mut k, link)) = first else {
                 return Ok(())
             };
@@ -170,7 +170,7 @@ impl Generator {
             let mut ind = false;
             while !ind {
                 let next = {
-                    let mut iter = TableIndex::range(&self.0.pk_map, k.clone()..);
+                    let mut iter = self.0.pk_map.range(k.clone()..);
                     let next = iter.next().map(|(k, v)| (k.clone(), *v)).filter(|(key, _)| key != &k);
                     if next.is_some() {
                         next

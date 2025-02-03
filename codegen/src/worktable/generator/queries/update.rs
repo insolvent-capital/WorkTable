@@ -54,7 +54,12 @@ impl Generator {
 
                 let mut bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&row).map_err(|_| WorkTableError::SerializeError)?;
                 let mut row = unsafe { rkyv::access_unchecked_mut::<<#row_ident as rkyv::Archive>::Archived>(&mut bytes[..]).unseal_unchecked() };
-                let link = TableIndex::peek(&self.0.pk_map, &pk).ok_or(WorkTableError::NotFound)?;
+                let link = self.0
+                    .pk_map
+                    .get(&pk)
+                    .map(|v| v.get().value)
+                    .ok_or(WorkTableError::NotFound)?;
+
                 let id = self.0.data.with_ref(link, |archived| {
                     archived.is_locked()
                 }).map_err(WorkTableError::PagesError)?;
@@ -105,8 +110,8 @@ impl Generator {
                         self.gen_non_unique_update(snake_case_name, name, index_name, idents)
                     }
                 } else {
-                    if self.columns.primary_keys.0.len() == 1 {
-                        if self.columns.primary_keys.0.first().unwrap().to_string()
+                    if self.columns.primary_keys.len() == 1 {
+                        if self.columns.primary_keys.first().unwrap().to_string()
                             == op.by.to_string()
                         {
                             self.gen_pk_update(snake_case_name, name, idents)
@@ -173,10 +178,11 @@ impl Generator {
 
                 let mut bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&row).map_err(|_| WorkTableError::SerializeError)?;
                 let mut row = unsafe { rkyv::access_unchecked_mut::<<#query_ident as rkyv::Archive>::Archived>(&mut bytes[..]).unseal_unchecked() };
-                let link = {
-                    let guard = Guard::new();
-                    TableIndex::peek(&self.0.pk_map, &by).ok_or(WorkTableError::NotFound)?
-                };
+                let link = self.0
+                        .pk_map
+                        .get(&by)
+                        .map(|v| v.get().value)
+                        .ok_or(WorkTableError::NotFound)?;
                 let id = self.0.data.with_ref(link, |archived| {
                     archived.#check_ident()
                 }).map_err(WorkTableError::PagesError)?;
@@ -257,9 +263,8 @@ impl Generator {
 
                 self.0.lock_map.insert(op_id.into(), lock.clone());
 
-                let rows_to_update = TableIndex::peek(&self.0.indexes.#index, &by).ok_or(WorkTableError::NotFound)?;
-                for link in rows_to_update.iter() {
-                    let id = self.0.data.with_ref(*link.as_ref(), |archived| {
+                for (_, link) in self.0.indexes.#index.get(&by) {
+                    let id = self.0.data.with_ref(*link, |archived| {
                         archived.#check_ident()
                     }).map_err(WorkTableError::PagesError)?;
                     if let Some(id) = id {
@@ -267,7 +272,7 @@ impl Generator {
                             lock.as_ref().await
                         }
                     }
-                    unsafe { self.0.data.with_mut_ref(*link.as_ref(), |archived| {
+                    unsafe { self.0.data.with_mut_ref(*link, |archived| {
                         while !archived.#verify_ident(op_id) {
                             unsafe {
                                 archived.#lock_ident(op_id)
@@ -276,16 +281,16 @@ impl Generator {
                     }).map_err(WorkTableError::PagesError)? };
                 }
 
-                for link in rows_to_update.iter() {
+                for (_, link) in self.0.indexes.#index.get(&by) {
                     let mut bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&row).map_err(|_| WorkTableError::SerializeError)?;
                     let mut row = unsafe { rkyv::access_unchecked_mut::<<#query_ident as rkyv::Archive>::Archived>(&mut bytes[..]).unseal_unchecked() };
-                    unsafe { self.0.data.with_mut_ref(*link.as_ref(), |archived| {
+                    unsafe { self.0.data.with_mut_ref(*link, |archived| {
                         #(#row_updates)*
                     }).map_err(WorkTableError::PagesError)? };
                 }
 
-                for link in rows_to_update.iter() {
-                    unsafe { self.0.data.with_mut_ref(*link.as_ref(), |archived| {
+                for (_, link) in self.0.indexes.#index.get(&by) {
+                    unsafe { self.0.data.with_mut_ref(*link, |archived| {
                         unsafe {
                             archived.#unlock_ident()
                         }
@@ -348,7 +353,7 @@ impl Generator {
 
                 let mut bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&row).map_err(|_| WorkTableError::SerializeError)?;
                 let mut row = unsafe { rkyv::access_unchecked_mut::<<#query_ident as rkyv::Archive>::Archived>(&mut bytes[..]).unseal_unchecked() };
-                let link = TableIndex::peek(&self.0.indexes.#index, &by).ok_or(WorkTableError::NotFound)?;
+                let link = self.0.indexes.#index.get(&by).map(|kv| kv.get().value).ok_or(WorkTableError::NotFound)?;
                 let id = self.0.data.with_ref(link, |archived| {
                     archived.#check_ident()
                 }).map_err(WorkTableError::PagesError)?;

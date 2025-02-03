@@ -52,8 +52,7 @@ impl Generator {
 
         Ok(quote! {
             pub fn #fn_name(&self, by: #type_) -> Option<#row_ident> {
-                let guard = Guard::new();
-                let link = TableIndex::peek(&self.0.indexes.#field_ident, &by)?;
+                let link = self.0.indexes.#field_ident.get(&by).map(|kv| kv.get().value)?;
                 self.0.data.select(link).ok()
             }
         })
@@ -74,10 +73,8 @@ impl Generator {
         Ok(quote! {
             pub fn #fn_name(&self, by: #type_) -> core::result::Result<SelectResult<#row_ident, Self>, WorkTableError> {
                 let rows = {
-                    TableIndex::peek(&self.0.indexes.#field_ident, &by)
-                        .ok_or(WorkTableError::NotFound)?
-                        .iter()
-                        .map(|l| *l.as_ref())
+                    self.0.indexes.#field_ident.get(&by)
+                        .map(|kv| *kv.1)
                         .collect::<Vec<_>>()
                 }.iter().map(|link| {
                     self.0.data.select(*link).map_err(WorkTableError::PagesError)

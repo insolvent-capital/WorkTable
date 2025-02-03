@@ -11,10 +11,7 @@ repository = "https://github.com/pathscale/WorkTable"
 description = "WorkTable is in-memory storage"
 
 [features]
-default = ["index_set"]
 perf_measurements = ["dep:performance_measurement", "dep:performance_measurement_codegen"]
-tree_index = ["worktable_codegen/tree_index"]
-index_set = ["worktable_codegen/index_set"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -28,10 +25,12 @@ worktable_codegen = { path = "codegen", version = "0.4.1" }
 scc = "2.1.16"
 futures = "0.3.30"
 uuid = { version = "1.10.0", features = ["v4"] }
-#ata_bucket = { git = "https://github.com/pathscale/DataBucket", branch = "main" }
-data_bucket = { version = "0.1.1" }
+data_bucket = { git = "https://github.com/pathscale/DataBucket", branch = "main" }
+#data_bucket = { path = "../DataBucket", version = "0.1.1" }
 performance_measurement_codegen = { path = "performance_measurement/codegen", version = "0.1.0", optional = true }
 performance_measurement = { path = "performance_measurement", version = "0.1.0", optional = true }
-indexset = { version = "0.9.0", features = ["concurrent"] }
-# indexset = { path = "../indexset", version = "0.7.1", features = ["concurrent"] }
-bplustree = "0.1.0"
+indexset = { version = "0.10.3", features = ["concurrent", "multimap"] }
+# indexset = { path = "../indexset", version = "0.10.3", features = ["concurrent", "multimap"] }
+
+[dev-dependencies]
+async-std = "1.13.0"

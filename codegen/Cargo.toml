@@ -5,10 +5,6 @@ edition = "2021"
 license = "MIT"
 description = "WorkTable codegeneration crate"
 
-[features]
-tree_index = []
-index_set = []
-
 [lib]
 name = "worktable_codegen"
 path = "src/lib.rs"
