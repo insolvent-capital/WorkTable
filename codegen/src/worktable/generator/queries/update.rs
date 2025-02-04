@@ -95,22 +95,8 @@ impl Generator {
                     .values()
                     .find(|idx| idx.field.to_string() == op.by.to_string());
 
-                let index_columns = self
-                    .columns
-                    .indexes
-                    .values()
-                    .filter(|idx| !idx.is_unique)
-                    .find(|idx| {
-                        op.columns
-                            .iter()
-                            .any(|col| col.to_string() == idx.field.to_string())
-                    });
-
                 let idents = &op.columns;
 
-                let column_type = idents
-                    .iter()
-                    .find_map(|ident| self.columns.columns_map.get(ident));
                 if let Some(index) = index {
                     let index_name = &index.name;
 
@@ -124,23 +110,7 @@ impl Generator {
                         if self.columns.primary_keys.0.first().unwrap().to_string()
                             == op.by.to_string()
                         {
-                            if let Some(index) = index_columns {
-                                self.gen_pk_update(
-                                    snake_case_name,
-                                    name,
-                                    idents,
-                                    Some(&index.name),
-                                    column_type.unwrap(),
-                                )
-                            } else {
-                                self.gen_pk_update(
-                                    snake_case_name,
-                                    name,
-                                    idents,
-                                    None,
-                                    column_type.unwrap(),
-                                )
-                            }
+                            self.gen_pk_update(snake_case_name, name, idents)
                         } else {
                             todo!()
                         }
@@ -161,8 +131,6 @@ impl Generator {
         snake_case_name: String,
         name: &Ident,
         idents: &Vec<Ident>,
-        index_name: Option<&Ident>,
-        _column_type: &TokenStream,
     ) -> TokenStream {
         let pk_ident = &self.pk.as_ref().unwrap().ident;
         let method_ident = Ident::new(
@@ -193,40 +161,45 @@ impl Generator {
             .iter()
             .map(|i| {
                 quote! {
-
                     std::mem::swap(&mut archived.inner.#i, &mut row.#i);
-
                 }
             })
             .collect::<Vec<_>>();
 
-        let _new_index_value = if let Some(_index_name) = index_name {
-            idents
-                .iter()
-                .map(|i| {
-                    quote! {
-                       // let value = archived.inner.#i.as_ref();
+        let diff = idents
+            .iter()
+            .map(|i| {
+                quote! {
 
-                        let diff = self.0.data.with_ref(link, |archived| {
-                           Difference {
-                               old_value: archived.inner.#i.into(),
-                               new_value: row.#i.into(),
-                           }
-                       });
-                    }
-                })
-                .collect::<Vec<_>>()
-        } else {
-            Vec::new()
-        };
+                    let old: AvailableTypes = row_old.#i.into();
+                    let new: AvailableTypes = row_new.#i.into();
+
+                    let diff = Difference {
+                        old: old.clone(),
+                        new: new.clone(),
+                    };
+
+                    diffs.insert(stringify!(#i), diff);
+                }
+            })
+            .collect::<Vec<_>>();
 
         let t = quote! {
             pub async fn #method_ident(&self, row: #query_ident, by: #pk_ident) -> core::result::Result<(), WorkTableError> {
-                println!("{:?}", row);
+                println!("Row {:?}", row);
                 let op_id = self.0.lock_map.next_id();
                 let lock = std::sync::Arc::new(Lock::new());
 
                 self.0.lock_map.insert(op_id.into(), lock.clone());
+
+                let row_old = self.select(by.clone()).unwrap();
+                let row_new = row.clone();
+                let mut diffs: HashMap<&str, Difference<AvailableTypes>> = HashMap::new();
+
+                #(#diff)*
+
+                println!("diffs {:?}",diffs );
+
 
 
                 let mut bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&row).map_err(|_| WorkTableError::SerializeError)?;
@@ -237,9 +210,7 @@ impl Generator {
                     TableIndex::peek(&self.0.pk_map, &by).ok_or(WorkTableError::NotFound)?
                 };
 
-
-
-              //  #(#new_index_value)*
+                self.0.indexes.process_difference(link, diffs)?;
 
                 let id = self.0.data.with_ref(link, |archived| {
                     archived.#check_ident()

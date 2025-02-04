@@ -1,5 +1,6 @@
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
+use std::collections::HashSet;
 
 use crate::worktable::generator::Generator;
 
@@ -11,15 +12,17 @@ impl Generator {
             .iter()
             .map(|(_i, idx)| self.columns.columns_map.get(&idx.field))
             .into_iter()
+            .filter_map(|t| t)
+            .map(|s| s.to_string())
+            .collect::<HashSet<_>>()
+            .into_iter()
             .map(|t| {
-                let type_upper = Ident::new(
-                    &t.expect("REASON").to_string().to_uppercase(),
-                    Span::mixed_site(),
-                );
+                let type_ = Ident::new(&t.to_string(), Span::mixed_site());
+                let type_upper = Ident::new(&t.to_string().to_uppercase(), Span::mixed_site());
 
                 Ok::<_, syn::Error>(quote! {
-
-                    #type_upper(#t),
+                    #[from]
+                    #type_upper(#type_),
                 })
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -28,7 +31,7 @@ impl Generator {
 
         let defs = Ok::<_, syn::Error>(quote! {
             #[derive(rkyv::Archive, Debug, rkyv::Deserialize, Clone, rkyv::Serialize)]
-            #[repr(C)]
+            #[derive(From, PartialEq)]
             pub enum #type_ident {
                 #(#rows)*
             }
@@ -41,17 +44,18 @@ impl Generator {
                  }
             }
 
-            impl From<rkyv::string::ArchivedString> for #type_ident {
-                 fn from(s: rkyv::string::ArchivedString) -> Self {
-                     #type_ident::STRING(s.to_string())
-                 }
-              }
+            //impl From<rkyv::string::ArchivedString> for #type_ident {
+            //     fn from(s: rkyv::string::ArchivedString) -> Self {
+            //         #type_ident::STRING(s.to_string())
+            //     }
+            //  }
+
 
 
         });
 
         let t = defs?;
-        // println!("{}", t.to_string());
+        println!("AvT {}", t.to_string());
         Ok(t)
     }
 

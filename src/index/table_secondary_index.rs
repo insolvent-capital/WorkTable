@@ -6,8 +6,8 @@ use crate::WorkTableError;
 
 #[derive(Debug)]
 pub struct Difference<AvailableTypes> {
-    pub old_value: AvailableTypes,
-    pub new_value: AvailableTypes,
+    pub old: AvailableTypes,
+    pub new: AvailableTypes,
 }
 
 pub trait TableSecondaryIndex<Row, AvailableTypes>
@@ -20,7 +20,6 @@ where
 
     fn process_difference(
         &self,
-        row: Row,
         link: Link,
         differences: HashMap<&str, Difference<AvailableTypes>>,
     ) -> Result<(), WorkTableError>;
@@ -40,7 +39,6 @@ where
 
     fn process_difference(
         &self,
-        _: Row,
         _: Link,
         _: HashMap<&str, Difference<AvailableTypes>>,
     ) -> Result<(), WorkTableError> {
