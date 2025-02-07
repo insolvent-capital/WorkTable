@@ -71,7 +71,7 @@ impl Generator {
         let fn_name = Ident::new(format!("select_by_{i}").as_str(), Span::mixed_site());
         let field_ident = &idx.name;
 
-        let t = quote! {
+        Ok(quote! {
             pub fn #fn_name(&self, by: #type_) -> core::result::Result<SelectResult<#row_ident, Self>, WorkTableError> {
                 let rows = {
                     TableIndex::peek(&self.0.indexes.#field_ident, &by)
@@ -85,8 +85,6 @@ impl Generator {
                 .collect::<Result<Vec<_>, _>>()?;
                 core::result::Result::Ok(SelectResult::<#row_ident, Self>::new(rows))
             }
-        };
-        println!("Index --> {}", t.to_string());
-        Ok(t)
+        })
     }
 }

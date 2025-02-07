@@ -19,7 +19,7 @@ impl Generator {
         let iter_with_fn = self.gen_table_iter_with_fn();
         let iter_with_async_fn = self.gen_table_iter_with_async_fn();
 
-        let t = quote! {
+        quote! {
             impl #ident {
                 #new_fn
                 #name_fn
@@ -30,10 +30,7 @@ impl Generator {
                 #iter_with_fn
                 #iter_with_async_fn
             }
-        };
-
-        //   println!("TAABLE {}", t.to_string());
-        t
+        }
     }
 
     fn gen_table_new_fn(&self) -> TokenStream {
@@ -41,15 +38,13 @@ impl Generator {
         let table_name = name_generator.get_work_table_literal_name();
 
         if self.is_persist {
-            let t = quote! {
+            quote! {
                 pub fn new(manager:  std::sync::Arc<DatabaseManager>) -> Self {
                     let mut inner = WorkTable::default();
                     inner.table_name = #table_name;
                     Self(inner, manager)
                 }
-            };
-            println!("NEW {}", t.to_string());
-            t
+            }
         } else {
             quote! {}
         }
@@ -80,14 +75,11 @@ impl Generator {
         let row_type = name_generator.get_row_type_ident();
         let primary_key_type = name_generator.get_primary_key_type_ident();
 
-        let t = quote! {
+        quote! {
             pub fn insert(&self, row: #row_type) -> core::result::Result<#primary_key_type, WorkTableError> {
                 self.0.insert(row)
             }
-        };
-
-        println!("INSERTT {}", t.to_string());
-        t
+        }
     }
     fn gen_table_upsert_fn(&self) -> TokenStream {
         let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());

@@ -30,7 +30,7 @@ impl Generator {
         let type_ident = Ident::new(format!("AvailableTypes").as_str(), Span::mixed_site());
 
         let defs = Ok::<_, syn::Error>(quote! {
-            #[derive(rkyv::Archive, Debug, rkyv::Deserialize, Clone, rkyv::Serialize)]
+            #[derive(rkyv::Archive, Debug, derive_more::Display, rkyv::Deserialize, Clone, rkyv::Serialize)]
             #[derive(From, PartialEq)]
             pub enum #type_ident {
                 #(#rows)*
@@ -43,20 +43,8 @@ impl Generator {
 
                  }
             }
-
-            //impl From<rkyv::string::ArchivedString> for #type_ident {
-            //     fn from(s: rkyv::string::ArchivedString) -> Self {
-            //         #type_ident::STRING(s.to_string())
-            //     }
-            //  }
-
-
-
         });
-
-        let t = defs?;
-        println!("AvT {}", t.to_string());
-        Ok(t)
+        defs
     }
 
     pub fn gen_result_types_def(&mut self) -> syn::Result<TokenStream> {

@@ -128,13 +128,11 @@ impl Generator {
                 })
                 .collect::<Vec<_>>();
 
-            let t = quote! {
+            Ok(quote! {
                 impl #archived_wrapper {
                     #(#fns)*
                 }
-            };
-            println!("Wrapper {}", t.to_string());
-            Ok(t)
+            })
         } else {
             Ok(quote! {})
         }

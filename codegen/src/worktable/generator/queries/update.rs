@@ -171,7 +171,7 @@ impl Generator {
             .map(|i| {
                 quote! {
 
-                    let old: AvailableTypes = row_old.#i.into();
+                    let old: AvailableTypes = row_old.clone().#i.into();
                     let new: AvailableTypes = row_new.#i.into();
 
                     let diff = Difference {
@@ -184,9 +184,8 @@ impl Generator {
             })
             .collect::<Vec<_>>();
 
-        let t = quote! {
+        quote! {
             pub async fn #method_ident(&self, row: #query_ident, by: #pk_ident) -> core::result::Result<(), WorkTableError> {
-                println!("Row {:?}", row);
                 let op_id = self.0.lock_map.next_id();
                 let lock = std::sync::Arc::new(Lock::new());
 
@@ -198,10 +197,6 @@ impl Generator {
 
                 #(#diff)*
 
-                println!("diffs {:?}",diffs );
-
-
-
                 let mut bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&row).map_err(|_| WorkTableError::SerializeError)?;
                 let mut row = unsafe { rkyv::access_unchecked_mut::<<#query_ident as rkyv::Archive>::Archived>(&mut bytes[..]).unseal_unchecked() };
 
@@ -209,6 +204,7 @@ impl Generator {
                     let guard = Guard::new();
                     TableIndex::peek(&self.0.pk_map, &by).ok_or(WorkTableError::NotFound)?
                 };
+
 
                 self.0.indexes.process_difference(link, diffs)?;
 
@@ -242,9 +238,7 @@ impl Generator {
 
                 core::result::Result::Ok(())
             }
-        };
-        println!("{}", t.to_string());
-        t
+        }
     }
 
     fn gen_non_unique_update(

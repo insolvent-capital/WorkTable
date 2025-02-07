@@ -2,6 +2,8 @@ use crate::name_generator::WorktableNameGenerator;
 use crate::worktable::generator::Generator;
 
 use proc_macro2::TokenStream;
+use proc_macro2::{Ident, Span};
+
 use quote::quote;
 
 impl Generator {
@@ -10,14 +12,11 @@ impl Generator {
         let type_def = self.gen_type_def();
         let impl_def = self.gen_impl_def();
 
-        let t = quote! {
+       quote! {
             #type_def
 
             #impl_def
-        };
-
-        println!("index gen {}", t);
-        t
+        }
     }
 
     /// Generates table's secondary index struct definition. It has fields with index names and types varying on index
@@ -43,14 +42,12 @@ impl Generator {
             })
             .collect::<Vec<_>>();
 
-        let t = quote! {
+        quote! {
             #[derive(Debug, Default, PersistIndex)]
             pub struct #ident {
                 #(#index_rows),*
             }
-        };
-        println!("{}", t);
-        t
+        }
     }
 
     /// Generates implementation of `TableIndex` trait for index.
@@ -63,16 +60,13 @@ impl Generator {
         let delete_row_fn = self.gen_delete_row_index_fn();
         let process_differences_row_fn = self.gen_process_difference_index_fn();
 
-        let t = quote! {
+        quote! {
             impl TableSecondaryIndex<#row_type_ident, AvailableTypes> for #index_type_ident {
                 #save_row_fn
                 #delete_row_fn
                 #process_differences_row_fn
             }
-        };
-        println!("{}", t);
-
-        t
+        }
     }
 
     /// Generates `save_row` function of `TableIndex` trait for index. It saves `Link` to all secondary indexes. Logic
@@ -108,14 +102,12 @@ impl Generator {
             })
             .collect::<Vec<_>>();
 
-        let t = quote! {
+        quote! {
             fn save_row(&self, row: #row_type_ident, link: Link) -> core::result::Result<(), WorkTableError> {
                 #(#save_rows)*
                 core::result::Result::Ok(())
             }
-        };
-        println!("SAVE_RoOWS {}", t.to_string());
-        t
+        }
     }
 
     /// Generates `delete_row` function of `TableIndex` trait for index. It removes `Link` from all secondary indexes.
@@ -145,71 +137,83 @@ impl Generator {
             })
             .collect::<Vec<_>>();
 
-        let t = quote! {
+        quote! {
             fn delete_row(&self, row: #row_type_ident, link: Link) -> core::result::Result<(), WorkTableError> {
                 #(#delete_rows)*
                 core::result::Result::Ok(())
             }
-        };
-        println!("deelete {}", t.to_string());
-        t
+        }
     }
 
     fn gen_process_difference_index_fn(&self) -> TokenStream {
-        let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
-        let row_type_ident = name_generator.get_row_type_ident();
-
+        
         let process_difference_rows = self
             .columns
             .indexes
             .iter()
             .map(|(i, idx)| {
                 let index_field_name = &idx.name;
+                let diff_key = Ident::new(&format!("{}", i), Span::mixed_site());
 
-                if idx.is_unique {
-                    quote! {
+                let match_arms: Vec<_> = self
+                    .columns
+                    .columns_map
+                    .get(&idx.field)
+                    .map(|t| {
+                        let type_str = t.to_string();
+                        let variant_ident =
+                            Ident::new(&type_str.to_uppercase(), Span::mixed_site());
 
-                        println!("Should be implemented");
+                        let value_expr = if type_str == "String" {  
+                                quote! { new.to_string() }
+                            } else {
+                                quote! { *new }
+                            };
 
-                    }
-                } else {
-                    quote! {
+                        quote! {
+                            if let Some(diff) = difference.get(stringify!(#diff_key)) {
+                                match &diff.old {
+                                   AvailableTypes::#variant_ident(old) => {
+                                      if let Some(set) = TableIndex::peek(&self.#index_field_name, old) {
+                                          set.remove(&link);
+                                      }
+                                   }
+                                    _ => {}
+                                } 
 
-                                            let diff = difference.get(stringify!(#i)).expect("Ok");
+                                match &diff.new {
+                                    AvailableTypes::#variant_ident(new) => {
+                                         let key_new = #value_expr;
+                   
+                                           if let Some(set) = TableIndex::peek(&self.#index_field_name, new) {
+                                               set.insert(link).expect("is ok");
+                                           } else {
+                                               let set = LockFreeSet::new();
+                                               set.insert(link).expect("`Link` should not be already in set");
+                                               TableIndex::insert(&self.#index_field_name, key_new, std::sync::Arc::new(set))
+                                                   .map_err(|_| WorkTableError::AlreadyExists)?;
+                                           }
+                                     }
+                                     _ => {}
+                                }
+                            }
+                        }
+                    })
+                    .into_iter()
+                    .collect();
 
-                                            println!("AA{:?}", stringify!(#row_type_ident.#i));
-
-                                            println!("DIFF PROCESA {:?}", diff);
-                                           // let old: #row_type_ident.#i = diff.into();
-                    //
-                                           // println!("ROOW {:?}, Diff {:?}", row_type_ident, old);
-                    //
-                                           // if let Some(set) = TableIndex::peek(&self.#index_field_name, &diff.old) {
-                                           //     set.remove(&link);
-                                           // }
-                    //
-                                           // if let Some(set) = TableIndex::peek(&self.#index_field_name, &diff.new) {
-                                           //     set.insert(link).expect("is ok");
-                                           // } else {
-                                           //     let set = LockFreeSet::new();
-                                           //     set.insert(link).expect("`Link` should not be already in set");
-                                           //     TableIndex::insert(&self.#index_field_name, &diff.new, std::sync::Arc::new(set))
-                                           //         .map_err(|_| WorkTableError::AlreadyExists)?;
-                                           // }
-                                        }
+                quote! {
+                        #(#match_arms)*                               
                 }
             })
             .collect::<Vec<_>>();
 
-        let t = quote! {
+        quote! {
             fn process_difference(&self, link: Link, difference: HashMap<&str, Difference<AvailableTypes>>) -> core::result::Result<(), WorkTableError> {
                 #(#process_difference_rows)*
                 core::result::Result::Ok(())
             }
-        };
-
-        println!("PROCESS_DIIF {}", t.to_string());
-        t
+        }
     }
 }
 
