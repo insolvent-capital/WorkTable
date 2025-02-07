@@ -59,7 +59,9 @@ pub fn expand(input: TokenStream) -> syn::Result<TokenStream> {
     let update_impls = generator.gen_query_update_impl()?;
     let delete_impls = generator.gen_query_delete_impl()?;
 
-    let t = TokenStream::from(quote! {
+    println!("{}", query_available_def.to_string());
+
+    Ok(TokenStream::from(quote! {
         #pk_def
         #row_def
         #query_available_def
@@ -71,11 +73,7 @@ pub fn expand(input: TokenStream) -> syn::Result<TokenStream> {
         #select_impls
         #update_impls
         #delete_impls
-    });
-
-    //  println!("MAIN {}", t.to_string());
-
-    Ok(t)
+    }))
 }
 
 #[cfg(test)]

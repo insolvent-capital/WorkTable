@@ -95,6 +95,22 @@ impl Generator {
                     .values()
                     .find(|idx| idx.field.to_string() == op.by.to_string());
 
+                let indexes_columns: Option<Vec<_>> = {
+                    let columns: Vec<_> = self
+                        .columns
+                        .indexes
+                        .values()
+                        .filter(|idx| op.columns.contains(&idx.field))
+                        .map(|idx| idx.field.clone())
+                        .collect();
+
+                    if columns.is_empty() {
+                        None
+                    } else {
+                        Some(columns)
+                    }
+                };
+
                 let idents = &op.columns;
 
                 if let Some(index) = index {
@@ -110,7 +126,12 @@ impl Generator {
                         if self.columns.primary_keys.0.first().unwrap().to_string()
                             == op.by.to_string()
                         {
-                            self.gen_pk_update(snake_case_name, name, idents)
+                            self.gen_pk_update(
+                                snake_case_name,
+                                name,
+                                idents,
+                                indexes_columns.as_ref(),
+                            )
                         } else {
                             todo!()
                         }
@@ -131,6 +152,7 @@ impl Generator {
         snake_case_name: String,
         name: &Ident,
         idents: &Vec<Ident>,
+        idx_idents: Option<&Vec<Ident>>,
     ) -> TokenStream {
         let pk_ident = &self.pk.as_ref().unwrap().ident;
         let method_ident = Ident::new(
@@ -157,6 +179,9 @@ impl Generator {
             Span::mixed_site(),
         );
 
+        let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
+        let avt_type_ident = name_generator.get_available_type_ident();
+
         let row_updates = idents
             .iter()
             .map(|i| {
@@ -166,23 +191,42 @@ impl Generator {
             })
             .collect::<Vec<_>>();
 
-        let diff = idents
-            .iter()
-            .map(|i| {
-                quote! {
+        let diff = if let Some(columns) = idx_idents {
+            idents
+                .iter()
+                .filter(|i| columns.contains(i))
+                .map(|i| {
+                    quote! {
 
-                    let old: AvailableTypes = row_old.clone().#i.into();
-                    let new: AvailableTypes = row_new.#i.into();
+                        let old: #avt_type_ident = row_old.clone().#i.into();
+                        let new: #avt_type_ident = row_new.#i.into();
 
-                    let diff = Difference {
-                        old: old.clone(),
-                        new: new.clone(),
-                    };
+                        let diff = Difference {
+                            old: old.clone(),
+                            new: new.clone(),
+                        };
 
-                    diffs.insert(stringify!(#i), diff);
-                }
-            })
-            .collect::<Vec<_>>();
+                        diffs.insert(stringify!(#i), diff);
+                    }
+                })
+                .collect::<Vec<_>>()
+        } else {
+            vec![]
+        };
+
+        let diff_container_ident = if !diff.is_empty() {
+            quote! {let mut diffs: HashMap<&str, Difference<#avt_type_ident>> = HashMap::new();}
+        } else {
+            quote! {}
+        };
+
+        let process_diff_ident = if !diff.is_empty() {
+            quote! {
+                    self.0.indexes.process_difference(link, diffs)?;
+            }
+        } else {
+            quote! {}
+        };
 
         quote! {
             pub async fn #method_ident(&self, row: #query_ident, by: #pk_ident) -> core::result::Result<(), WorkTableError> {
@@ -193,8 +237,8 @@ impl Generator {
 
                 let row_old = self.select(by.clone()).unwrap();
                 let row_new = row.clone();
-                let mut diffs: HashMap<&str, Difference<AvailableTypes>> = HashMap::new();
 
+                #diff_container_ident
                 #(#diff)*
 
                 let mut bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&row).map_err(|_| WorkTableError::SerializeError)?;
@@ -205,8 +249,7 @@ impl Generator {
                     TableIndex::peek(&self.0.pk_map, &by).ok_or(WorkTableError::NotFound)?
                 };
 
-
-                self.0.indexes.process_difference(link, diffs)?;
+                #process_diff_ident
 
                 let id = self.0.data.with_ref(link, |archived| {
                     archived.#check_ident()

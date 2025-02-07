@@ -10,6 +10,7 @@ fn main() {
         columns: {
             id: u64 primary_key autoincrement,
             val: i64,
+            test: u8 optional,
             attr: String,
             attr2: i16,
 
@@ -20,13 +21,14 @@ fn main() {
         },
         queries: {
             update: {
-                ValByAttr(val) by attr,
+                ValById(val) by id,
              //   AttrById(attr) by id,
              //   Attr2ById(attr2) by id,
-               AllAttrById(attr, attr2) by id,
+             //  AllAttrById(attr, attr2) by id,
+             //  UpdateOptionalById(test) by id,
             },
             delete: {
-                ByAttr() by attr,
+              //  ByAttr() by attr,
                 ById() by id,
             }
         }
@@ -40,35 +42,36 @@ fn main() {
         val: 777,
         attr: "TEST".to_string(),
         attr2: 345,
+        test: Some(1),
         id: 0,
     };
 
-    let row1 = MyRow {
-        val: 2,
-        attr: "TEST2".to_string(),
-        attr2: 123,
-        id: 1,
-    };
-
-    let row2 = MyRow {
-        val: 1337,
-        attr: "TEST2".to_string(),
-        attr2: 345,
-        id: 2,
-    };
-
-    let row3 = MyRow {
-        val: 555,
-        attr: "TEST3".to_string(),
-        attr2: 123,
-        id: 3,
-    };
+    //let row1 = MyRow {
+    //    val: 2,
+    //    attr: "TEST2".to_string(),
+    //    attr2: 123,
+    //    id: 1,
+    //};
+    //
+    //let row2 = MyRow {
+    //    val: 1337,
+    //    attr: "TEST2".to_string(),
+    //    attr2: 345,
+    //    id: 2,
+    //};
+    //
+    //let row3 = MyRow {
+    //    val: 555,
+    //    attr: "TEST3".to_string(),
+    //    attr2: 123,
+    //    id: 3,
+    //};
 
     // insert
     let _ = my_table.insert(row);
-    let _ = my_table.insert(row1);
-    let _ = my_table.insert(row2);
-    let _ = my_table.insert(row3);
+    // let _ = my_table.insert(row1);
+    // let _ = my_table.insert(row2);
+    // let _ = my_table.insert(row3);
 
     // Select ALL records from WT
     let select_all = my_table.select_all().execute();
@@ -128,8 +131,8 @@ fn main() {
     //     "Select After Val Update by Attribute: {:?}",
     //     select_all_after_update.execute()
     // );
-    let test_delete = my_table.delete_by_attr("TEST2".to_string());
-    let _ = task::block_on(test_delete);
+    // let test_delete = my_table.delete_by_attr("TEST2".to_string());
+    //let _ = task::block_on(test_delete);
     // //
     // let select_by_attr = my_table.select_by_attr("TEST2".to_string());
     // println!(
@@ -143,29 +146,31 @@ fn main() {
     //     select_by_attr.unwrap().vals
     // );
 
-    let all_update = my_table.update_all_attr_by_id(
-        AllAttrByIdQuery {
-            attr: "test".to_string(),
-            attr2: 1337,
-        },
-        MyPrimaryKey(0),
-    );
-    let _ = task::block_on(all_update);
+    //let all_update = my_table.update_all_attr_by_id(
+    //    AllAttrByIdQuery {
+    //        attr: "test".to_string(),
+    //        attr2: 1337,
+    //    },
+    //    MyPrimaryKey(0),
+    //);
+    //let _ = task::block_on(all_update);
 
-    //    let select_by_attr = my_table.select_by_attr("test".to_string());
-    //    println!(
-    //        "Select by Attribute 222  after del: {:?}",
-    //        select_by_attr.unwrap().vals
-    //    );
-    //
-    println!("Select ALL {:?}", my_table.select_all().execute());
+    // let select_by_attr = my_table.select_by_attr("test".to_string());
+    // println!(
+    //     "Select by Attribute 222  after del: {:?}",
+    //     select_by_attr.unwrap().vals
+    // );
+    // println!("Select ALL {:?}", my_table.select_all().execute());
 
-    let select_by_attr = my_table.select_by_attr("test".to_string());
-    println!("Select by Attribute OK: {:?}", select_by_attr.unwrap().vals);
+    //let select_by_attr = my_table.select_by_attr("test".to_string());
+    //println!(
+    //    "Select by Attribute test: {:?}",
+    //    select_by_attr.unwrap().vals
+    //);
 
-    let select_by_attr2 = my_table.select_by_attr2(1337);
-    println!(
-        "Select by Attribute 1337: {:?}",
-        select_by_attr2.unwrap().vals
-    );
+    //let select_by_attr2 = my_table.select_by_attr2(1337);
+    //println!(
+    //    "Select by Attribute 1337: {:?}",
+    //    select_by_attr2.unwrap().vals
+    //);
 }

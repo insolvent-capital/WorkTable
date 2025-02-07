@@ -2,6 +2,7 @@ mod array;
 mod base;
 mod config;
 mod custom_pk;
+mod index;
 mod index_type;
 mod option;
 mod tuple_primary_key;

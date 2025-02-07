@@ -59,9 +59,10 @@ impl Generator {
         let save_row_fn = self.gen_save_row_index_fn();
         let delete_row_fn = self.gen_delete_row_index_fn();
         let process_differences_row_fn = self.gen_process_difference_index_fn();
+        let avt_type_ident = name_generator.get_available_type_ident();
 
         quote! {
-            impl TableSecondaryIndex<#row_type_ident, AvailableTypes> for #index_type_ident {
+            impl TableSecondaryIndex<#row_type_ident, #avt_type_ident> for #index_type_ident {
                 #save_row_fn
                 #delete_row_fn
                 #process_differences_row_fn
@@ -146,6 +147,8 @@ impl Generator {
     }
 
     fn gen_process_difference_index_fn(&self) -> TokenStream {
+        let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
+        let avt_type_ident = name_generator.get_available_type_ident();
         
         let process_difference_rows = self
             .columns
@@ -173,7 +176,7 @@ impl Generator {
                         quote! {
                             if let Some(diff) = difference.get(stringify!(#diff_key)) {
                                 match &diff.old {
-                                   AvailableTypes::#variant_ident(old) => {
+                                   #avt_type_ident::#variant_ident(old) => {
                                       if let Some(set) = TableIndex::peek(&self.#index_field_name, old) {
                                           set.remove(&link);
                                       }
@@ -182,7 +185,7 @@ impl Generator {
                                 } 
 
                                 match &diff.new {
-                                    AvailableTypes::#variant_ident(new) => {
+                                    #avt_type_ident::#variant_ident(new) => {
                                          let key_new = #value_expr;
                    
                                            if let Some(set) = TableIndex::peek(&self.#index_field_name, new) {
@@ -209,7 +212,7 @@ impl Generator {
             .collect::<Vec<_>>();
 
         quote! {
-            fn process_difference(&self, link: Link, difference: HashMap<&str, Difference<AvailableTypes>>) -> core::result::Result<(), WorkTableError> {
+            fn process_difference(&self, link: Link, difference: HashMap<&str, Difference<#avt_type_ident>>) -> core::result::Result<(), WorkTableError> {
                 #(#process_difference_rows)*
                 core::result::Result::Ok(())
             }
