@@ -215,7 +215,7 @@ impl Generator {
         };
 
         let diff_container_ident = if !diff.is_empty() {
-            quote! {let mut diffs: HashMap<&str, Difference<#avt_type_ident>> = HashMap::new();}
+            quote! {let mut diffs: std::collections::HashMap<&str, Difference<#avt_type_ident>> = std::collections::HashMap::new();}
         } else {
             quote! {}
         };

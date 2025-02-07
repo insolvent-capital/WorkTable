@@ -212,7 +212,7 @@ impl Generator {
             .collect::<Vec<_>>();
 
         quote! {
-            fn process_difference(&self, link: Link, difference: HashMap<&str, Difference<#avt_type_ident>>) -> core::result::Result<(), WorkTableError> {
+            fn process_difference(&self, link: Link, difference: std::collections::HashMap<&str, Difference<#avt_type_ident>>) -> core::result::Result<(), WorkTableError> {
                 #(#process_difference_rows)*
                 core::result::Result::Ok(())
             }
