@@ -1,6 +1,4 @@
-use crate::{
-    check_if_dirs_are_same, check_if_files_are_same, remove_dir_if_exists, remove_file_if_exists,
-};
+use crate::{check_if_dirs_are_same, remove_dir_if_exists};
 
 use crate::persistence::{get_test_wt, get_test_wt_without_secondary_indexes};
 

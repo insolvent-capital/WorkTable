@@ -1,10 +1,7 @@
 use crate::name_generator::WorktableNameGenerator;
 use crate::worktable::generator::Generator;
 
-use proc_macro2::Literal;
-use proc_macro2::TokenStream;
-use proc_macro2::{Ident, Span};
-
+use proc_macro2::{Ident, Literal, Span, TokenStream};
 use quote::quote;
 
 impl Generator {
@@ -13,9 +10,10 @@ impl Generator {
         let type_def = self.gen_type_def();
         let impl_def = self.gen_impl_def();
 
-       quote! {
-            #type_def
+        println!("{}", self.gen_impl_def());
 
+        quote! {
+            #type_def
             #impl_def
         }
     }
@@ -31,14 +29,13 @@ impl Generator {
             .indexes
             .iter()
             .map(|(i, idx)| {
-                let index_type = &idx.index_type;
                 let t = self.columns.columns_map.get(&i);
                 let i = &idx.name;
 
                 if idx.is_unique {
-                    quote! {#i: #index_type<#t, Link>}
+                    quote! {#i: IndexMap<#t, Link>}
                 } else {
-                    quote! {#i: #index_type<#t, std::sync::Arc<LockFreeSet<Link>>>}
+                    quote! {#i: IndexMultiMap<#t, Link>}
                 }
             })
             .collect::<Vec<_>>();
@@ -51,29 +48,29 @@ impl Generator {
         }
     }
 
-    /// Generates implementation of `TableIndex` trait for index.
+    /// Generates implementation of `TableSecondaryIndex` trait for index.
     fn gen_impl_def(&mut self) -> TokenStream {
         let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
         let row_type_ident = name_generator.get_row_type_ident();
         let index_type_ident = name_generator.get_index_type_ident();
+        let avt_type_ident = name_generator.get_available_type_ident();
 
         let save_row_fn = self.gen_save_row_index_fn();
         let delete_row_fn = self.gen_delete_row_index_fn();
-        let process_differences_row_fn = self.gen_process_difference_index_fn();
-        let avt_type_ident = name_generator.get_available_type_ident();
-     
+        let process_difference_fn = self.gen_process_difference_index_fn();
+
         quote! {
             impl TableSecondaryIndex<#row_type_ident, #avt_type_ident> for #index_type_ident {
                 #save_row_fn
                 #delete_row_fn
-                #process_differences_row_fn
+                #process_difference_fn
             }
         }
     }
 
-    /// Generates `save_row` function of `TableIndex` trait for index. It saves `Link` to all secondary indexes. Logic
-    /// varies on index uniqueness. For unique index we can just insert `Link` in index, but for non-unique we need to
-    /// get set from index first and then insert `Link` in set.
+    /// Generates `save_row` function of `TableSecondaryIndex` trait for index. It saves `Link` to all secondary
+    /// indexes. Logic varies on index uniqueness. For unique index we can just insert `Link` in index, but for
+    /// non-unique we need to get set from index first and then insert `Link` in set.
     fn gen_save_row_index_fn(&self) -> TokenStream {
         let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
         let row_type_ident = name_generator.get_row_type_ident();
@@ -84,22 +81,9 @@ impl Generator {
             .iter()
             .map(|(i, idx)| {
                 let index_field_name = &idx.name;
-                if idx.is_unique {
-                    quote! {
-                        TableIndex::insert(&self.#index_field_name, row.#i, link)
-                            .map_err(|_| WorkTableError::AlreadyExists)?;
-                    }
-                } else {
-                    quote! {
-                        if let Some(set) = TableIndex::peek(&self.#index_field_name, &row.#i) {
-                            set.insert(link).expect("is ok");
-                        } else {
-                            let set = LockFreeSet::new();
-                            set.insert(link).expect("`Link` should not be already in set");
-                            TableIndex::insert(&self.#index_field_name, row.#i, std::sync::Arc::new(set))
-                                .map_err(|_| WorkTableError::AlreadyExists)?;
-                        }
-                    }
+                quote! {
+                    self.#index_field_name.insert(row.#i, link)
+                    .map_or(Ok(()), |_| Err(WorkTableError::AlreadyExists))?;
                 }
             })
             .collect::<Vec<_>>();
@@ -125,15 +109,18 @@ impl Generator {
             .iter()
             .map(|(i, idx)| {
                 let index_field_name = &idx.name;
+                let lit = Literal::string(index_field_name.to_string().as_str());
                 if idx.is_unique {
                     quote! {
-                        TableIndex::remove(&self.#index_field_name, &row.#i);
+                        println!("{} remove", #lit);
+                        self.#index_field_name.remove(&row.#i);
+                        println!("{} removed", #lit);
                     }
                 } else {
                     quote! {
-                        if let Some(set) = TableIndex::peek(&self.#index_field_name, &row.#i) {
-                            set.remove(&link);
-                        }
+                        println!("{} remove", #lit);
+                        self.#index_field_name.remove(&row.#i, &link);
+                        println!("{} removed", #lit);
                     }
                 }
             })
@@ -150,7 +137,7 @@ impl Generator {
     fn gen_process_difference_index_fn(&self) -> TokenStream {
         let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
         let avt_type_ident = name_generator.get_available_type_ident();
-        
+
         let process_difference_rows = self
             .columns
             .indexes
@@ -165,37 +152,35 @@ impl Generator {
                     .get(&idx.field)
                     .map(|t| {
                         let type_str = t.to_string();
-                        let variant_ident = Ident::new(&type_str.to_uppercase(), Span::mixed_site());
+                        let variant_ident =
+                            Ident::new(&type_str.to_uppercase(), Span::mixed_site());
 
-                        let value_expr = if type_str == "String" {  
-                                quote! { new.to_string() }
-                            } else {
-                                quote! { *new }
-                            };
+                        let new_value_expr = if type_str == "String" {
+                            quote! { new.to_string() }
+                        } else {
+                            quote! { *new }
+                        };
+
+                        let old_value_expr = if type_str == "String" {
+                            quote! { old.to_string() }
+                        } else {
+                            quote! { *old }
+                        };
 
                         quote! {
                             if let Some(diff) = difference.get(#diff_key) {
                                 match &diff.old {
                                    #avt_type_ident::#variant_ident(old) => {
-                                      if let Some(set) = TableIndex::peek(&self.#index_field_name, old) {
-                                          set.remove(&link);
-                                      }
+                                    let key_old = #old_value_expr;
+                                    TableIndex::remove(&self.#index_field_name, key_old, link);
                                    }
                                     _ => {}
-                                } 
+                                }
 
                                 match &diff.new {
                                     #avt_type_ident::#variant_ident(new) => {
-                                         let key_new = #value_expr;
-                   
-                                           if let Some(set) = TableIndex::peek(&self.#index_field_name, new) {
-                                               set.insert(link).expect("is ok");
-                                           } else {
-                                               let set = LockFreeSet::new();
-                                               set.insert(link).expect("`Link` should not be already in set");
-                                               TableIndex::insert(&self.#index_field_name, key_new, std::sync::Arc::new(set))
-                                                   .map_err(|_| WorkTableError::AlreadyExists)?;
-                                           }
+                                         let key_new = #new_value_expr;
+                                         TableIndex::insert(&self.#index_field_name, key_new, link);
                                      }
                                      _ => {}
                                 }
@@ -206,7 +191,7 @@ impl Generator {
                     .collect();
 
                 quote! {
-                        #(#match_arms)*                               
+                        #(#match_arms)*
                 }
             })
             .collect::<Vec<_>>();

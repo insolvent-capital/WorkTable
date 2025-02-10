@@ -14,12 +14,11 @@ impl Generator {
             let lit = Literal::string(name.to_string().as_str());
             if let Some(index) = self.columns.indexes.get(&name) {
                 let idx_name = &index.name;
-                if index.is_unique {
-                    quote! {
+                quote! {
                         #lit => {
                             let mut limit = q.params.limit.unwrap_or(usize::MAX);
                             let mut offset = q.params.offset.unwrap_or(0);
-                            let mut iter = TableIndex::iter(&self.0.indexes.#idx_name);
+                            let mut iter = self.0.indexes.#idx_name.iter();
                             let mut rows = vec![];
 
                             while let Some((_, l)) = iter.next() {
@@ -41,40 +40,6 @@ impl Generator {
 
                             rows
                         },
-                    }
-                } else {
-                    quote! {
-                        #lit => {
-                            let mut limit = q.params.limit.unwrap_or(usize::MAX);
-                            let mut offset = q.params.offset.unwrap_or(0);
-                            let mut iter = TableIndex::iter(&self.0.indexes.#idx_name);
-                            let mut rows = vec![];
-
-                            while let Some((_, links)) = iter.next() {
-                                for l in links.iter() {
-                                    if q.params.orders.len() < 2 {
-                                        if offset != 0 {
-                                            offset -= 1;
-                                            continue;
-                                        }
-                                    }
-                                    let next = self.0.data.select(*l.as_ref()).map_err(WorkTableError::PagesError)?;
-                                    rows.push(next);
-                                    if q.params.orders.len() < 2 {
-                                        limit -= 1;
-                                        if limit == 0 {
-                                            break
-                                        }
-                                    }
-                                }
-                                if limit == 0 {
-                                    break
-                                }
-                            }
-
-                            rows
-                        }
-                    }
                 }
             } else {
                 // TODO: Add support for non-indexed columns
@@ -90,8 +55,7 @@ impl Generator {
                     if q.params.orders.is_empty() {
                         let mut limit = q.params.limit.unwrap_or(usize::MAX);
                         let mut offset = q.params.offset.unwrap_or(0);
-                        let guard = Guard::new();
-                        let mut iter = TableIndex::iter(&self.0.pk_map);
+                        let mut iter = self.0.pk_map.iter();
                         let mut rows = vec![];
 
                         while let Some((_, l)) = iter.next() {

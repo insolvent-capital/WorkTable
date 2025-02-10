@@ -1,4 +1,4 @@
-use proc_macro2::{Delimiter, Ident, Span, TokenTree};
+use proc_macro2::{Delimiter, TokenTree};
 use syn::spanned::Spanned as _;
 
 use crate::worktable::model::{Columns, GeneratorType, Row};
@@ -114,23 +114,6 @@ impl Parser {
             false
         };
 
-        let index_type = if let Some(TokenTree::Ident(index_type)) = self.input_iter.peek() {
-            let t = index_type.clone();
-            self.input_iter.next();
-            t
-        } else {
-            if cfg!(feature = "tree_index") {
-                Ident::new("TreeIndex", Span::mixed_site())
-            } else if cfg!(feature = "index_set") {
-                Ident::new("IndexSet", Span::mixed_site())
-            } else {
-                return Err(syn::Error::new(
-                    self.input.span(),
-                    "At least one of `tree_index` or `index_set` features should be enabled",
-                ));
-            }
-        };
-
         self.try_parse_comma()?;
 
         Ok(Row {
@@ -139,7 +122,6 @@ impl Parser {
             is_primary_key,
             gen_type,
             optional,
-            index_type,
         })
     }
 }
@@ -165,7 +147,7 @@ mod tests {
         assert!(columns.is_ok());
         let columns = columns.unwrap();
 
-        assert_eq!(columns.primary_keys.0[0].to_string(), "id");
+        assert_eq!(columns.primary_keys[0].to_string(), "id");
 
         let map: HashMap<_, _> = columns
             .columns_map
@@ -188,7 +170,7 @@ mod tests {
         assert!(columns.is_ok());
         let columns = columns.unwrap();
 
-        assert_eq!(columns.primary_keys.0[0].to_string(), "id");
+        assert_eq!(columns.primary_keys[0].to_string(), "id");
 
         let map: HashMap<_, _> = columns
             .columns_map
@@ -210,7 +192,7 @@ mod tests {
 
         let columns = columns.unwrap();
 
-        assert_eq!(columns.primary_keys.0[0].to_string(), "id");
+        assert_eq!(columns.primary_keys[0].to_string(), "id");
 
         let map: HashMap<_, _> = columns
             .columns_map
@@ -236,7 +218,7 @@ mod tests {
 
         let columns = columns.unwrap();
 
-        assert_eq!(columns.primary_keys.0[0].to_string(), "id");
+        assert_eq!(columns.primary_keys[0].to_string(), "id");
 
         let map: HashMap<_, _> = columns
             .columns_map

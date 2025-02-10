@@ -1,6 +1,9 @@
 use data_bucket::Link;
+use indexset::concurrent::map::BTreeMap as IndexMap;
+use indexset::concurrent::multimap::BTreeMultiMap as IndexMultiMap;
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::hash::Hash;
 
 use crate::WorkTableError;
 
@@ -8,6 +11,41 @@ use crate::WorkTableError;
 pub struct Difference<AvailableTypes> {
     pub old: AvailableTypes,
     pub new: AvailableTypes,
+}
+
+pub trait TableIndex<T> {
+    fn insert(&self, value: T, link: Link) -> Option<Link>;
+    fn remove(&self, value: T, link: Link) -> Option<(T, Link)>;
+}
+
+impl<T> TableIndex<T> for IndexMultiMap<T, Link>
+where
+    T: Eq + Hash + Clone + std::marker::Send + std::cmp::Ord,
+{
+    fn insert(&self, value: T, link: Link) -> Option<Link> {
+        println!("Inserting into IndexMultiMap");
+        self.insert(value, link)
+    }
+
+    fn remove(&self, value: T, link: Link) -> Option<(T, Link)> {
+        println!("Removing from IndexMultiMap");
+        self.remove(&value, &link)
+    }
+}
+
+impl<T> TableIndex<T> for IndexMap<T, Link>
+where
+    T: Eq + Hash + Clone + std::marker::Send + std::cmp::Ord,
+{
+    fn insert(&self, value: T, link: Link) -> Option<Link> {
+        println!("Inserting into IndexMultiMap");
+        self.insert(value, link)
+    }
+
+    fn remove(&self, value: T, _link: Link) -> Option<(T, Link)> {
+        println!("Removing from IndexMultiMap");
+        self.remove(&value)
+    }
 }
 
 pub trait TableSecondaryIndex<Row, AvailableTypes>
