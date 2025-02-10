@@ -1,6 +1,7 @@
 use crate::name_generator::WorktableNameGenerator;
 use crate::worktable::generator::Generator;
 
+use proc_macro2::Literal;
 use proc_macro2::TokenStream;
 use proc_macro2::{Ident, Span};
 
@@ -60,7 +61,7 @@ impl Generator {
         let delete_row_fn = self.gen_delete_row_index_fn();
         let process_differences_row_fn = self.gen_process_difference_index_fn();
         let avt_type_ident = name_generator.get_available_type_ident();
-
+     
         quote! {
             impl TableSecondaryIndex<#row_type_ident, #avt_type_ident> for #index_type_ident {
                 #save_row_fn
@@ -156,7 +157,7 @@ impl Generator {
             .iter()
             .map(|(i, idx)| {
                 let index_field_name = &idx.name;
-                let diff_key = Ident::new(&format!("{}", i), Span::mixed_site());
+                let diff_key = Literal::string(i.to_string().as_str());
 
                 let match_arms: Vec<_> = self
                     .columns
@@ -164,8 +165,7 @@ impl Generator {
                     .get(&idx.field)
                     .map(|t| {
                         let type_str = t.to_string();
-                        let variant_ident =
-                            Ident::new(&type_str.to_uppercase(), Span::mixed_site());
+                        let variant_ident = Ident::new(&type_str.to_uppercase(), Span::mixed_site());
 
                         let value_expr = if type_str == "String" {  
                                 quote! { new.to_string() }
@@ -174,7 +174,7 @@ impl Generator {
                             };
 
                         quote! {
-                            if let Some(diff) = difference.get(stringify!(#diff_key)) {
+                            if let Some(diff) = difference.get(#diff_key) {
                                 match &diff.old {
                                    #avt_type_ident::#variant_ident(old) => {
                                       if let Some(set) = TableIndex::peek(&self.#index_field_name, old) {

@@ -22,7 +22,7 @@ pub struct WorkTable<
     Row,
     PrimaryKey,
     IndexType,
-    AvailableTypes,
+    AvailableTypes = (),
     SecondaryIndexes = (),
     PkGen = <PrimaryKey as TablePrimaryKey>::Generator,
     const DATA_LENGTH: usize = INNER_PAGE_SIZE,
@@ -45,7 +45,7 @@ pub struct WorkTable<
 
     pub pk_phantom: PhantomData<PrimaryKey>,
 
-    pub available_types_phantom: PhantomData<AvailableTypes>,
+    pub available_types: PhantomData<AvailableTypes>,
 }
 
 // Manual implementations to avoid unneeded trait bounds.
@@ -62,7 +62,6 @@ impl<
 where
     PrimaryKey: Clone + Ord + TablePrimaryKey,
     SecondaryIndexes: Default,
-    AvailableTypes: Default,
     IndexType: Default + TableIndex<PrimaryKey, Link>,
     PkGen: Default,
     Row: StorableRow,
@@ -77,7 +76,7 @@ where
             lock_map: LockMap::new(),
             table_name: "",
             pk_phantom: PhantomData,
-            available_types_phantom: PhantomData,
+            available_types: PhantomData,
         }
     }
 }

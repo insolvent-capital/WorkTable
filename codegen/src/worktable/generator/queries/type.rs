@@ -10,7 +10,13 @@ impl Generator {
         let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
         let avt_type_ident = name_generator.get_available_type_ident();
 
-        let types: Vec<_> = self
+        if self.columns.indexes.is_empty() {
+            return Ok(quote! {
+            type #avt_type_ident = ();
+            });
+        }
+
+        let rows: Vec<_> = self
             .columns
             .indexes
             .iter()
@@ -22,54 +28,19 @@ impl Generator {
             .into_iter()
             .map(|t| {
                 let type_ = Ident::new(&t.to_string(), Span::mixed_site());
-                Ok::<_, syn::Error>(quote! {
-                    #type_
-                })
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-
-        let types = if types.is_empty() {
-            vec![quote! {String}]
-        } else {
-            types
-        };
-
-        let rows = types
-            .iter()
-            .map(|t| {
                 let type_upper = Ident::new(&t.to_string().to_uppercase(), Span::mixed_site());
                 Ok::<_, syn::Error>(quote! {
-                    #[from]
-                    #type_upper(#t)
+                     #[from]
+                     #type_upper(#type_),
                 })
             })
             .collect::<Result<Vec<_>, _>>()?;
-
-        let default_variant = if types.iter().any(|r| r.to_string().contains("String")) {
-            quote! { #avt_type_ident::STRING(String::default()) }
-        } else if let Some(first_variant) = types.first() {
-            let type_upper = Ident::new(
-                &first_variant.to_string().to_uppercase(),
-                Span::mixed_site(),
-            );
-            quote! { #avt_type_ident::#type_upper(Default::default()) }
-        } else {
-            quote! {}
-        };
 
         Ok::<_, syn::Error>(quote! {
             #[derive(rkyv::Archive, Debug, derive_more::Display, rkyv::Deserialize, Clone, rkyv::Serialize)]
             #[derive(From, PartialEq)]
             pub enum #avt_type_ident {
-                #(#rows),*
-            }
-
-            impl Default for #avt_type_ident {
-                 fn default() -> Self {
-
-                  #default_variant
-
-                 }
+                #(#rows)*
             }
         })
     }

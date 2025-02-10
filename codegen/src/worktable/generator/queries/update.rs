@@ -1,3 +1,4 @@
+use proc_macro2::Literal;
 use std::collections::HashMap;
 
 use crate::name_generator::WorktableNameGenerator;
@@ -196,6 +197,7 @@ impl Generator {
                 .iter()
                 .filter(|i| columns.contains(i))
                 .map(|i| {
+                    let diff_key = Literal::string(i.to_string().as_str());
                     quote! {
 
                         let old: #avt_type_ident = row_old.clone().#i.into();
@@ -206,7 +208,7 @@ impl Generator {
                             new: new.clone(),
                         };
 
-                        diffs.insert(stringify!(#i), diff);
+                        diffs.insert(#diff_key, diff);
                     }
                 })
                 .collect::<Vec<_>>()

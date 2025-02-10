@@ -24,7 +24,7 @@ fn main() {
              //   AttrById(attr) by id,
              //   Attr2ById(attr2) by id,
                   AllAttrById(attr, attr2) by id,
-             //  UpdateOptionalById(test) by id,
+                  UpdateOptionalById(test) by id,
             },
             delete: {
               //  ByAttr() by attr,
@@ -77,24 +77,24 @@ fn main() {
     println!("Select All {:?}", select_all);
 
     // Select All records with attribute TEST
-    let select_by_attr = my_table.select_by_attr("TEST".to_string());
-    println!(
-        "Select by Attribute TEST: {:?}",
-        select_by_attr.unwrap().vals
-    );
-
-    let update_val = my_table.update_all_attr_by_id(
-        AllAttrByIdQuery {
-            attr: "TEST5".to_string(),
-            attr2: 1337,
-        },
-        MyPrimaryKey(0),
-    );
-    let _ = task::block_on(update_val);
-
-    let select_by_attr2 = my_table.select_by_attr2(1337);
-    println!(
-        "Select by Attribute 1337: {:?}",
-        select_by_attr2.unwrap().vals
-    );
+    //  let select_by_attr = my_table.select_by_attr("TEST".to_string());
+    //  println!(
+    //      "Select by Attribute TEST: {:?}",
+    //      select_by_attr.unwrap().vals
+    //  );
+    //
+    //  let update_val = my_table.update_all_attr_by_id(
+    //      AllAttrByIdQuery {
+    //          attr: "TEST5".to_string(),
+    //          attr2: 1337,
+    //      },
+    //      MyPrimaryKey(0),
+    //  );
+    //  let _ = task::block_on(update_val);
+    //
+    //  let select_by_attr2 = my_table.select_by_attr2(1337);
+    //   println!(
+    //       "Select by Attribute 1337: {:?}",
+    //       select_by_attr2.unwrap().vals
+    //   );
 }
