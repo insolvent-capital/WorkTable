@@ -1,6 +1,5 @@
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
-use std::collections::HashSet;
 
 use crate::name_generator::WorktableNameGenerator;
 use crate::worktable::generator::Generator;
@@ -10,39 +9,36 @@ impl Generator {
         let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
         let avt_type_ident = name_generator.get_available_type_ident();
 
-        if self.columns.indexes.is_empty() {
-            return Ok(quote! {
-            type #avt_type_ident = ();
-            });
-        }
-
         let rows: Vec<_> = self
             .columns
             .indexes
             .iter()
-            .map(|(_i, idx)| self.columns.columns_map.get(&idx.field))
-            .into_iter()
-            .filter_map(|t| t)
-            .map(|s| s.to_string())
-            .collect::<HashSet<_>>()
-            .into_iter()
-            .map(|t| {
-                let type_ = Ident::new(&t.to_string(), Span::mixed_site());
-                let type_upper = Ident::new(&t.to_string().to_uppercase(), Span::mixed_site());
-                Ok::<_, syn::Error>(quote! {
-                     #[from]
-                     #type_upper(#type_),
+            .filter_map(|(_, idx)| self.columns.columns_map.get(&idx.field))
+            .map(|s| {
+                let type_ident = Ident::new(s.to_string().as_str(), Span::mixed_site());
+                let type_upper =
+                    Ident::new(&s.to_string().to_uppercase().as_str(), Span::mixed_site());
+                Some(quote! {
+                    #[from]
+                    #type_upper(#type_ident),
                 })
             })
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect();
 
-        Ok::<_, syn::Error>(quote! {
-            #[derive(rkyv::Archive, Debug, derive_more::Display, rkyv::Deserialize, Clone, rkyv::Serialize)]
-            #[derive(From, PartialEq)]
-            pub enum #avt_type_ident {
-                #(#rows)*
-            }
-        })
+        if !rows.is_empty() {
+            Ok(quote! {
+                #[derive(rkyv::Archive, Debug, derive_more::Display, rkyv::Deserialize, Clone, rkyv::Serialize)]
+                #[derive(From, PartialEq)]
+                #[non_exhaustive]
+                pub enum #avt_type_ident {
+                    #(#rows)*
+                }
+            })
+        } else {
+            Ok(quote! {
+                type #avt_type_ident = ();
+            })
+        }
     }
 
     pub fn gen_result_types_def(&mut self) -> syn::Result<TokenStream> {

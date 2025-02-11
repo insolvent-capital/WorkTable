@@ -128,7 +128,8 @@ impl Generator {
                     pk_gen: PrimaryKeyGeneratorState::from_state(self.info.inner.pk_gen_state),
                     lock_map: LockMap::new(),
                     table_name: "",
-                    pk_phantom: std::marker::PhantomData
+                    pk_phantom: std::marker::PhantomData,
+                    available_types_phantom: std::marker::PhantomData,
                 };
 
                 #wt_ident(
