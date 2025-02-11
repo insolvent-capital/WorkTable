@@ -195,14 +195,14 @@ impl Generator {
                 }
             })
             .collect::<Vec<_>>();
-        let diff = if let Some(columns) = idx_idents {
+
+        let diff = idx_idents.map(|columns| {
             idents
                 .iter()
                 .filter(|i| columns.contains(i))
                 .map(|i| {
                     let diff_key = Literal::string(i.to_string().as_str());
                     quote! {
-
                         let old: #avt_type_ident = row_old.clone().#i.into();
                         let new: #avt_type_ident = row_new.#i.into();
 
@@ -215,20 +215,20 @@ impl Generator {
                     }
                 })
                 .collect::<Vec<_>>()
-        } else {
-            vec![]
-        };
+        });
 
-        let diff_container_ident = if !diff.is_empty() {
+        let diff_container_ident = if let Some(ref diff) = diff {
             quote! {
-            let row_old = self.select(by.clone()).unwrap();
-            let row_new = row.clone();
-            let mut diffs: std::collections::HashMap<&str, Difference<#avt_type_ident>> = std::collections::HashMap::new();}
+                let row_old = self.select(by.clone()).unwrap();
+                let row_new = row.clone();
+                let mut diffs: std::collections::HashMap<&str, Difference<#avt_type_ident>> = std::collections::HashMap::new();
+                #(#diff)*
+            }
         } else {
             quote! {}
         };
 
-        let process_diff_ident = if !diff.is_empty() {
+        let process_diff_ident = if let Some(_) = diff {
             quote! {
                     self.0.indexes.process_difference(link, diffs)?;
             }
@@ -244,7 +244,6 @@ impl Generator {
                 self.0.lock_map.insert(op_id.into(), lock.clone());
 
                 #diff_container_ident
-                #(#diff)*
 
                 let mut bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&row).map_err(|_| WorkTableError::SerializeError)?;
                 let mut row = unsafe { rkyv::access_unchecked_mut::<<#query_ident as rkyv::Archive>::Archived>(&mut bytes[..]).unseal_unchecked() };

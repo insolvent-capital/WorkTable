@@ -23,12 +23,10 @@ where
     T: Eq + Hash + Clone + std::marker::Send + std::cmp::Ord,
 {
     fn insert(&self, value: T, link: Link) -> Option<Link> {
-        println!("Inserting into IndexMultiMap");
         self.insert(value, link)
     }
 
     fn remove(&self, value: T, link: Link) -> Option<(T, Link)> {
-        println!("Removing from IndexMultiMap");
         self.remove(&value, &link)
     }
 }
@@ -38,12 +36,10 @@ where
     T: Eq + Hash + Clone + std::marker::Send + std::cmp::Ord,
 {
     fn insert(&self, value: T, link: Link) -> Option<Link> {
-        println!("Inserting into IndexMultiMap");
         self.insert(value, link)
     }
 
     fn remove(&self, value: T, _link: Link) -> Option<(T, Link)> {
-        println!("Removing from IndexMultiMap");
         self.remove(&value)
     }
 }

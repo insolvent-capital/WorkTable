@@ -9,7 +9,7 @@ fn main() {
         columns: {
             id: u64 primary_key autoincrement,
             val: i64,
-            test: u8 optional,
+            test: u8,
             attr: String,
             attr2: i16,
 
@@ -17,6 +17,7 @@ fn main() {
         indexes: {
             idx1: attr,
             idx2: attr2,
+            idx3: test,
         },
         queries: {
             update: {
@@ -41,7 +42,7 @@ fn main() {
         val: 777,
         attr: "TEST".to_string(),
         attr2: 345,
-        test: Some(1),
+        test: 1,
         id: 0,
     };
 
@@ -91,7 +92,7 @@ fn main() {
         MyPrimaryKey(0),
     );
     let _ = task::block_on(update_val);
-    //
+    //  //
     let select_by_attr2 = my_table.select_by_attr2(1337);
     println!(
         "Select by new Attribute 1337: {:?}",
@@ -109,10 +110,13 @@ fn main() {
         "Select by new Attribute TEST5: {:?}",
         select_by_attr2.unwrap().vals
     );
-
+    //
     let select_by_attr2 = my_table.select_by_attr("TEST".to_string());
     println!(
         "Select by old Attribute TEST: {:?}",
         select_by_attr2.unwrap().vals
     );
+
+    let select_all = my_table.select_all().execute();
+    println!("Select All {:?}", select_all);
 }

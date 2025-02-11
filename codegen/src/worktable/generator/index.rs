@@ -10,8 +10,6 @@ impl Generator {
         let type_def = self.gen_type_def();
         let impl_def = self.gen_impl_def();
 
-        println!("{}", self.gen_impl_def());
-
         quote! {
             #type_def
             #impl_def
@@ -138,66 +136,46 @@ impl Generator {
         let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
         let avt_type_ident = name_generator.get_available_type_ident();
 
-        let process_difference_rows = self
-            .columns
-            .indexes
-            .iter()
-            .map(|(i, idx)| {
-                let index_field_name = &idx.name;
-                let diff_key = Literal::string(i.to_string().as_str());
+        let process_difference_rows = self.columns.indexes.iter().map(|(i, idx)| {
+            let index_field_name = &idx.name;
+            let diff_key = Literal::string(i.to_string().as_str());
 
-                let match_arms: Vec<_> = self
-                    .columns
-                    .columns_map
-                    .get(&idx.field)
-                    .map(|t| {
-                        let type_str = t.to_string();
-                        let variant_ident =
-                            Ident::new(&type_str.to_uppercase(), Span::mixed_site());
+            let match_arm = if let Some(t) = self.columns.columns_map.get(&idx.field) {
+                let type_str = t.to_string();
+                let variant_ident = Ident::new(&type_str.to_uppercase(), Span::mixed_site());
 
-                        let new_value_expr = if type_str == "String" {
-                            quote! { new.to_string() }
-                        } else {
-                            quote! { *new }
-                        };
-
-                        let old_value_expr = if type_str == "String" {
-                            quote! { old.to_string() }
-                        } else {
-                            quote! { *old }
-                        };
-
-                        quote! {
-                            if let Some(diff) = difference.get(#diff_key) {
-                                match &diff.old {
-                                   #avt_type_ident::#variant_ident(old) => {
-                                    let key_old = #old_value_expr;
-                                    TableIndex::remove(&self.#index_field_name, key_old, link);
-                                   }
-                                    _ => {}
-                                }
-
-                                match &diff.new {
-                                    #avt_type_ident::#variant_ident(new) => {
-                                         let key_new = #new_value_expr;
-                                         TableIndex::insert(&self.#index_field_name, key_new, link);
-                                     }
-                                     _ => {}
-                                }
-                            }
-                        }
-                    })
-                    .into_iter()
-                    .collect();
+                let (new_value_expr, old_value_expr) = if type_str == "String" {
+                    (quote! { new.to_string() }, quote! { old.to_string() })
+                } else {
+                    (quote! { *new }, quote! { *old })
+                };
 
                 quote! {
-                        #(#match_arms)*
+                    if let Some(diff) = difference.get(#diff_key) {
+                        if let #avt_type_ident::#variant_ident(old) = &diff.old {
+                            let key_old = #old_value_expr;
+                            TableIndex::remove(&self.#index_field_name, key_old, link);
+                        }
+
+                        if let #avt_type_ident::#variant_ident(new) = &diff.new {
+                            let key_new = #new_value_expr;
+                            TableIndex::insert(&self.#index_field_name, key_new, link);
+                        }
+                    }
                 }
-            })
-            .collect::<Vec<_>>();
+            } else {
+                quote! {}
+            };
+
+            match_arm
+        });
 
         quote! {
-            fn process_difference(&self, link: Link, difference: std::collections::HashMap<&str, Difference<#avt_type_ident>>) -> core::result::Result<(), WorkTableError> {
+            fn process_difference(
+                &self,
+                link: Link,
+                difference: std::collections::HashMap<&str, Difference<#avt_type_ident>>
+            ) -> core::result::Result<(), WorkTableError> {
                 #(#process_difference_rows)*
                 core::result::Result::Ok(())
             }
