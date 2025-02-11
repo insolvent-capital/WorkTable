@@ -132,6 +132,8 @@ impl Generator {
         }
     }
 
+    /// Generates `process_difference` function of `TableIndex` trait for index. It updates `Link` for all secondary indexes.
+    /// Uses HashMap<&str, Difference<AvaialableTypes>> for storing all changes
     fn gen_process_difference_index_fn(&self) -> TokenStream {
         let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
         let avt_type_ident = name_generator.get_available_type_ident();

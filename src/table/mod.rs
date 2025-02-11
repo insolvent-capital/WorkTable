@@ -45,7 +45,7 @@ pub struct WorkTable<
 
     pub pk_phantom: PhantomData<PrimaryKey>,
 
-    pub available_types_phantom: PhantomData<AvailableTypes>,
+    pub types_phantom: PhantomData<AvailableTypes>,
 }
 
 // Manual implementations to avoid unneeded trait bounds.
@@ -67,7 +67,7 @@ where
             lock_map: LockMap::new(),
             table_name: "",
             pk_phantom: PhantomData,
-            available_types_phantom: PhantomData,
+            types_phantom: PhantomData,
         }
     }
 }

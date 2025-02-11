@@ -129,7 +129,7 @@ impl Generator {
                     lock_map: LockMap::new(),
                     table_name: "",
                     pk_phantom: std::marker::PhantomData,
-                    available_types_phantom: std::marker::PhantomData,
+                    types_phantom: std::marker::PhantomData,
                 };
 
                 #wt_ident(
