@@ -4,7 +4,6 @@ mod persist_table;
 mod worktable;
 
 use proc_macro::TokenStream;
-
 // TODO: Refactor this codegen stuff because it's now too strange.
 
 #[proc_macro]

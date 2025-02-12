@@ -1,6 +1,4 @@
-use std::fmt::Debug;
-
-use async_std::task;
+use futures::executor::block_on;
 use worktable::prelude::*;
 use worktable::worktable;
 
@@ -11,18 +9,23 @@ fn main() {
         columns: {
             id: u64 primary_key autoincrement,
             val: i64,
-            attribute: String,
+            test: u8,
+            attr: String,
+            attr2: i16,
 
         },
         indexes: {
-            attribute_idx: attribute,
-        }
+            idx1: attr,
+            idx2: attr2,
+        },
         queries: {
             update: {
-                ValByAttr(val) by attribute,
+                ValById(val) by id,
+                AllAttrById(attr, attr2) by id,
+                UpdateOptionalById(test) by id,
             },
             delete: {
-                ByAttr() by attribute,
+                ByAttr() by attr,
                 ById() by id,
             }
         }
@@ -33,72 +36,38 @@ fn main() {
 
     // WT rows (has prefix My because of table name)
     let row = MyRow {
-        val: 1,
-        attribute: "TEST".to_string(),
+        val: 777,
+        attr: "Attribute1".to_string(),
+        attr2: 345,
+        test: 1,
         id: 0,
     };
 
-    let row1 = MyRow {
-        val: 2,
-        attribute: "TEST2".to_string(),
-        id: 1,
-    };
-
-    let row2 = MyRow {
-        val: 1337,
-        attribute: "TEST2".to_string(),
-        id: 2,
-    };
-
-    let row3 = MyRow {
-        val: 555,
-        attribute: "TEST3".to_string(),
-        id: 3,
-    };
-
     // insert
-    let _ = my_table.insert(row);
-    let _ = my_table.insert(row1);
-    let _ = my_table.insert(row2);
-    let _ = my_table.insert(row3);
+    let pk: MyPrimaryKey = my_table.insert(row).expect("primary key");
 
     // Select ALL records from WT
     let select_all = my_table.select_all().execute();
     println!("Select All {:?}", select_all);
 
-    // Select All records with attribute TEST2
-    let select_by_attr = my_table.select_by_attribute("TEST2".to_string());
-    println!(
-        "Select by Attribute TEST2: {:?}",
-        select_by_attr.unwrap().vals
-    );
+    // Select All records with attribute TEST
+    let select_all = my_table.select_all().execute();
+    println!("Select All {:?}", select_all);
 
-    // Update all recrods val by attr TEST2
-    let update_val = my_table.update_val_by_attr(ValByAttrQuery { val: 777 }, "TEST2".to_string());
-    let _ = task::block_on(update_val);
+    // Select by Idx
+    let select_by_attr = my_table.select_by_attr("Attribute1".to_string());
+    println!("Select by idx {:?}", select_by_attr.unwrap().vals);
 
-    let select_updated = my_table.select_by_attribute("TEST2".to_string());
-    println!(
-        "Select updated by Attribute TEST2: {:?}",
-        select_updated.unwrap().vals
-    );
+    // Update Value query
+    let update = my_table.update_val_by_id(ValByIdQuery { val: 1337 }, pk.clone());
+    let _ = block_on(update);
 
-    // Update record attribute TEST2 -> TEST3 with id 1
-    let update_exchange =
-        my_table.update_val_by_attr(ValByAttrQuery { val: 7777 }, "TEST2".to_string());
-    let _ = task::block_on(update_exchange);
+    let select_all = my_table.select_all().execute();
+    println!("Select after update val {:?}", select_all);
 
-    let select_all_after_update = my_table.select_all();
-    println!(
-        "Select After Val Update by Attribute: {:?}",
-        select_all_after_update.execute()
-    );
+    let delete = my_table.delete(pk);
+    let _ = block_on(delete);
 
-    let test_delete = my_table.delete_by_attr("TEST3".to_string());
-    let _ = task::block_on(test_delete);
-
-    println!(
-        "Select after deleted TEST3 {:?}",
-        my_table.select_all().execute()
-    );
+    let select_all = my_table.select_all().execute();
+    println!("Select after delete {:?}", select_all);
 }

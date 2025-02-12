@@ -23,6 +23,7 @@ use crate::{in_memory, IndexMap, TableRow, TableSecondaryIndex};
 pub struct WorkTable<
     Row,
     PrimaryKey,
+    AvailableTypes = (),
     SecondaryIndexes = (),
     PkGen = <PrimaryKey as TablePrimaryKey>::Generator,
     const DATA_LENGTH: usize = INNER_PAGE_SIZE,
@@ -43,11 +44,13 @@ pub struct WorkTable<
     pub table_name: &'static str,
 
     pub pk_phantom: PhantomData<PrimaryKey>,
+
+    pub types_phantom: PhantomData<AvailableTypes>,
 }
 
 // Manual implementations to avoid unneeded trait bounds.
-impl<Row, PrimaryKey, SecondaryIndexes, PkGen, const DATA_LENGTH: usize> Default
-    for WorkTable<Row, PrimaryKey, SecondaryIndexes, PkGen, DATA_LENGTH>
+impl<Row, PrimaryKey, AvailableTypes, SecondaryIndexes, PkGen, const DATA_LENGTH: usize> Default
+    for WorkTable<Row, PrimaryKey, AvailableTypes, SecondaryIndexes, PkGen, DATA_LENGTH>
 where
     PrimaryKey: Clone + Ord + Send + TablePrimaryKey,
     SecondaryIndexes: Default,
@@ -64,12 +67,13 @@ where
             lock_map: LockMap::new(),
             table_name: "",
             pk_phantom: PhantomData,
+            types_phantom: PhantomData,
         }
     }
 }
 
-impl<Row, PrimaryKey, SecondaryIndexes, PkGen, const DATA_LENGTH: usize>
-    WorkTable<Row, PrimaryKey, SecondaryIndexes, PkGen, DATA_LENGTH>
+impl<Row, PrimaryKey, AvailableTypes, SecondaryIndexes, PkGen, const DATA_LENGTH: usize>
+    WorkTable<Row, PrimaryKey, AvailableTypes, SecondaryIndexes, PkGen, DATA_LENGTH>
 where
     Row: TableRow<PrimaryKey>,
     PrimaryKey: Clone + Ord + Send + TablePrimaryKey,
@@ -117,7 +121,8 @@ where
                 Strategy<Serializer<AlignedVec, ArenaHandle<'a>, Share>, rkyv::rancor::Error>,
             >,
         PrimaryKey: Clone,
-        SecondaryIndexes: TableSecondaryIndex<Row>,
+        AvailableTypes: 'static,
+        SecondaryIndexes: TableSecondaryIndex<Row, AvailableTypes>,
     {
         let pk = row.get_primary_key().clone();
         let link = self
