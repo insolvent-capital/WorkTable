@@ -1,3 +1,4 @@
+use proc_macro2::Literal;
 use std::collections::HashMap;
 
 use crate::name_generator::WorktableNameGenerator;
@@ -100,6 +101,22 @@ impl Generator {
                     .values()
                     .find(|idx| idx.field.to_string() == op.by.to_string());
 
+                let indexes_columns: Option<Vec<_>> = {
+                    let columns: Vec<_> = self
+                        .columns
+                        .indexes
+                        .values()
+                        .filter(|idx| op.columns.contains(&idx.field))
+                        .map(|idx| idx.field.clone())
+                        .collect();
+
+                    if columns.is_empty() {
+                        None
+                    } else {
+                        Some(columns)
+                    }
+                };
+
                 let idents = &op.columns;
                 if let Some(index) = index {
                     let index_name = &index.name;
@@ -114,7 +131,12 @@ impl Generator {
                         if self.columns.primary_keys.first().unwrap().to_string()
                             == op.by.to_string()
                         {
-                            self.gen_pk_update(snake_case_name, name, idents)
+                            self.gen_pk_update(
+                                snake_case_name,
+                                name,
+                                idents,
+                                indexes_columns.as_ref(),
+                            )
                         } else {
                             todo!()
                         }
@@ -135,6 +157,7 @@ impl Generator {
         snake_case_name: String,
         name: &Ident,
         idents: &Vec<Ident>,
+        idx_idents: Option<&Vec<Ident>>,
     ) -> TokenStream {
         let pk_ident = &self.pk.as_ref().unwrap().ident;
         let method_ident = Ident::new(
@@ -160,6 +183,10 @@ impl Generator {
             format!("verify_{snake_case_name}_lock").as_str(),
             Span::mixed_site(),
         );
+
+        let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
+        let avt_type_ident = name_generator.get_available_type_ident();
+
         let row_updates = idents
             .iter()
             .map(|i| {
@@ -169,12 +196,54 @@ impl Generator {
             })
             .collect::<Vec<_>>();
 
+        let diff = idx_idents.map(|columns| {
+            idents
+                .iter()
+                .filter(|i| columns.contains(i))
+                .map(|i| {
+                    let diff_key = Literal::string(i.to_string().as_str());
+                    quote! {
+                        let old: #avt_type_ident = row_old.clone().#i.into();
+                        let new: #avt_type_ident = row_new.#i.into();
+
+                        let diff = Difference {
+                            old: old.clone(),
+                            new: new.clone(),
+                        };
+
+                        diffs.insert(#diff_key, diff);
+                    }
+                })
+                .collect::<Vec<_>>()
+        });
+
+        let diff_container_ident = if let Some(ref diff) = diff {
+            quote! {
+                let row_old = self.select(by.clone()).unwrap();
+                let row_new = row.clone();
+                let mut diffs: std::collections::HashMap<&str, Difference<#avt_type_ident>> = std::collections::HashMap::new();
+                #(#diff)*
+            }
+        } else {
+            quote! {}
+        };
+
+        let process_diff_ident = if let Some(_) = diff {
+            quote! {
+                    self.0.indexes.process_difference(link, diffs)?;
+            }
+        } else {
+            quote! {}
+        };
+
         quote! {
             pub async fn #method_ident(&self, row: #query_ident, by: #pk_ident) -> core::result::Result<(), WorkTableError> {
                 let op_id = self.0.lock_map.next_id();
                 let lock = std::sync::Arc::new(Lock::new());
 
                 self.0.lock_map.insert(op_id.into(), lock.clone());
+
+                #diff_container_ident
 
                 let mut bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&row).map_err(|_| WorkTableError::SerializeError)?;
                 let mut row = unsafe { rkyv::access_unchecked_mut::<<#query_ident as rkyv::Archive>::Archived>(&mut bytes[..]).unseal_unchecked() };
@@ -183,6 +252,9 @@ impl Generator {
                         .get(&by)
                         .map(|v| v.get().value)
                         .ok_or(WorkTableError::NotFound)?;
+
+                 #process_diff_ident
+
                 let id = self.0.data.with_ref(link, |archived| {
                     archived.#check_ident()
                 }).map_err(WorkTableError::PagesError)?;

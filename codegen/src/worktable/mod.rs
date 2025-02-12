@@ -53,6 +53,7 @@ pub fn expand(input: TokenStream) -> syn::Result<TokenStream> {
     let index_def = generator.gen_index_def();
     let table_def = generator.gen_table_def()?;
     let query_types_def = generator.gen_result_types_def()?;
+    let query_available_def = generator.gen_available_types_def()?;
     let query_locks_impls = generator.gen_query_locks_impl()?;
     let select_impls = generator.gen_query_select_impl()?;
     let update_impls = generator.gen_query_update_impl()?;
@@ -61,6 +62,7 @@ pub fn expand(input: TokenStream) -> syn::Result<TokenStream> {
     Ok(TokenStream::from(quote! {
         #pk_def
         #row_def
+        #query_available_def
         #wrapper_def
         #index_def
         #table_def

@@ -1,7 +1,7 @@
 use crate::name_generator::WorktableNameGenerator;
 use crate::worktable::generator::Generator;
 
-use proc_macro2::{Literal, TokenStream};
+use proc_macro2::{Ident, Literal, Span, TokenStream};
 use quote::quote;
 
 impl Generator {
@@ -51,14 +51,17 @@ impl Generator {
         let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
         let row_type_ident = name_generator.get_row_type_ident();
         let index_type_ident = name_generator.get_index_type_ident();
+        let avt_type_ident = name_generator.get_available_type_ident();
 
         let save_row_fn = self.gen_save_row_index_fn();
         let delete_row_fn = self.gen_delete_row_index_fn();
+        let process_difference_fn = self.gen_process_difference_index_fn();
 
         quote! {
-            impl TableSecondaryIndex<#row_type_ident> for #index_type_ident {
+            impl TableSecondaryIndex<#row_type_ident, #avt_type_ident> for #index_type_ident {
                 #save_row_fn
                 #delete_row_fn
+                #process_difference_fn
             }
         }
     }
@@ -124,6 +127,58 @@ impl Generator {
         quote! {
             fn delete_row(&self, row: #row_type_ident, link: Link) -> core::result::Result<(), WorkTableError> {
                 #(#delete_rows)*
+                core::result::Result::Ok(())
+            }
+        }
+    }
+
+    /// Generates `process_difference` function of `TableIndex` trait for index. It updates `Link` for all secondary indexes.
+    /// Uses HashMap<&str, Difference<AvaialableTypes>> for storing all changes
+    fn gen_process_difference_index_fn(&self) -> TokenStream {
+        let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
+        let avt_type_ident = name_generator.get_available_type_ident();
+
+        let process_difference_rows = self.columns.indexes.iter().map(|(i, idx)| {
+            let index_field_name = &idx.name;
+            let diff_key = Literal::string(i.to_string().as_str());
+
+            let match_arm = if let Some(t) = self.columns.columns_map.get(&idx.field) {
+                let type_str = t.to_string();
+                let variant_ident = Ident::new(&type_str.to_uppercase(), Span::mixed_site());
+
+                let (new_value_expr, old_value_expr) = if type_str == "String" {
+                    (quote! { new.to_string() }, quote! { old.to_string() })
+                } else {
+                    (quote! { *new }, quote! { *old })
+                };
+
+                quote! {
+                    if let Some(diff) = difference.get(#diff_key) {
+                        if let #avt_type_ident::#variant_ident(old) = &diff.old {
+                            let key_old = #old_value_expr;
+                            TableIndex::remove(&self.#index_field_name, key_old, link);
+                        }
+
+                        if let #avt_type_ident::#variant_ident(new) = &diff.new {
+                            let key_new = #new_value_expr;
+                            TableIndex::insert(&self.#index_field_name, key_new, link);
+                        }
+                    }
+                }
+            } else {
+                quote! {}
+            };
+
+            match_arm
+        });
+
+        quote! {
+            fn process_difference(
+                &self,
+                link: Link,
+                difference: std::collections::HashMap<&str, Difference<#avt_type_ident>>
+            ) -> core::result::Result<(), WorkTableError> {
+                #(#process_difference_rows)*
                 core::result::Result::Ok(())
             }
         }
