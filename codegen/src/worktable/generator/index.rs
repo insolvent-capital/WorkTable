@@ -27,7 +27,7 @@ impl Generator {
             .indexes
             .iter()
             .map(|(i, idx)| {
-                let t = self.columns.columns_map.get(&i);
+                let t = self.columns.columns_map.get(i);
                 let i = &idx.name;
 
                 if idx.is_unique {

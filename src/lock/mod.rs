@@ -35,6 +35,12 @@ impl Future for &Lock {
     }
 }
 
+impl Default for Lock {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Lock {
     pub fn new() -> Self {
         Self {

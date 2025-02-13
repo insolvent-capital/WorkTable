@@ -185,7 +185,7 @@ impl Generator {
             .collect::<Vec<_>>();
 
         quote! {
-            pub fn persist<T>(&mut self, path: &String, info: &mut GeneralPage<SpaceInfoData<T>>) -> eyre::Result<()>
+            pub fn persist<T>(&mut self, path: &str, info: &mut GeneralPage<SpaceInfoData<T>>) -> eyre::Result<()>
             where T: rkyv::Archive
                 + for<'a> rkyv::Serialize<
                             rkyv::rancor::Strategy<
@@ -306,7 +306,7 @@ impl Generator {
             .collect::<Vec<_>>();
 
         quote! {
-            pub fn parse_from_file(path: &String, map: &std::collections::HashMap<String, Vec<Interval>>) -> eyre::Result<Self> {
+            pub fn parse_from_file(path: &str, map: &std::collections::HashMap<String, Vec<Interval>>) -> eyre::Result<Self> {
                 #(#field_names_literals)*
 
                 Ok(Self {

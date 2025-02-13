@@ -82,11 +82,7 @@ impl PrimaryKeyGeneratorState for AtomicI64 {
 impl PrimaryKeyGeneratorState for () {
     type State = ();
 
-    fn get_state(&self) -> Self::State {
-        ()
-    }
+    fn get_state(&self) -> Self::State {}
 
-    fn from_state((): Self::State) -> Self {
-        ()
-    }
+    fn from_state((): Self::State) -> Self {}
 }

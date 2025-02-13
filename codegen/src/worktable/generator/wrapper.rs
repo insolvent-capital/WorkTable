@@ -26,8 +26,8 @@ impl Generator {
         let row_locks = self
             .columns
             .columns_map
-            .iter()
-            .map(|(i, _)| {
+            .keys()
+            .map(|i| {
                 let name = Ident::new(format!("{i}_lock").as_str(), Span::mixed_site());
                 quote! {
                     #name: u16,
@@ -54,8 +54,8 @@ impl Generator {
         let row_defaults = self
             .columns
             .columns_map
-            .iter()
-            .map(|(i, _)| {
+            .keys()
+            .map(|i| {
                 let name = Ident::new(format!("{i}_lock").as_str(), Span::mixed_site());
                 quote! {
                     #name: Default::default(),
@@ -91,8 +91,8 @@ impl Generator {
         let checks = self
             .columns
             .columns_map
-            .iter()
-            .map(|(i, _)| {
+            .keys()
+            .map(|i| {
                 let name = Ident::new(format!("{i}_lock").as_str(), Span::mixed_site());
                 quote! {
                     if self.#name != 0 {

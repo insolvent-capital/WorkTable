@@ -908,7 +908,7 @@ async fn test_update_by_pk() {
 }
 
 //#[test]
-fn bench() {
+fn _bench() {
     let table = TestWorkTable::default();
 
     let mut v = Vec::with_capacity(10000);

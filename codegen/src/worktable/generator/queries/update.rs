@@ -95,11 +95,7 @@ impl Generator {
                     .to_string()
                     .from_case(Case::Pascal)
                     .to_case(Case::Snake);
-                let index = self
-                    .columns
-                    .indexes
-                    .values()
-                    .find(|idx| idx.field.to_string() == op.by.to_string());
+                let index = self.columns.indexes.values().find(|idx| idx.field == op.by);
 
                 let indexes_columns: Option<Vec<_>> = {
                     let columns: Vec<_> = self
@@ -126,23 +122,14 @@ impl Generator {
                     } else {
                         self.gen_non_unique_update(snake_case_name, name, index_name, idents)
                     }
-                } else {
-                    if self.columns.primary_keys.len() == 1 {
-                        if self.columns.primary_keys.first().unwrap().to_string()
-                            == op.by.to_string()
-                        {
-                            self.gen_pk_update(
-                                snake_case_name,
-                                name,
-                                idents,
-                                indexes_columns.as_ref(),
-                            )
-                        } else {
-                            todo!()
-                        }
+                } else if self.columns.primary_keys.len() == 1 {
+                    if *self.columns.primary_keys.first().unwrap() == op.by {
+                        self.gen_pk_update(snake_case_name, name, idents, indexes_columns.as_ref())
                     } else {
                         todo!()
                     }
+                } else {
+                    todo!()
                 }
             })
             .collect::<Vec<_>>();
@@ -156,7 +143,7 @@ impl Generator {
         &self,
         snake_case_name: String,
         name: &Ident,
-        idents: &Vec<Ident>,
+        idents: &[Ident],
         idx_idents: Option<&Vec<Ident>>,
     ) -> TokenStream {
         let pk_ident = &self.pk.as_ref().unwrap().ident;
@@ -228,7 +215,7 @@ impl Generator {
             quote! {}
         };
 
-        let process_diff_ident = if let Some(_) = diff {
+        let process_diff_ident = if diff.is_some() {
             quote! {
                     self.0.indexes.process_difference(link, diffs)?;
             }
@@ -293,7 +280,7 @@ impl Generator {
         snake_case_name: String,
         name: &Ident,
         index: &Ident,
-        idents: &Vec<Ident>,
+        idents: &[Ident],
     ) -> TokenStream {
         let method_ident = Ident::new(
             format!("update_{snake_case_name}").as_str(),
@@ -381,7 +368,7 @@ impl Generator {
         snake_case_name: String,
         name: &Ident,
         index: &Ident,
-        idents: &Vec<Ident>,
+        idents: &[Ident],
     ) -> TokenStream {
         let method_ident = Ident::new(
             format!("update_{snake_case_name}").as_str(),

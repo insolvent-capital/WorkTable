@@ -48,6 +48,16 @@ where
     current_page_id: AtomicU32,
 }
 
+impl<Row, const DATA_LENGTH: usize> Default for DataPages<Row, DATA_LENGTH>
+where
+    Row: StorableRow,
+    <Row as StorableRow>::WrappedRow: RowWrapper<Row>,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<Row, const DATA_LENGTH: usize> DataPages<Row, DATA_LENGTH>
 where
     Row: StorableRow,
@@ -117,7 +127,7 @@ where
             let pages = self.pages.read().unwrap();
             let current_page =
                 page_id_mapper(self.current_page_id.load(Ordering::Relaxed) as usize);
-            let page = &pages[current_page as usize];
+            let page = &pages[current_page];
 
             (page.save_row(&general_row), current_page)
         };
@@ -256,6 +266,12 @@ where
         Ok(res)
     }
 
+    /// # Safety
+    /// This function is `unsafe` because it modifies archived memory directly.
+    /// The caller must ensure that:
+    /// - The `link` is valid and points to a properly initialized row.
+    /// - No other references to the same row exist during modification.
+    /// - The operation does not cause data races or memory corruption.
     pub unsafe fn update<const N: usize>(
         &self,
         row: Row,

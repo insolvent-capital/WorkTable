@@ -30,7 +30,7 @@ impl Parser {
         let iter = &mut self.input_iter;
 
         if let Some(colon) = iter.peek() {
-            if let Ok(_) = comma(colon) {
+            if comma(colon).is_ok() {
                 iter.next();
             }
         }

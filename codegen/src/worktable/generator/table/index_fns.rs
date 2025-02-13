@@ -45,7 +45,7 @@ impl Generator {
         row_ident: Ident,
     ) -> syn::Result<TokenStream> {
         let type_ = columns_map
-            .get(&i)
+            .get(i)
             .ok_or(syn::Error::new(i.span(), "Row not found"))?;
         let fn_name = Ident::new(format!("select_by_{i}").as_str(), Span::mixed_site());
         let field_ident = &idx.name;
@@ -65,7 +65,7 @@ impl Generator {
         row_ident: Ident,
     ) -> syn::Result<TokenStream> {
         let type_ = columns_map
-            .get(&i)
+            .get(i)
             .ok_or(syn::Error::new(i.span(), "Row not found"))?;
         let fn_name = Ident::new(format!("select_by_{i}").as_str(), Span::mixed_site());
         let field_ident = &idx.name;

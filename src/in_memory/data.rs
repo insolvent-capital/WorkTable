@@ -150,6 +150,10 @@ impl<Row, const DATA_LENGTH: usize> Data<Row, DATA_LENGTH> {
         Ok(link)
     }
 
+    /// # Safety
+    /// This function is `unsafe` because it returns a mutable reference to an archived row.
+    /// The caller must ensure that there are no other references to the same data
+    /// while this function is being used, as it could lead to undefined behavior.
     pub unsafe fn get_mut_row_ref(
         &self,
         link: Link,
@@ -181,26 +185,26 @@ impl<Row, const DATA_LENGTH: usize> Data<Row, DATA_LENGTH> {
 
         let inner_data = unsafe { &*self.inner_data.get() };
         let bytes = &inner_data[link.offset as usize..(link.offset + link.length) as usize];
-        Ok(unsafe { rkyv::access_unchecked::<<Row as Archive>::Archived>(&bytes[..]) })
+        Ok(unsafe { rkyv::access_unchecked::<<Row as Archive>::Archived>(bytes) })
     }
 
-    #[cfg_attr(
-        feature = "perf_measurements",
-        performance_measurement(prefix_name = "DataRow")
-    )]
+    //#[cfg_attr(
+    //    feature = "perf_measurements",
+    //    performance_measurement(prefix_name = "DataRow")
+    //)]
     pub fn get_row(&self, link: Link) -> Result<Row, ExecutionError>
     where
         Row: Archive,
         <Row as Archive>::Archived: Deserialize<Row, HighDeserializer<rkyv::rancor::Error>>,
     {
         let row = self.get_row_ref(link)?;
-        return Ok(rkyv::deserialize::<_, rkyv::rancor::Error>(row)
-            .map_err(|_| ExecutionError::DeserializeError)?);
+        rkyv::deserialize::<_, rkyv::rancor::Error>(row)
+            .map_err(|_| ExecutionError::DeserializeError)
     }
 
     pub fn get_bytes(&self) -> [u8; DATA_LENGTH] {
         let data = unsafe { &*self.inner_data.get() };
-        data.0.clone()
+        data.0
     }
 }
 
@@ -422,7 +426,7 @@ mod tests {
 
         let links = other_links
             .into_iter()
-            .chain(links.into_iter())
+            .chain(links)
             .map(|v| v.unwrap())
             .collect::<Vec<_>>();
 

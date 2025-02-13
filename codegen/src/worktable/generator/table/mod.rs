@@ -75,7 +75,7 @@ impl Generator {
             quote! {}
         };
 
-        if let Some(_) = &self.config.as_ref().map(|c| c.page_size).flatten() {
+        if self.config.as_ref().and_then(|c| c.page_size).is_some() {
             quote! {
                 #derive
                 pub struct #ident(
@@ -111,7 +111,7 @@ impl Generator {
         let page_const_name = name_generator.get_page_size_const_ident();
         let inner_const_name = name_generator.get_page_inner_size_const_ident();
 
-        if let Some(page_size) = &self.config.as_ref().map(|c| c.page_size).flatten() {
+        if let Some(page_size) = &self.config.as_ref().and_then(|c| c.page_size) {
             let page_size = Literal::usize_unsuffixed(*page_size as usize);
             quote! {
                 const #page_const_name: usize = #page_size;

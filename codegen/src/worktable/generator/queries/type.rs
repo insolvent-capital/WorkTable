@@ -17,7 +17,7 @@ impl Generator {
             .map(|s| {
                 let type_ident = Ident::new(s.to_string().as_str(), Span::mixed_site());
                 let type_upper =
-                    Ident::new(&s.to_string().to_uppercase().as_str(), Span::mixed_site());
+                    Ident::new(s.to_string().to_uppercase().as_str(), Span::mixed_site());
                 Some(quote! {
                     #[from]
                     #type_upper(#type_ident),

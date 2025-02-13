@@ -12,6 +12,12 @@ pub struct LockMap {
     next_id: AtomicU16,
 }
 
+impl Default for LockMap {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl LockMap {
     pub fn new() -> Self {
         Self {

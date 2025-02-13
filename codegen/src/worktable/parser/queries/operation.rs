@@ -10,7 +10,7 @@ impl Parser {
         let mut ops = HashMap::new();
         while self.has_next() {
             let row = self.parse_operation()?;
-            if ops.get(&row.name).is_some() {
+            if ops.contains_key(&row.name) {
                 return Err(syn::Error::new(row.name.span(), "Non-unique query name"));
             }
             ops.insert(row.name.clone(), row);

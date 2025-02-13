@@ -10,9 +10,9 @@ impl Generator {
         let ident = name_generator.get_work_table_ident();
         let row_type = name_generator.get_row_type_ident();
 
-        let columns = self.columns.columns_map.iter().map(|(name, _)| {
+        let columns = self.columns.columns_map.keys().map(|name| {
             let lit = Literal::string(name.to_string().as_str());
-            if let Some(index) = self.columns.indexes.get(&name) {
+            if let Some(index) = self.columns.indexes.get(name) {
                 let idx_name = &index.name;
                 quote! {
                         #lit => {
@@ -81,6 +81,7 @@ impl Generator {
                             #(#columns)*
                             _ => unreachable!()
                         };
+                        #[allow(unreachable_code)]
                         core::result::Result::Ok(SelectResult::<_, Self>::new(rows).with_params(q.params).execute())
                     }
                 }
@@ -96,8 +97,8 @@ impl Generator {
         let columns = self
             .columns
             .columns_map
-            .iter()
-            .map(|(name, _)| {
+            .keys()
+            .map(|name| {
                 let lit = Literal::string(name.to_string().as_str());
                 quote! {
                     #lit => {

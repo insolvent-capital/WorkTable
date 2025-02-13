@@ -72,22 +72,18 @@ impl Generator {
                     format!("delete_{snake_case_name}").as_str(),
                     Span::mixed_site(),
                 );
-                let index = self
-                    .columns
-                    .indexes
-                    .values()
-                    .find(|idx| idx.field.to_string() == op.by.to_string());
+                let index = self.columns.indexes.values().find(|idx| idx.field == op.by);
                 let type_ = self.columns.columns_map.get(&op.by).unwrap();
                 if let Some(index) = index {
                     let index_name = &index.name;
 
                     if index.is_unique {
-                        Self::gen_unique_delete(&type_, &method_ident, index_name)
+                        Self::gen_unique_delete(type_, &method_ident, index_name)
                     } else {
-                        Self::gen_non_unique_delete(&type_, &method_ident, index_name)
+                        Self::gen_non_unique_delete(type_, &method_ident, index_name)
                     }
                 } else {
-                    Self::gen_brute_force_delete_field(&op.by, &type_, &method_ident)
+                    Self::gen_brute_force_delete_field(&op.by, type_, &method_ident)
                 }
             })
             .collect::<Vec<_>>();

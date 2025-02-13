@@ -47,7 +47,7 @@ async fn update_3_idx() {
     let attr3_new = 1337;
 
     let pk = test_table.insert(row.clone()).unwrap();
-    let _ = test_table
+    test_table
         .update_three_attr_by_id(
             ThreeAttrByIdQuery {
                 attr1: attr1_new.clone(),
@@ -73,10 +73,10 @@ async fn update_3_idx() {
     let updated = test_table.select_by_attr1(attr1_old.clone()).unwrap();
     assert_eq!(updated.vals.first(), None);
 
-    let updated = test_table.select_by_attr2(attr2_old.clone()).unwrap();
+    let updated = test_table.select_by_attr2(attr2_old).unwrap();
     assert_eq!(updated.vals.first(), None);
 
-    let updated = test_table.select_by_attr3(attr3_old.clone()).unwrap();
+    let updated = test_table.select_by_attr3(attr3_old).unwrap();
     assert_eq!(updated.vals.first(), None);
 }
 
@@ -122,7 +122,7 @@ async fn update_2_idx() {
     let attr2_new = 1337;
 
     let pk = test_table.insert(row.clone()).unwrap();
-    let _ = test_table
+    test_table
         .update_all_attr_by_id(
             AllAttrByIdQuery {
                 attr1: attr1_new.clone(),
@@ -144,7 +144,7 @@ async fn update_2_idx() {
     let updated = test_table.select_by_attr1(attr1_old.clone()).unwrap();
     assert_eq!(updated.vals.first(), None);
 
-    let updated = test_table.select_by_attr2(attr2_old.clone()).unwrap();
+    let updated = test_table.select_by_attr2(attr2_old).unwrap();
     assert_eq!(updated.vals.first(), None);
 }
 
@@ -190,7 +190,7 @@ async fn update_1_idx() {
     let attr1_new = "OK".to_string();
 
     let pk = test_table.insert(row.clone()).unwrap();
-    let _ = test_table
+    test_table
         .update_attr_1_by_id(
             Attr1ByIdQuery {
                 attr1: attr1_new.clone(),

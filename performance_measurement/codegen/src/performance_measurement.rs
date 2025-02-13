@@ -21,12 +21,12 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
     let fn_sig = &input_fn.sig;
     let fn_vis = &input_fn.vis;
 
-    let mut attr = parse_attr(attr)?;
+    let attr = parse_attr(attr)?;
 
     let mut test_sig = input_fn.sig.clone();
     test_sig.ident = Ident::new(format!("__{}", test_sig.ident).as_str(), item.span());
 
-    let fn_name = Literal::string(format!("{}::{}", attr.name, fn_name.to_string()).as_str());
+    let fn_name = Literal::string(format!("{}::{}", attr.name, fn_name).as_str());
 
     Ok(quote! {
         #fn_vis #fn_sig {
@@ -52,7 +52,7 @@ pub fn parse_name(iter: &mut token_stream::IntoIter, attr: &TokenStream) -> syn:
         .next()
         .ok_or(syn::Error::new(attr.span(), "Expected `prefix_name` field"))?;
     if let TokenTree::Ident(field) = name_field {
-        if field.to_string() != "prefix_name".to_string() {
+        if field != *"prefix_name" {
             return Err(syn::Error::new(attr.span(), "Expected `prefix_name` field"));
         };
     } else {
@@ -63,7 +63,7 @@ pub fn parse_name(iter: &mut token_stream::IntoIter, attr: &TokenStream) -> syn:
         .next()
         .ok_or(syn::Error::new(attr.span(), "Expected `=`"))?;
     if let TokenTree::Punct(eq) = eq {
-        if eq.to_string() != "=".to_string() {
+        if eq.to_string() != *"=" {
             return Err(syn::Error::new(attr.span(), "Expected `=`"));
         };
     } else {
