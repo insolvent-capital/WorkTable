@@ -41,4 +41,8 @@ impl LockMap {
     pub fn next_id(&self) -> u16 {
         self.next_id.fetch_add(1, Ordering::Relaxed)
     }
+
+    pub fn is_locked(&self, id: LockId) -> bool {
+        self.set.get(&id).is_some()
+    }
 }

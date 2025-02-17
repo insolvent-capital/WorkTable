@@ -54,10 +54,12 @@ pub fn expand(input: TokenStream) -> syn::Result<TokenStream> {
     let table_def = generator.gen_table_def()?;
     let query_types_def = generator.gen_result_types_def()?;
     let query_available_def = generator.gen_available_types_def()?;
-    let query_locks_impls = generator.gen_query_locks_impl()?;
+    //let query_locks_impls = generator.gen_query_locks_impl()?;
     let select_impls = generator.gen_query_select_impl()?;
     let update_impls = generator.gen_query_update_impl()?;
     let delete_impls = generator.gen_query_delete_impl()?;
+
+    //println!("qlocks {}", query_locks_impls);
 
     Ok(quote! {
         #pk_def
@@ -67,7 +69,7 @@ pub fn expand(input: TokenStream) -> syn::Result<TokenStream> {
         #index_def
         #table_def
         #query_types_def
-        #query_locks_impls
+        //#query_locks_impls
         #select_impls
         #update_impls
         #delete_impls

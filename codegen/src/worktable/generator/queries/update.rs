@@ -21,6 +21,8 @@ impl Generator {
         };
         let full_row_update = self.gen_full_row_update();
 
+        println!("full_row_update {}", full_row_update.to_string());
+
         let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
         let table_ident = name_generator.get_work_table_ident();
         Ok(quote! {
@@ -53,35 +55,36 @@ impl Generator {
                 let lock = std::sync::Arc::new(Lock::new());
                 self.0.lock_map.insert(op_id.into(), lock.clone());
 
-                let mut bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&row).map_err(|_| WorkTableError::SerializeError)?;
-                let mut row = unsafe { rkyv::access_unchecked_mut::<<#row_ident as rkyv::Archive>::Archived>(&mut bytes[..]).unseal_unchecked() };
+                let mut bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&row)
+                    .map_err(|_| WorkTableError::SerializeError)?;
+                let mut row = unsafe {
+                    rkyv::access_unchecked_mut::<<#row_ident as rkyv::Archive>::Archived>(&mut bytes[..])
+                        .unseal_unchecked()
+                };
                 let link = self.0
                     .pk_map
                     .get(&pk)
                     .map(|v| v.get().value)
                     .ok_or(WorkTableError::NotFound)?;
 
-                let id = self.0.data.with_ref(link, |archived| {
-                    archived.is_locked()
-                }).map_err(WorkTableError::PagesError)?;
-                if let Some(id) = id {
-                    if let Some(lock) = self.0.lock_map.get(&(id.into())) {
-                        lock.as_ref().await
+                let lock_id = worktable::lock::LockId::from(pk.into());
+
+                if self.0.lock_map.is_locked(lock_id) {
+                    if let Some(lock) = self.0.lock_map.get(&lock_id) {
+                        lock.as_ref().await;
                     }
                 }
-                unsafe { self.0.data.with_mut_ref(link, |archived| {
-                    archived.lock = op_id.into();
-                }).map_err(WorkTableError::PagesError)? };
-                unsafe { self.0.data.with_mut_ref(link, move |archived| {
-                    #(#row_updates)*
-                }).map_err(WorkTableError::PagesError)? };
-                unsafe { self.0.data.with_mut_ref(link, |archived| {
-                    unsafe {
-                        archived.lock = 0u16.into();
-                    }
-                }).map_err(WorkTableError::PagesError)? };
-                lock.unlock();
-                self.0.lock_map.remove(&op_id.into());
+
+
+                self.0.lock_map.insert(lock_id, lock.clone());
+
+                unsafe {
+                    self.0.data.with_mut_ref(link, move |archived| {
+                        #(#row_updates)*
+                    }).map_err(WorkTableError::PagesError)?;
+                }
+
+                self.0.lock_map.remove(&lock_id);
                 core::result::Result::Ok(())
             }
         }
@@ -154,23 +157,6 @@ impl Generator {
 
         let query_ident = Ident::new(format!("{name}Query").as_str(), Span::mixed_site());
 
-        let check_ident = Ident::new(
-            format!("check_{snake_case_name}_lock").as_str(),
-            Span::mixed_site(),
-        );
-        let lock_ident = Ident::new(
-            format!("lock_{snake_case_name}").as_str(),
-            Span::mixed_site(),
-        );
-        let unlock_ident = Ident::new(
-            format!("unlock_{snake_case_name}").as_str(),
-            Span::mixed_site(),
-        );
-        let verify_ident = Ident::new(
-            format!("verify_{snake_case_name}_lock").as_str(),
-            Span::mixed_site(),
-        );
-
         let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
         let avt_type_ident = name_generator.get_available_type_ident();
 
@@ -242,33 +228,19 @@ impl Generator {
 
                  #process_diff_ident
 
-                let id = self.0.data.with_ref(link, |archived| {
-                    archived.#check_ident()
-                }).map_err(WorkTableError::PagesError)?;
-                if let Some(id) = id {
-                    if let Some(lock) = self.0.lock_map.get(&(id.into())) {
-                        lock.as_ref().await
-                    }
+                let lock_id = worktable::lock::LockId::from(by.into());
+
+                if let Some(existing_lock) = self.0.lock_map.get(&lock_id) {
+                    existing_lock.as_ref().await;
                 }
-                unsafe { self.0.data.with_mut_ref(link, |archived| {
-                    while !archived.#verify_ident(op_id) {
-                        unsafe {
-                            archived.#lock_ident(op_id)
-                        }
-                    }
-                }).map_err(WorkTableError::PagesError)? };
+
+                self.0.lock_map.insert(lock_id, lock.clone());
 
                 unsafe { self.0.data.with_mut_ref(link, |archived| {
                     #(#row_updates)*
                 }).map_err(WorkTableError::PagesError)? };
 
-                unsafe { self.0.data.with_mut_ref(link, |archived| {
-                    unsafe {
-                        archived.#unlock_ident()
-                    }
-                }).map_err(WorkTableError::PagesError)? };
-                lock.unlock();
-                self.0.lock_map.remove(&op_id.into());
+                self.0.lock_map.remove(&lock_id);
 
                 core::result::Result::Ok(())
             }
@@ -290,22 +262,6 @@ impl Generator {
         let query_ident = Ident::new(format!("{name}Query").as_str(), Span::mixed_site());
         let by_ident = Ident::new(format!("{name}By").as_str(), Span::mixed_site());
 
-        let check_ident = Ident::new(
-            format!("check_{snake_case_name}_lock").as_str(),
-            Span::mixed_site(),
-        );
-        let lock_ident = Ident::new(
-            format!("lock_{snake_case_name}").as_str(),
-            Span::mixed_site(),
-        );
-        let unlock_ident = Ident::new(
-            format!("unlock_{snake_case_name}").as_str(),
-            Span::mixed_site(),
-        );
-        let verify_ident = Ident::new(
-            format!("verify_{snake_case_name}_lock").as_str(),
-            Span::mixed_site(),
-        );
         let row_updates = idents
             .iter()
             .map(|i| {
@@ -322,41 +278,30 @@ impl Generator {
 
                 self.0.lock_map.insert(op_id.into(), lock.clone());
 
-                for (_, link) in self.0.indexes.#index.get(&by) {
-                    let id = self.0.data.with_ref(*link, |archived| {
-                        archived.#check_ident()
-                    }).map_err(WorkTableError::PagesError)?;
-                    if let Some(id) = id {
-                        if let Some(lock) = self.0.lock_map.get(&(id.into())) {
-                            lock.as_ref().await
-                        }
+                let links = self.0.indexes.#index.get(&by)
+                    .map(|entries| entries.iter().map(|(_, link)| *link).collect::<Vec<_>>())
+                    .unwrap_or_default();
+
+
+                for link in &links {
+                    let lock_id = worktable::lock::LockId::from(*link.into());
+                    if let Some(existing_lock) = self.0.lock_map.get(&lock_id) {
+                        existing_lock.as_ref().await;
                     }
-                    unsafe { self.0.data.with_mut_ref(*link, |archived| {
-                        while !archived.#verify_ident(op_id) {
-                            unsafe {
-                                archived.#lock_ident(op_id)
-                            }
-                        }
-                    }).map_err(WorkTableError::PagesError)? };
+                    self.0.lock_map.insert(lock_id, lock.clone());
                 }
 
-                for (_, link) in self.0.indexes.#index.get(&by) {
-                    let mut bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&row).map_err(|_| WorkTableError::SerializeError)?;
-                    let mut row = unsafe { rkyv::access_unchecked_mut::<<#query_ident as rkyv::Archive>::Archived>(&mut bytes[..]).unseal_unchecked() };
-                    unsafe { self.0.data.with_mut_ref(*link, |archived| {
-                        #(#row_updates)*
-                    }).map_err(WorkTableError::PagesError)? };
+                for link in &links {
+                    unsafe {
+                        self.0.data.with_mut_ref(*link, |archived| {
+                            #(#row_updates)*
+                        }).map_err(WorkTableError::PagesError)?;
+                    }
                 }
 
-                for (_, link) in self.0.indexes.#index.get(&by) {
-                    unsafe { self.0.data.with_mut_ref(*link, |archived| {
-                        unsafe {
-                            archived.#unlock_ident()
-                        }
-                    }).map_err(WorkTableError::PagesError)? };
+                for link in &links {
+                    self.0.lock_map.remove(&LockId::from(*link.into()));
                 }
-                lock.unlock();
-                self.0.lock_map.remove(&op_id.into());
 
                 core::result::Result::Ok(())
             }
@@ -378,22 +323,6 @@ impl Generator {
         let query_ident = Ident::new(format!("{name}Query").as_str(), Span::mixed_site());
         let by_ident = Ident::new(format!("{name}By").as_str(), Span::mixed_site());
 
-        let check_ident = Ident::new(
-            format!("check_{snake_case_name}_lock").as_str(),
-            Span::mixed_site(),
-        );
-        let lock_ident = Ident::new(
-            format!("lock_{snake_case_name}").as_str(),
-            Span::mixed_site(),
-        );
-        let unlock_ident = Ident::new(
-            format!("unlock_{snake_case_name}").as_str(),
-            Span::mixed_site(),
-        );
-        let verify_ident = Ident::new(
-            format!("verify_{snake_case_name}_lock").as_str(),
-            Span::mixed_site(),
-        );
         let row_updates = idents
             .iter()
             .map(|i| {
@@ -412,34 +341,14 @@ impl Generator {
 
                 let mut bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&row).map_err(|_| WorkTableError::SerializeError)?;
                 let mut row = unsafe { rkyv::access_unchecked_mut::<<#query_ident as rkyv::Archive>::Archived>(&mut bytes[..]).unseal_unchecked() };
-                let link = self.0.indexes.#index.get(&by).map(|kv| kv.get().value).ok_or(WorkTableError::NotFound)?;
-                let id = self.0.data.with_ref(link, |archived| {
-                    archived.#check_ident()
-                }).map_err(WorkTableError::PagesError)?;
-                if let Some(id) = id {
-                    if let Some(lock) = self.0.lock_map.get(&(id.into())) {
-                        lock.as_ref().await
-                    }
+
+                unsafe {
+                    self.0.data.with_mut_ref(link, |archived| {
+                        #(#row_updates)*
+                    }).map_err(WorkTableError::PagesError)?;
                 }
-                unsafe { self.0.data.with_mut_ref(link, |archived| {
-                    while !archived.#verify_ident(op_id) {
-                        unsafe {
-                            archived.#lock_ident(op_id)
-                        }
-                    }
-                }).map_err(WorkTableError::PagesError)? };
 
-                unsafe { self.0.data.with_mut_ref(link, |archived| {
-                    #(#row_updates)*
-                }).map_err(WorkTableError::PagesError)? };
-
-                unsafe { self.0.data.with_mut_ref(link, |archived| {
-                    unsafe {
-                        archived.#unlock_ident()
-                    }
-                }).map_err(WorkTableError::PagesError)? };
-                lock.unlock();
-                self.0.lock_map.remove(&op_id.into());
+                self.0.lock_map.remove(&lock_id);
 
                 core::result::Result::Ok(())
             }
