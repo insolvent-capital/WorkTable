@@ -60,24 +60,81 @@ async fn update_3_idx() {
         .unwrap();
 
     // Checks idx updated
-    let updated = test_table.select_by_attr1(attr1_new.clone()).unwrap();
-    assert_eq!(updated.vals.first().unwrap().attr1, attr1_new);
-
-    let updated = test_table.select_by_attr2(attr2_new).unwrap();
-    assert_eq!(updated.vals.first().unwrap().attr2, attr2_new);
-
-    let updated = test_table.select_by_attr3(attr3_new).unwrap();
-    assert_eq!(updated.vals.first().unwrap().attr3, attr3_new);
+    let updated = test_table
+        .select_by_attr1(attr1_new.clone())
+        .unwrap()
+        .execute();
+    assert_eq!(updated.first().unwrap().attr1, attr1_new);
+    let updated = test_table.select_by_attr2(attr2_new).unwrap().execute();
+    assert_eq!(updated.first().unwrap().attr2, attr2_new);
+    let updated = test_table.select_by_attr3(attr3_new).unwrap().execute();
+    assert_eq!(updated.first().unwrap().attr3, attr3_new);
 
     // Check old idx removed
-    let updated = test_table.select_by_attr1(attr1_old.clone()).unwrap();
-    assert_eq!(updated.vals.first(), None);
+    let updated = test_table
+        .select_by_attr1(attr1_old.clone())
+        .unwrap()
+        .execute();
+    assert_eq!(updated.first(), None);
+    let updated = test_table.select_by_attr2(attr2_old).unwrap().execute();
+    assert_eq!(updated.first(), None);
+    let updated = test_table.select_by_attr3(attr3_old).unwrap().execute();
+    assert_eq!(updated.first(), None);
+}
 
-    let updated = test_table.select_by_attr2(attr2_old).unwrap();
-    assert_eq!(updated.vals.first(), None);
+#[tokio::test]
+async fn update_3_idx_full_row() {
+    let test_table = Test3WorkTable::default();
 
-    let updated = test_table.select_by_attr3(attr3_old).unwrap();
-    assert_eq!(updated.vals.first(), None);
+    let attr1_old = "TEST".to_string();
+    let attr2_old = 1000;
+    let attr3_old = 65000;
+
+    let row = Test3Row {
+        val: 1,
+        attr1: attr1_old.clone(),
+        attr2: attr2_old,
+        attr3: attr3_old,
+        id: 0,
+    };
+
+    let attr1_new = "1337".to_string();
+    let attr2_new = 1337;
+    let attr3_new = 1337;
+
+    let pk = test_table.insert(row.clone()).unwrap();
+    test_table
+        .update(Test3Row {
+            attr1: attr1_new.clone(),
+            id: pk.clone().into(),
+            val: row.val,
+            attr2: attr2_new,
+            attr3: attr3_new,
+        })
+        .await
+        .unwrap();
+
+    // Checks idx updated
+    let updated = test_table
+        .select_by_attr1(attr1_new.clone())
+        .unwrap()
+        .execute();
+    assert_eq!(updated.first().unwrap().attr1, attr1_new);
+    let updated = test_table.select_by_attr2(attr2_new).unwrap().execute();
+    assert_eq!(updated.first().unwrap().attr2, attr2_new);
+    let updated = test_table.select_by_attr3(attr3_new).unwrap().execute();
+    assert_eq!(updated.first().unwrap().attr3, attr3_new);
+
+    // Check old idx removed
+    let updated = test_table
+        .select_by_attr1(attr1_old.clone())
+        .unwrap()
+        .execute();
+    assert_eq!(updated.first(), None);
+    let updated = test_table.select_by_attr2(attr2_old).unwrap().execute();
+    assert_eq!(updated.first(), None);
+    let updated = test_table.select_by_attr3(attr3_old).unwrap().execute();
+    assert_eq!(updated.first(), None);
 }
 
 // The test checks updates for 2 indecies at once
@@ -134,18 +191,69 @@ async fn update_2_idx() {
         .unwrap();
 
     // Checks idx updated
-    let updated = test_table.select_by_attr1(attr1_new.clone()).unwrap();
-    assert_eq!(updated.vals.first().unwrap().attr1, attr1_new);
-
-    let updated = test_table.select_by_attr2(attr2_new).unwrap();
-    assert_eq!(updated.vals.first().unwrap().attr2, attr2_new);
+    let updated = test_table
+        .select_by_attr1(attr1_new.clone())
+        .unwrap()
+        .execute();
+    assert_eq!(updated.first().unwrap().attr1, attr1_new);
+    let updated = test_table.select_by_attr2(attr2_new).unwrap().execute();
+    assert_eq!(updated.first().unwrap().attr2, attr2_new);
 
     // Check old idx removed
-    let updated = test_table.select_by_attr1(attr1_old.clone()).unwrap();
-    assert_eq!(updated.vals.first(), None);
+    let updated = test_table
+        .select_by_attr1(attr1_old.clone())
+        .unwrap()
+        .execute();
+    assert_eq!(updated.first(), None);
+    let updated = test_table.select_by_attr2(attr2_old).unwrap().execute();
+    assert_eq!(updated.first(), None);
+}
 
-    let updated = test_table.select_by_attr2(attr2_old).unwrap();
-    assert_eq!(updated.vals.first(), None);
+#[tokio::test]
+async fn update_2_idx_full_row() {
+    let test_table = Test2WorkTable::default();
+
+    let attr1_old = "TEST".to_string();
+    let attr2_old = 1000;
+
+    let row = Test2Row {
+        val: 1,
+        attr1: attr1_old.clone(),
+        attr2: attr2_old,
+        id: 0,
+    };
+
+    let attr1_new = "OK".to_string();
+    let attr2_new = 1337;
+
+    let pk = test_table.insert(row.clone()).unwrap();
+    test_table
+        .update(Test2Row {
+            id: pk.clone().into(),
+            attr1: attr1_new.clone(),
+            attr2: attr2_new,
+            val: row.val,
+        })
+        .await
+        .unwrap();
+
+    // Checks idx updated
+    let updated = test_table
+        .select_by_attr1(attr1_new.clone())
+        .unwrap()
+        .execute();
+    assert_eq!(updated.first().unwrap().attr1, attr1_new);
+    let updated = test_table.select_by_attr2(attr2_new).unwrap().execute();
+    assert_eq!(updated.first().unwrap().attr2, attr2_new);
+
+    // Check old idx removed
+    let updated = test_table
+        .select_by_attr1(attr1_old.clone())
+        .unwrap()
+        .execute();
+    assert_eq!(updated.first(), None);
+    let updated = test_table.select_by_attr2(attr2_old).unwrap().execute();
+    assert_eq!(updated.first(), None);
 }
 
 // The test checks updates for 1 index
@@ -165,7 +273,6 @@ worktable!(
         update: {
             ValByAttr(val) by attr1,
             Attr1ById(attr1) by id,
-
         },
         delete: {
             ById() by id,
@@ -201,10 +308,58 @@ async fn update_1_idx() {
         .unwrap();
 
     // Checks idx updated
-    let updated = test_table.select_by_attr1(attr1_new.clone()).unwrap();
-    assert_eq!(updated.vals.first().unwrap().attr1, attr1_new);
+    let updated = test_table
+        .select_by_attr1(attr1_new.clone())
+        .unwrap()
+        .execute();
+    assert_eq!(updated.first().unwrap().attr1, attr1_new);
 
     // Check old idx removed
-    let updated = test_table.select_by_attr1(attr1_old.clone()).unwrap();
-    assert_eq!(updated.vals.first(), None);
+    let updated = test_table
+        .select_by_attr1(attr1_old.clone())
+        .unwrap()
+        .execute();
+    assert_eq!(updated.first(), None);
+}
+
+#[tokio::test]
+async fn update_1_idx_full_row() {
+    let test_table = TestWorkTable::default();
+
+    let attr1_old = "TEST".to_string();
+    let attr2_old = 1000;
+
+    let row = TestRow {
+        val: 1,
+        attr1: attr1_old.clone(),
+        attr2: attr2_old,
+        id: 0,
+    };
+
+    let attr1_new = "OK".to_string();
+
+    let pk = test_table.insert(row.clone()).unwrap();
+    test_table
+        .update(TestRow {
+            attr2: row.attr2,
+            id: pk.clone().into(),
+            attr1: attr1_new.clone(),
+            val: row.val,
+        })
+        .await
+        .unwrap();
+
+    // Checks idx updated
+    let updated = test_table
+        .select_by_attr1(attr1_new.clone())
+        .unwrap()
+        .execute();
+    assert_eq!(updated.first().unwrap().attr1, attr1_new);
+
+    // Check old idx removed
+    let updated = test_table
+        .select_by_attr1(attr1_old.clone())
+        .unwrap()
+        .execute();
+    assert_eq!(updated.first(), None);
 }
