@@ -17,20 +17,6 @@ pub trait RowWrapper<Inner> {
     fn from_inner(inner: Inner) -> Self;
 }
 
-pub trait ArchivedRow {
-    fn is_locked(&self) -> Option<u16>;
-}
-
-pub trait Lockable {
-    fn is_locked(&self) -> bool;
-}
-
-impl Lockable for () {
-    fn is_locked(&self) -> bool {
-        false
-    }
-}
-
 /// General `Row` wrapper that is used to append general data for every `Inner`
 /// `Row`.
 #[derive(Archive, Deserialize, Debug, Serialize)]
@@ -54,14 +40,5 @@ impl<Inner> RowWrapper<Inner> for GeneralRow<Inner> {
             inner,
             deleted: AtomicBool::new(false),
         }
-    }
-}
-
-impl<Inner> ArchivedRow for ArchivedGeneralRow<Inner>
-where
-    Inner: Archive,
-{
-    fn is_locked(&self) -> Option<u16> {
-        None
     }
 }

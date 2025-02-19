@@ -7,19 +7,36 @@ use std::task::{Context, Poll};
 
 use derive_more::From;
 use futures::task::AtomicWaker;
-use rkyv::{Archive, Deserialize, Serialize};
 
 pub use set::LockMap;
-
-#[derive(
-    Archive, Clone, Copy, Deserialize, Debug, Eq, From, Hash, Ord, Serialize, PartialEq, PartialOrd,
-)]
-pub struct LockId(u16);
 
 #[derive(Debug)]
 pub struct Lock {
     pub locked: AtomicBool,
     waker: AtomicWaker,
+}
+
+impl Lock {
+    pub fn new() -> Self {
+        Self {
+            locked: AtomicBool::from(true),
+            waker: AtomicWaker::new(),
+        }
+    }
+
+    pub fn unlock(&self) {
+        self.locked.store(false, Ordering::Relaxed);
+        self.waker.wake()
+    }
+
+    pub fn lock(&self) {
+        self.locked.store(true, Ordering::Relaxed);
+        self.waker.wake()
+    }
+
+    pub fn is_locked(&self) -> bool {
+        self.locked.load(Ordering::Acquire)
+    }
 }
 
 impl Future for &Lock {
@@ -38,19 +55,5 @@ impl Future for &Lock {
 impl Default for Lock {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-impl Lock {
-    pub fn new() -> Self {
-        Self {
-            locked: AtomicBool::from(true),
-            waker: AtomicWaker::new(),
-        }
-    }
-
-    pub fn unlock(&self) {
-        self.locked.store(false, Ordering::Relaxed);
-        self.waker.wake()
     }
 }

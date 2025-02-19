@@ -21,6 +21,8 @@ impl Generator {
         };
         let full_row_update = self.gen_full_row_update();
 
+        println!("{}", full_row_update);
+
         let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
         let table_ident = name_generator.get_work_table_ident();
         Ok(quote! {
@@ -34,6 +36,7 @@ impl Generator {
     fn gen_full_row_update(&mut self) -> TokenStream {
         let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
         let row_ident = name_generator.get_row_type_ident();
+        let lock_ident = name_generator.get_lock_type_ident();
 
         let row_updates = self
             .columns
@@ -49,9 +52,14 @@ impl Generator {
         quote! {
             pub async fn update(&self, row: #row_ident) -> core::result::Result<(), WorkTableError> {
                 let pk = row.get_primary_key();
-                let op_id = self.0.lock_map.next_id();
-                let lock = std::sync::Arc::new(Lock::new());
-                self.0.lock_map.insert(op_id.into(), lock.clone());
+
+                if let Some(lock) = self.0.lock_map.get(&pk) {
+                    lock.lock_await();   // Waiting for all locks released
+                }
+
+                let lock = std::sync::Arc::new(#lock_ident::new());   //Creates new LockType with None
+                lock.lock(); // Locks all fields
+                self.0.lock_map.insert(pk.clone(), lock.clone()); // adds LockType to LockMap
 
                 let mut bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&row).map_err(|_| WorkTableError::SerializeError)?;
                 let mut row = unsafe { rkyv::access_unchecked_mut::<<#row_ident as rkyv::Archive>::Archived>(&mut bytes[..]).unseal_unchecked() };
@@ -61,27 +69,12 @@ impl Generator {
                     .map(|v| v.get().value)
                     .ok_or(WorkTableError::NotFound)?;
 
-                let id = self.0.data.with_ref(link, |archived| {
-                    archived.is_locked()
-                }).map_err(WorkTableError::PagesError)?;
-                if let Some(id) = id {
-                    if let Some(lock) = self.0.lock_map.get(&(id.into())) {
-                        lock.as_ref().await
-                    }
-                }
-                unsafe { self.0.data.with_mut_ref(link, |archived| {
-                    archived.lock = op_id.into();
-                }).map_err(WorkTableError::PagesError)? };
                 unsafe { self.0.data.with_mut_ref(link, move |archived| {
                     #(#row_updates)*
                 }).map_err(WorkTableError::PagesError)? };
-                unsafe { self.0.data.with_mut_ref(link, |archived| {
-                    unsafe {
-                        archived.lock = 0u16.into();
-                    }
-                }).map_err(WorkTableError::PagesError)? };
-                lock.unlock();
-                self.0.lock_map.remove(&op_id.into());
+
+                lock.unlock();  // Releases locks
+                self.0.lock_map.remove(&pk); // Removes locks
                 core::result::Result::Ok(())
             }
         }
@@ -120,11 +113,21 @@ impl Generator {
                     if index.is_unique {
                         self.gen_unique_update(snake_case_name, name, index_name, idents)
                     } else {
-                        self.gen_non_unique_update(snake_case_name, name, index_name, idents)
+                        let t =
+                            self.gen_non_unique_update(snake_case_name, name, index_name, idents);
+                        println!("!non-unique {}", t);
+                        t
                     }
                 } else if self.columns.primary_keys.len() == 1 {
                     if *self.columns.primary_keys.first().unwrap() == op.by {
-                        self.gen_pk_update(snake_case_name, name, idents, indexes_columns.as_ref())
+                        let t = self.gen_pk_update(
+                            snake_case_name,
+                            name,
+                            idents,
+                            indexes_columns.as_ref(),
+                        );
+                        println!("!gen_pk {}", t);
+                        t
                     } else {
                         todo!()
                     }

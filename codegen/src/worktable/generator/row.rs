@@ -9,6 +9,8 @@ impl Generator {
         let def = self.gen_row_type();
         let table_row_impl = self.gen_row_table_row_impl();
 
+        println!("!def {}", def);
+
         quote! {
             #def
             #table_row_impl

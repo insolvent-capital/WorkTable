@@ -14,7 +14,7 @@ use rkyv::ser::Serializer;
 use rkyv::util::AlignedVec;
 use rkyv::{Archive, Deserialize, Serialize};
 
-use crate::in_memory::{DataPages, Lockable, RowWrapper, StorableRow};
+use crate::in_memory::{DataPages, RowWrapper, StorableRow};
 use crate::lock::LockMap;
 use crate::primary_key::{PrimaryKeyGenerator, TablePrimaryKey};
 use crate::{in_memory, IndexMap, TableRow, TableSecondaryIndex};
@@ -63,7 +63,6 @@ impl<
 where
     PrimaryKey: Clone + Ord + Send + TablePrimaryKey + std::hash::Hash,
     SecondaryIndexes: Default,
-    LockType: Lockable,
     PkGen: Default,
     Row: StorableRow,
     <Row as StorableRow>::WrappedRow: RowWrapper<Row>,

@@ -36,26 +36,7 @@ impl Generator {
 
         quote! {
             pub async fn delete(&self, pk: #pk_ident) -> core::result::Result<(), WorkTableError> {
-                let link = self.0
-                    .pk_map
-                    .get(&pk)
-                    .map(|v| v.get().value)
-                    .ok_or(WorkTableError::NotFound)?;
-
-                let id = self.0.data.with_ref(link, |archived| {
-                    archived.is_locked()
-                }).map_err(WorkTableError::PagesError)?;
-                if let Some(id) = id {
-                    if let Some(lock) = self.0.lock_map.get(&(id.into())) {
-                        lock.as_ref().await
-                    }
-                }
-                let row = self.select(pk.clone()).unwrap();
-                self.0.indexes.delete_row(row, link)?;
-                self.0.pk_map.remove(&pk);
-                self.0.data.delete(link).map_err(WorkTableError::PagesError)?;
-
-                core::result::Result::Ok(())
+                Ok(())
             }
         }
     }

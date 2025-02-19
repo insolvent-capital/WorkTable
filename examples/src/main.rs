@@ -20,14 +20,11 @@ fn main() {
         },
         queries: {
             update: {
-                ValById(val) by id,
-                AllAttrById(attr, attr2) by id,
-                UpdateOptionalById(test) by id,
+               // ValById(val) by id,
+               // AllAttrById(attr, attr2) by id,
+               // UpdateTestByIdx(test) by attr,
             },
-            delete: {
-                ByAttr() by attr,
-                ById() by id,
-            }
+
         }
     );
 
@@ -43,31 +40,43 @@ fn main() {
         id: 0,
     };
 
+    let row2 = MyRow {
+        val: 444,
+        attr: "Attri".to_string(),
+        attr2: 3456,
+        test: 22,
+        id: 0,
+    };
+
     // insert
     let pk: MyPrimaryKey = my_table.insert(row).expect("primary key");
 
-    // Select ALL records from WT
+    let upd = my_table.update(row2);
+    let _ = block_on(upd);
+
+    //
+    //// Select ALL records from WT
     let select_all = my_table.select_all().execute();
     println!("Select All {:?}", select_all);
-
-    // Select All records with attribute TEST
-    let select_all = my_table.select_all().execute();
-    println!("Select All {:?}", select_all);
-
-    // Select by Idx
-    let select_by_attr = my_table.select_by_attr("Attribute1".to_string());
-    println!("Select by idx {:?}", select_by_attr.unwrap().vals);
-
-    // Update Value query
-    let update = my_table.update_val_by_id(ValByIdQuery { val: 1337 }, pk.clone());
-    let _ = block_on(update);
-
-    let select_all = my_table.select_all().execute();
-    println!("Select after update val {:?}", select_all);
-
-    let delete = my_table.delete(pk);
-    let _ = block_on(delete);
-
-    let select_all = my_table.select_all().execute();
-    println!("Select after delete {:?}", select_all);
+    //
+    //// Select All records with attribute TEST
+    //let select_all = my_table.select_all().execute();
+    //println!("Select All {:?}", select_all);
+    //
+    //// Select by Idx
+    //let select_by_attr = my_table.select_by_attr("Attribute1".to_string());
+    //println!("Select by idx {:?}", select_by_attr.unwrap().vals);
+    //
+    //// Update Value query
+    //let update = my_table.update_val_by_id(ValByIdQuery { val: 1337 }, pk.clone());
+    //let _ = block_on(update);
+    //
+    //let select_all = my_table.select_all().execute();
+    //println!("Select after update val {:?}", select_all);
+    //
+    //let delete = my_table.delete(pk);
+    //let _ = block_on(delete);
+    //
+    //let select_all = my_table.select_all().execute();
+    //println!("Select after delete {:?}", select_all);
 }

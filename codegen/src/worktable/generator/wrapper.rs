@@ -7,16 +7,13 @@ impl Generator {
     pub fn gen_wrapper_def(&self) -> TokenStream {
         let type_ = self.gen_wrapper_type();
         let impl_ = self.gen_wrapper_impl();
-        let archived_impl = self.get_wrapper_archived_impl();
         let storable_impl = self.get_wrapper_storable_impl();
 
         println!("!TYPE {}", type_);
-        println!("!Archived {}", archived_impl);
 
         quote! {
             #type_
             #impl_
-            #archived_impl
             #storable_impl
         }
     }
@@ -34,35 +31,111 @@ impl Generator {
             .map(|i| {
                 let name = Ident::new(format!("{i}_lock").as_str(), Span::mixed_site());
                 quote! {
-                    #name: u16,
-                }
-            })
-            .collect::<Vec<_>>();
-
-        let row_locks2 = self
-            .columns
-            .columns_map
-            .keys()
-            .map(|i| {
-                let name = Ident::new(format!("{i}_lock").as_str(), Span::mixed_site());
-                quote! {
                     #name: Option<std::sync::Arc<Lock>>,
                 }
             })
             .collect::<Vec<_>>();
+
+        let row_new = self
+            .columns
+            .columns_map
+            .keys()
+            .map(|i| {
+                let col = Ident::new(format!("{i}_lock").as_str(), Span::mixed_site());
+                quote! {
+                    #col: None
+                }
+            })
+            .collect::<Vec<_>>();
+
+        let lock_await = self
+            .columns
+            .columns_map
+            .keys()
+            .map(|col| {
+                let col = Ident::new(format!("{}_lock", col).as_str(), Span::mixed_site());
+                quote! {
+                   if let Some(lock) = &self.#col {
+                        futures.push(lock.as_ref());
+                   }
+                }
+            })
+            .collect::<Vec<_>>();
+
+        let row_unlock = self
+            .columns
+            .columns_map
+            .keys()
+            .map(|col| {
+                let col = Ident::new(format!("{}_lock", col).as_str(), Span::mixed_site());
+                quote! {
+                     if let Some(#col) = &self.#col {
+                        #col.unlock();
+                     }
+                }
+            })
+            .collect::<Vec<_>>();
+
+        let row_lock = self
+            .columns
+            .columns_map
+            .keys()
+            .map(|col| {
+                let col = Ident::new(format!("{}_lock", col).as_str(), Span::mixed_site());
+                quote! {
+                     if let Some(#col) = &self.#col {
+                        #col.lock();
+                     }
+                }
+            })
+            .collect::<Vec<_>>();
+
         quote! {
             #[derive(rkyv::Archive, Debug, rkyv::Deserialize, rkyv::Serialize)]
             #[repr(C)]
             pub struct #wrapper_ident {
                 inner: #row_ident,
                 is_deleted: bool,
-                lock: u16,
-                #(#row_locks)*
             }
+
             #[derive(Debug)]
              pub struct #lock_ident {
                 lock: Option<std::sync::Arc<Lock>>,
-                #(#row_locks2)*
+                #(#row_locks)*
+            }
+
+            impl #lock_ident {
+                pub fn new() -> Self {
+                    Self {
+                        lock: None,
+                        #(#row_new),*
+                    }
+                }
+
+                pub fn lock(&self) {
+                    if let Some(lock) = &self.lock {
+                        lock.lock();
+                    }
+                    #(#row_lock)*
+                }
+
+
+                pub fn unlock(&self) {
+                    if let Some(lock) = &self.lock {
+                        lock.unlock();
+                    }
+                    #(#row_unlock)*
+                }
+
+                pub async fn lock_await(&self) {
+                    let mut futures = Vec::new();
+
+                    if let Some(lock) = &self.lock {
+                        futures.push(lock.as_ref());
+                    }
+                    #(#lock_await)*
+                    futures::future::join_all(futures).await;
+                }
             }
         }
     }
@@ -71,18 +144,6 @@ impl Generator {
         let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
         let wrapper_ident = name_generator.get_wrapper_type_ident();
         let row_ident = name_generator.get_row_type_ident();
-
-        let row_defaults = self
-            .columns
-            .columns_map
-            .keys()
-            .map(|i| {
-                let name = Ident::new(format!("{i}_lock").as_str(), Span::mixed_site());
-                quote! {
-                    #name: Default::default(),
-                }
-            })
-            .collect::<Vec<_>>();
 
         quote! {
 
@@ -95,76 +156,7 @@ impl Generator {
                     Self {
                         inner,
                         is_deleted: Default::default(),
-                        lock: Default::default(),
-                        #(#row_defaults)*
                     }
-                }
-            }
-        }
-    }
-
-    fn get_wrapper_archived_impl(&self) -> TokenStream {
-        let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
-        let wrapper_ident = name_generator.get_wrapper_type_ident();
-        let lock_ident = name_generator.get_lock_type_ident();
-
-        let archived_wrapper_ident = Ident::new(
-            format!("Archived{}", &wrapper_ident).as_str(),
-            Span::mixed_site(),
-        );
-        let checks = self
-            .columns
-            .columns_map
-            .keys()
-            .map(|i| {
-                let name = Ident::new(format!("{i}_lock").as_str(), Span::mixed_site());
-                quote! {
-                    if self.#name != 0 {
-                        return Some(self.#name.into());
-                    }
-                }
-            })
-            .collect::<Vec<_>>();
-
-        let checks2 = self
-            .columns
-            .columns_map
-            .keys()
-            .map(|i| {
-                let name = Ident::new(format!("{i}_lock").as_str(), Span::mixed_site());
-                quote! {
-                    if let Some(#name) = &self.#name {
-                        if #name.locked.load(std::sync::atomic::Ordering::Acquire) {
-                            return true;
-                        }
-                    }
-                }
-            })
-            .collect::<Vec<_>>();
-
-        quote! {
-
-            impl Lockable for #lock_ident {
-                fn is_locked(&self) -> bool {
-                    if let Some(lock) = &self.lock {
-                        if lock.locked.load(std::sync::atomic::Ordering::Acquire) {
-                            return true;
-                        }
-                    }
-
-                    #(#checks2)*
-
-                    false
-                }
-            }
-
-            impl ArchivedRow for #archived_wrapper_ident {
-                fn is_locked(&self) -> Option<u16> {
-                    if self.lock != 0 {
-                        return Some(self.lock.into());
-                    }
-                    #(#checks)*
-                    None
                 }
             }
         }
