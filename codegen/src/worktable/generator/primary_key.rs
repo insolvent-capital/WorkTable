@@ -69,7 +69,8 @@ impl Generator {
                 Into,
                 PartialEq,
                 PartialOrd,
-                Ord
+                Hash,
+                Ord,
             )]
             pub struct #ident(#(#types),*);
         }

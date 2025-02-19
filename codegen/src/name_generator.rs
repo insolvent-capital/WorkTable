@@ -54,6 +54,10 @@ impl WorktableNameGenerator {
         Ident::new(format!("{}Wrapper", self.name).as_str(), Span::mixed_site())
     }
 
+    pub fn get_lock_type_ident(&self) -> Ident {
+        Ident::new(format!("{}Lock", self.name).as_str(), Span::mixed_site())
+    }
+
     pub fn get_index_type_ident(&self) -> Ident {
         Ident::new(format!("{}Index", self.name).as_str(), Span::mixed_site())
     }

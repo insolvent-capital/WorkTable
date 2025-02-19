@@ -21,6 +21,16 @@ pub trait ArchivedRow {
     fn is_locked(&self) -> Option<u16>;
 }
 
+pub trait Lockable {
+    fn is_locked(&self) -> bool;
+}
+
+impl Lockable for () {
+    fn is_locked(&self) -> bool {
+        false
+    }
+}
+
 /// General `Row` wrapper that is used to append general data for every `Inner`
 /// `Row`.
 #[derive(Archive, Deserialize, Debug, Serialize)]

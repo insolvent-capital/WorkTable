@@ -14,7 +14,7 @@ use rkyv::ser::Serializer;
 use rkyv::util::AlignedVec;
 use rkyv::{Archive, Deserialize, Serialize};
 
-use crate::in_memory::{DataPages, RowWrapper, StorableRow};
+use crate::in_memory::{DataPages, Lockable, RowWrapper, StorableRow};
 use crate::lock::LockMap;
 use crate::primary_key::{PrimaryKeyGenerator, TablePrimaryKey};
 use crate::{in_memory, IndexMap, TableRow, TableSecondaryIndex};
@@ -63,6 +63,7 @@ impl<
 where
     PrimaryKey: Clone + Ord + Send + TablePrimaryKey + std::hash::Hash,
     SecondaryIndexes: Default,
+    LockType: Lockable,
     PkGen: Default,
     Row: StorableRow,
     <Row as StorableRow>::WrappedRow: RowWrapper<Row>,
@@ -110,6 +111,7 @@ where
     )]
     pub fn select(&self, pk: PrimaryKey) -> Option<Row>
     where
+        LockType: 'static,
         Row: Archive
             + for<'a> Serialize<
                 Strategy<Serializer<AlignedVec, ArenaHandle<'a>, Share>, rkyv::rancor::Error>,
@@ -139,6 +141,7 @@ where
         PrimaryKey: Clone,
         AvailableTypes: 'static,
         SecondaryIndexes: TableSecondaryIndex<Row, AvailableTypes>,
+        LockType: 'static,
     {
         let pk = row.get_primary_key().clone();
         let link = self

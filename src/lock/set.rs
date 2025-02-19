@@ -1,4 +1,3 @@
-use std::sync::atomic::{AtomicU16, Ordering};
 use std::sync::Arc;
 
 use lockfree::map::Map;
@@ -9,8 +8,6 @@ where
     PrimaryKey: std::hash::Hash + std::cmp::Ord,
 {
     set: Map<PrimaryKey, Arc<LockType>>,
-
-    next_id: AtomicU16,
 }
 
 impl<LockType, PrimaryKey> Default for LockMap<LockType, PrimaryKey>
@@ -27,10 +24,7 @@ where
     PrimaryKey: std::hash::Hash + std::cmp::Ord,
 {
     pub fn new() -> Self {
-        Self {
-            set: Map::new(),
-            next_id: AtomicU16::default(),
-        }
+        Self { set: Map::new() }
     }
 
     pub fn insert(&self, id: PrimaryKey, lock: Arc<LockType>) {
@@ -43,9 +37,5 @@ where
 
     pub fn remove(&self, id: &PrimaryKey) {
         self.set.remove(id);
-    }
-
-    pub fn next_id(&self) -> u16 {
-        self.next_id.fetch_add(1, Ordering::Relaxed)
     }
 }

@@ -18,7 +18,7 @@ pub struct LockId(u16);
 
 #[derive(Debug)]
 pub struct Lock {
-    locked: AtomicBool,
+    pub locked: AtomicBool,
     waker: AtomicWaker,
 }
 
