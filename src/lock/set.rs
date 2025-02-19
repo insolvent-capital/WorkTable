@@ -3,22 +3,29 @@ use std::sync::Arc;
 
 use lockfree::map::Map;
 
-use crate::lock::{Lock, LockId};
-
 #[derive(Debug)]
-pub struct LockMap {
-    set: Map<LockId, Arc<Lock>>,
+pub struct LockMap<LockType, PrimaryKey>
+where
+    PrimaryKey: std::hash::Hash + std::cmp::Ord,
+{
+    set: Map<PrimaryKey, Arc<LockType>>,
 
     next_id: AtomicU16,
 }
 
-impl Default for LockMap {
+impl<LockType, PrimaryKey> Default for LockMap<LockType, PrimaryKey>
+where
+    PrimaryKey: std::hash::Hash + std::cmp::Ord,
+{
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl LockMap {
+impl<LockType, PrimaryKey> LockMap<LockType, PrimaryKey>
+where
+    PrimaryKey: std::hash::Hash + std::cmp::Ord,
+{
     pub fn new() -> Self {
         Self {
             set: Map::new(),
@@ -26,15 +33,15 @@ impl LockMap {
         }
     }
 
-    pub fn insert(&self, id: LockId, lock: Arc<Lock>) {
+    pub fn insert(&self, id: PrimaryKey, lock: Arc<LockType>) {
         self.set.insert(id, lock);
     }
 
-    pub fn get(&self, id: &LockId) -> Option<Arc<Lock>> {
+    pub fn get(&self, id: &PrimaryKey) -> Option<Arc<LockType>> {
         self.set.get(id).map(|v| v.val().clone())
     }
 
-    pub fn remove(&self, id: &LockId) {
+    pub fn remove(&self, id: &PrimaryKey) {
         self.set.remove(id);
     }
 

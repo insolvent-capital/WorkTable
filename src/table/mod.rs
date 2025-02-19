@@ -25,10 +25,11 @@ pub struct WorkTable<
     PrimaryKey,
     AvailableTypes = (),
     SecondaryIndexes = (),
+    LockType = (),
     PkGen = <PrimaryKey as TablePrimaryKey>::Generator,
     const DATA_LENGTH: usize = INNER_PAGE_SIZE,
 > where
-    PrimaryKey: Clone + Ord + Send + 'static,
+    PrimaryKey: Clone + Ord + Send + 'static + std::hash::Hash,
     Row: StorableRow,
 {
     pub data: DataPages<Row, DATA_LENGTH>,
@@ -39,7 +40,7 @@ pub struct WorkTable<
 
     pub pk_gen: PkGen,
 
-    pub lock_map: LockMap,
+    pub lock_map: LockMap<LockType, PrimaryKey>,
 
     pub table_name: &'static str,
 
@@ -49,10 +50,18 @@ pub struct WorkTable<
 }
 
 // Manual implementations to avoid unneeded trait bounds.
-impl<Row, PrimaryKey, AvailableTypes, SecondaryIndexes, PkGen, const DATA_LENGTH: usize> Default
-    for WorkTable<Row, PrimaryKey, AvailableTypes, SecondaryIndexes, PkGen, DATA_LENGTH>
+impl<
+        Row,
+        PrimaryKey,
+        AvailableTypes,
+        SecondaryIndexes,
+        LockType,
+        PkGen,
+        const DATA_LENGTH: usize,
+    > Default
+    for WorkTable<Row, PrimaryKey, AvailableTypes, SecondaryIndexes, LockType, PkGen, DATA_LENGTH>
 where
-    PrimaryKey: Clone + Ord + Send + TablePrimaryKey,
+    PrimaryKey: Clone + Ord + Send + TablePrimaryKey + std::hash::Hash,
     SecondaryIndexes: Default,
     PkGen: Default,
     Row: StorableRow,
@@ -72,11 +81,18 @@ where
     }
 }
 
-impl<Row, PrimaryKey, AvailableTypes, SecondaryIndexes, PkGen, const DATA_LENGTH: usize>
-    WorkTable<Row, PrimaryKey, AvailableTypes, SecondaryIndexes, PkGen, DATA_LENGTH>
+impl<
+        Row,
+        PrimaryKey,
+        AvailableTypes,
+        SecondaryIndexes,
+        LockType,
+        PkGen,
+        const DATA_LENGTH: usize,
+    > WorkTable<Row, PrimaryKey, AvailableTypes, SecondaryIndexes, LockType, PkGen, DATA_LENGTH>
 where
     Row: TableRow<PrimaryKey>,
-    PrimaryKey: Clone + Ord + Send + TablePrimaryKey,
+    PrimaryKey: Clone + Ord + Send + TablePrimaryKey + std::hash::Hash,
     Row: StorableRow,
     <Row as StorableRow>::WrappedRow: RowWrapper<Row>,
 {
