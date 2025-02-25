@@ -1,4 +1,5 @@
 mod index;
+mod locks;
 mod primary_key;
 mod queries;
 mod row;

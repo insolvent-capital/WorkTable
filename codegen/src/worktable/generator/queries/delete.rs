@@ -34,26 +34,33 @@ impl Generator {
     fn gen_full_row_delete(&mut self) -> TokenStream {
         let pk_ident = &self.pk.as_ref().unwrap().ident;
 
+        let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
+        let lock_ident = name_generator.get_lock_type_ident();
+
         quote! {
             pub async fn delete(&self, pk: #pk_ident) -> core::result::Result<(), WorkTableError> {
+
+                if let Some(lock) = self.0.lock_map.get(&pk) {
+                    lock.lock_await().await;   // Waiting for all locks released
+                }
+
+                let lock_id = self.0.lock_map.next_id();
+                let lock = std::sync::Arc::new(#lock_ident::with_lock(lock_id.into()));   //Creates new LockType with None
+                self.0.lock_map.insert(pk.clone(), lock.clone()); // adds LockType to LockMap
+
                 let link = self.0
                     .pk_map
                     .get(&pk)
                     .map(|v| v.get().value)
                     .ok_or(WorkTableError::NotFound)?;
 
-                let id = self.0.data.with_ref(link, |archived| {
-                    archived.is_locked()
-                }).map_err(WorkTableError::PagesError)?;
-                if let Some(id) = id {
-                    if let Some(lock) = self.0.lock_map.get(&(id.into())) {
-                        lock.as_ref().await
-                    }
-                }
                 let row = self.select(pk.clone()).unwrap();
                 self.0.indexes.delete_row(row, link)?;
                 self.0.pk_map.remove(&pk);
                 self.0.data.delete(link).map_err(WorkTableError::PagesError)?;
+
+                lock.unlock();  // Releases locks
+                self.0.lock_map.remove(&pk); // Removes locks
 
                 core::result::Result::Ok(())
             }

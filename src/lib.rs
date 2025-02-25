@@ -20,7 +20,7 @@ pub use worktable_codegen::worktable;
 
 pub mod prelude {
     pub use crate::database::DatabaseManager;
-    pub use crate::in_memory::{ArchivedRow, Data, DataPages, RowWrapper, StorableRow};
+    pub use crate::in_memory::{Data, DataPages, RowWrapper, StorableRow};
     pub use crate::lock::LockMap;
     pub use crate::primary_key::{PrimaryKeyGenerator, PrimaryKeyGeneratorState, TablePrimaryKey};
     pub use crate::table::select::{

@@ -8,11 +8,7 @@ impl Generator {
     pub fn gen_query_locks_impl(&mut self) -> syn::Result<TokenStream> {
         if let Some(q) = &self.queries {
             let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
-            let wrapper_name = name_generator.get_wrapper_type_ident();
-            let archived_wrapper = Ident::new(
-                format!("Archived{}", &wrapper_name).as_str(),
-                Span::mixed_site(),
-            );
+            let lock_type_ident = name_generator.get_lock_type_ident();
 
             let fns = q
                 .updates
@@ -23,51 +19,22 @@ impl Generator {
                         .from_case(Case::Pascal)
                         .to_case(Case::Snake);
 
-                    let check_ident = Ident::new(
-                        format!("check_{snake_case_name}_lock").as_str(),
+                    let lock_await_ident = Ident::new(
+                        format!("lock_await_{snake_case_name}").as_str(),
                         Span::mixed_site(),
                     );
-                    let checks = q
-                        .updates
-                        .get(name)
-                        .expect("exists")
-                        .columns
-                        .iter()
-                        .map(|col| {
-                            let col =
-                                Ident::new(format!("{}_lock", col).as_str(), Span::mixed_site());
-                            quote! {
-                                if self.#col != 0 {
-                                    return Some(self.#col.into());
-                                }
-                            }
-                        })
-                        .collect::<Vec<_>>();
 
                     let lock_ident = Ident::new(
                         format!("lock_{snake_case_name}").as_str(),
                         Span::mixed_site(),
                     );
-                    let locks = q
-                        .updates
-                        .get(name)
-                        .expect("exists")
-                        .columns
-                        .iter()
-                        .map(|col| {
-                            let col =
-                                Ident::new(format!("{}_lock", col).as_str(), Span::mixed_site());
-                            quote! {
-                                self.#col = id.into();
-                            }
-                        })
-                        .collect::<Vec<_>>();
 
                     let unlock_ident = Ident::new(
                         format!("unlock_{snake_case_name}").as_str(),
                         Span::mixed_site(),
                     );
-                    let unlocks = q
+
+                    let rows_lock_await = q
                         .updates
                         .get(name)
                         .expect("exists")
@@ -77,16 +44,14 @@ impl Generator {
                             let col =
                                 Ident::new(format!("{}_lock", col).as_str(), Span::mixed_site());
                             quote! {
-                                self.#col = 0u16.into();
+                               if let Some(lock) = &self.#col {
+                                    futures.push(lock.as_ref());
+                               }
                             }
                         })
                         .collect::<Vec<_>>();
 
-                    let verify_ident = Ident::new(
-                        format!("verify_{snake_case_name}_lock").as_str(),
-                        Span::mixed_site(),
-                    );
-                    let verify = q
+                    let rows_lock = q
                         .updates
                         .get(name)
                         .expect("exists")
@@ -96,40 +61,52 @@ impl Generator {
                             let col =
                                 Ident::new(format!("{}_lock", col).as_str(), Span::mixed_site());
                             quote! {
-                                if self.#col != id {
-                                    return false;
+                                if self.#col.is_none() {
+                                    self.#col = Some(std::sync::Arc::new(Lock::new()));
+                                }
+                            }
+                        })
+                        .collect::<Vec<_>>();
+
+                    let rows_unlock = q
+                        .updates
+                        .get(name)
+                        .expect("exists")
+                        .columns
+                        .iter()
+                        .map(|col| {
+                            let col =
+                                Ident::new(format!("{}_lock", col).as_str(), Span::mixed_site());
+                            quote! {
+                                if let Some(#col) = &self.#col {
+                                    #col.unlock();
                                 }
                             }
                         })
                         .collect::<Vec<_>>();
 
                     quote! {
-                        pub fn #check_ident(&self) -> Option<u16> {
-                            if self.lock != 0 {
-                                return Some(self.lock.into());
-                            }
-                            #(#checks)*
-                            None
+
+                        pub fn #lock_ident(&mut self) {
+                            #(#rows_lock)*
                         }
 
-                        pub unsafe fn #lock_ident(&mut self, id: u16) {
-                            #(#locks)*
+                        pub fn #unlock_ident(&self) {
+                            #(#rows_unlock)*
                         }
 
-                        pub unsafe fn #unlock_ident(&mut self) {
-                            #(#unlocks)*
-                        }
+                        pub async fn #lock_await_ident(&self) {
+                            let mut futures = Vec::new();
 
-                        pub fn #verify_ident(&self, id: u16) -> bool {
-                            #(#verify)*
-                            true
+                            #(#rows_lock_await)*
+                            futures::future::join_all(futures).await;
                         }
                     }
                 })
                 .collect::<Vec<_>>();
 
             Ok(quote! {
-                impl #archived_wrapper {
+                impl #lock_type_ident {
                     #(#fns)*
                 }
             })
