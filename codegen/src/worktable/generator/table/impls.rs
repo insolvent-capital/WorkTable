@@ -18,6 +18,7 @@ impl Generator {
         let get_next_fn = self.gen_table_get_next_fn();
         let iter_with_fn = self.gen_table_iter_with_fn();
         let iter_with_async_fn = self.gen_table_iter_with_async_fn();
+        let count_fn = self.gen_table_count_fn();
 
         quote! {
             impl #ident {
@@ -26,6 +27,7 @@ impl Generator {
                 #select_fn
                 #insert_fn
                 #upsert_fn
+                #count_fn
                 #get_next_fn
                 #iter_with_fn
                 #iter_with_async_fn
@@ -188,6 +190,15 @@ impl Generator {
             }
 
             core::result::Result::Ok(())
+        }
+    }
+
+    fn gen_table_count_fn(&self) -> TokenStream {
+        quote! {
+            pub fn count(&self) -> Option<usize> {
+                let count = self.0.pk_map.len();
+                (count > 0).then_some(count)
+            }
         }
     }
 }

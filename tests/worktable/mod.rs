@@ -1,6 +1,7 @@
 mod array;
 mod base;
 mod config;
+mod count;
 mod custom_pk;
 mod index;
 mod option;
