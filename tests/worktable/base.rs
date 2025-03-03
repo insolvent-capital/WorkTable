@@ -14,6 +14,7 @@ worktable! (
     indexes: {
         test_idx: test unique,
         exchnage_idx: exchange,
+        another_idx: another,
     }
     queries: {
         update: {
@@ -464,6 +465,58 @@ fn select_by_exchange() {
         .unwrap()
         .execute()
         .is_empty())
+}
+
+#[test]
+fn select_where_unique_test() {
+    let table = TestWorkTable::default();
+    let row = TestRow {
+        id: table.get_next_pk().into(),
+        test: 1,
+        another: 1,
+        exchange: "test".to_string(),
+    };
+    let _ = table.insert(row.clone()).unwrap();
+
+    let row2 = TestRow {
+        id: table.get_next_pk().into(),
+        test: 2,
+        another: 2,
+        exchange: "test".to_string(),
+    };
+    let _ = table.insert(row2.clone()).unwrap();
+
+    let selected_rows = table.select_where_test(1..2).unwrap();
+    assert_eq!(selected_rows.len(), 1);
+
+    let selected_rows = table.select_where_test(1..=2).unwrap();
+    assert_eq!(selected_rows.len(), 2);
+}
+
+#[test]
+fn select_where_non_unique_test() {
+    let table = TestWorkTable::default();
+    let row = TestRow {
+        id: table.get_next_pk().into(),
+        test: 1,
+        another: 1,
+        exchange: "test".to_string(),
+    };
+    let _ = table.insert(row.clone()).unwrap();
+
+    let row2 = TestRow {
+        id: table.get_next_pk().into(),
+        test: 2,
+        another: 2,
+        exchange: "test".to_string(),
+    };
+    let _ = table.insert(row2.clone()).unwrap();
+
+    let selected_rows = table.select_where_another(1..2).unwrap().execute();
+    assert_eq!(selected_rows.len(), 1);
+
+    let selected_rows = table.select_where_another(1..=2).unwrap().execute();
+    assert_eq!(selected_rows.len(), 2);
 }
 
 #[test]

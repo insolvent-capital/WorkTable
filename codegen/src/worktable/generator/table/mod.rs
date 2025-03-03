@@ -18,6 +18,8 @@ impl Generator {
         let select_executor_impl = self.gen_table_select_executor_impl();
         let select_result_executor_impl = self.gen_table_select_result_executor_impl();
 
+        let range = self.gen_select_where_fns()?;
+
         Ok(quote! {
             #page_size_consts
             #type_
@@ -26,6 +28,8 @@ impl Generator {
             #index_fns
             #select_executor_impl
             #select_result_executor_impl
+
+            #range
         })
     }
 
