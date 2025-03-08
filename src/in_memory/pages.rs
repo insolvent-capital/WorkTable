@@ -76,13 +76,17 @@ where
 
     pub fn from_data(vec: Vec<Arc<Data<<Row as StorableRow>::WrappedRow, DATA_LENGTH>>>) -> Self {
         // TODO: Add row_count persistence.
-        let last_page_id = vec.len();
-        Self {
-            pages: RwLock::new(vec),
-            empty_links: Stack::new(),
-            row_count: AtomicU64::new(0),
-            last_page_id: AtomicU32::new(last_page_id as u32),
-            current_page_id: AtomicU32::new(last_page_id as u32),
+        if vec.is_empty() {
+            Self::new()
+        } else {
+            let last_page_id = vec.len();
+            Self {
+                pages: RwLock::new(vec),
+                empty_links: Stack::new(),
+                row_count: AtomicU64::new(0),
+                last_page_id: AtomicU32::new(last_page_id as u32),
+                current_page_id: AtomicU32::new(last_page_id as u32),
+            }
         }
     }
 
@@ -151,6 +155,25 @@ where
         };
 
         Ok(res)
+    }
+
+    pub fn insert_cdc(&self, row: Row) -> Result<(Link, Vec<u8>), ExecutionError>
+    where
+        Row: Archive
+            + for<'a> Serialize<
+                Strategy<Serializer<AlignedVec, ArenaHandle<'a>, Share>, rkyv::rancor::Error>,
+            > + Clone,
+        <Row as StorableRow>::WrappedRow: Archive
+            + for<'a> Serialize<
+                Strategy<Serializer<AlignedVec, ArenaHandle<'a>, Share>, rkyv::rancor::Error>,
+            >,
+    {
+        let link = self.insert(row.clone())?;
+        let general_row = <Row as StorableRow>::WrappedRow::from_inner(row);
+        let bytes = rkyv::to_bytes(&general_row)
+            .expect("should be ok as insert not failed")
+            .into_vec();
+        Ok((link, bytes))
     }
 
     fn retry_insert(
@@ -298,6 +321,15 @@ where
         Ok(())
     }
 
+    pub fn select_raw(&self, link: Link) -> Result<Vec<u8>, ExecutionError> {
+        let pages = self.pages.read().unwrap();
+        let page = pages
+            .get(page_id_mapper(link.page_id.into()))
+            .ok_or(ExecutionError::PageNotFound(link.page_id))?;
+        page.get_raw_row(link)
+            .map_err(ExecutionError::DataPageError)
+    }
+
     pub fn get_bytes(&self) -> Vec<([u8; DATA_LENGTH], u32)> {
         let pages = self.pages.read().unwrap();
         pages
@@ -305,6 +337,7 @@ where
             .map(|p| (p.get_bytes(), p.free_offset.load(Ordering::Relaxed)))
             .collect()
     }
+
     pub fn get_page_count(&self) -> usize {
         self.pages.read().unwrap().len()
     }

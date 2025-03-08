@@ -9,10 +9,16 @@ impl Generator {
     pub fn gen_index_def(&mut self) -> TokenStream {
         let type_def = self.gen_type_def();
         let impl_def = self.gen_impl_def();
+        let cdc_impl_def = if self.is_persist {
+            self.gen_cdc_impl_def()
+        } else {
+            quote! {}
+        };
 
         quote! {
             #type_def
             #impl_def
+            #cdc_impl_def
         }
     }
 
@@ -38,8 +44,18 @@ impl Generator {
             })
             .collect::<Vec<_>>();
 
+        let derive = if self.is_persist {
+            quote! {
+                #[derive(Debug, Default, PersistIndex)]
+            }
+        } else {
+            quote! {
+                #[derive(Debug, Default)]
+            }
+        };
+
         quote! {
-            #[derive(Debug, Default, PersistIndex)]
+            #derive
             pub struct #ident {
                 #(#index_rows),*
             }
@@ -62,6 +78,168 @@ impl Generator {
                 #save_row_fn
                 #delete_row_fn
                 #process_difference_fn
+            }
+        }
+    }
+
+    fn gen_cdc_impl_def(&mut self) -> TokenStream {
+        let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
+        let index_type_ident = name_generator.get_index_type_ident();
+        let row_type_ident = name_generator.get_row_type_ident();
+        let events_ident = name_generator.get_space_secondary_index_events_ident();
+        let available_types_ident = name_generator.get_available_type_ident();
+
+        let save_row_cdc = self.gen_save_row_cdc_index_fn();
+        let delete_row_cdc = self.gen_delete_row_cdc_index_fn();
+        let process_diff_cdc = self.gen_process_diff_cdc_index_fn();
+
+        quote! {
+            impl TableSecondaryIndexCdc<#row_type_ident, #available_types_ident, #events_ident> for #index_type_ident {
+                #save_row_cdc
+                #delete_row_cdc
+                #process_diff_cdc
+            }
+        }
+    }
+
+    fn gen_save_row_cdc_index_fn(&self) -> TokenStream {
+        let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
+        let row_type_ident = name_generator.get_row_type_ident();
+        let events_ident = name_generator.get_space_secondary_index_events_ident();
+
+        let save_rows = self
+            .columns
+            .indexes
+            .iter()
+            .map(|(i, idx)| {
+                let index_field_name = &idx.name;
+                quote! {
+                    let (exists, events) = self.#index_field_name.insert_cdc(row.#i, link);
+                    if exists.is_some() {
+                        return Err(WorkTableError::AlreadyExists);
+                    }
+                    let #index_field_name = events.into_iter().map(|ev| ev.into()).collect();
+                }
+            })
+            .collect::<Vec<_>>();
+        let idents = self
+            .columns
+            .indexes
+            .values()
+            .map(|idx| &idx.name)
+            .collect::<Vec<_>>();
+
+        quote! {
+            fn save_row_cdc(&self, row: #row_type_ident, link: Link) -> Result<#events_ident, WorkTableError> {
+                #(#save_rows)*
+                core::result::Result::Ok(
+                    #events_ident {
+                        #(#idents,)*
+                    }
+                )
+            }
+        }
+    }
+
+    fn gen_delete_row_cdc_index_fn(&self) -> TokenStream {
+        let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
+        let row_type_ident = name_generator.get_row_type_ident();
+        let events_ident = name_generator.get_space_secondary_index_events_ident();
+
+        let delete_rows = self
+            .columns
+            .indexes
+            .iter()
+            .map(|(i, idx)| {
+                let index_field_name = &idx.name;
+                quote! {
+                    let (_, events) = TableIndexCdc::remove_cdc(&self.#index_field_name, row.#i, link);
+                    let #index_field_name = events.into_iter().map(|ev| ev.into()).collect();
+                }
+            })
+            .collect::<Vec<_>>();
+        let idents = self
+            .columns
+            .indexes
+            .values()
+            .map(|idx| &idx.name)
+            .collect::<Vec<_>>();
+
+        quote! {
+            fn delete_row_cdc(&self, row: #row_type_ident, link: Link) -> Result<#events_ident, WorkTableError> {
+                #(#delete_rows)*
+                core::result::Result::Ok(
+                    #events_ident {
+                        #(#idents,)*
+                    }
+                )
+            }
+        }
+    }
+
+    fn gen_process_diff_cdc_index_fn(&self) -> TokenStream {
+        let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
+        let avt_type_ident = name_generator.get_available_type_ident();
+        let events_ident = name_generator.get_space_secondary_index_events_ident();
+
+        let process_difference_rows = self.columns.indexes.iter().map(|(i, idx)| {
+            let index_field_name = &idx.name;
+            let diff_key = Literal::string(i.to_string().as_str());
+
+            let match_arm = if let Some(t) = self.columns.columns_map.get(&idx.field) {
+                let type_str = t.to_string();
+                let variant_ident = Ident::new(&type_str.to_uppercase(), Span::mixed_site());
+
+                let (new_value_expr, old_value_expr) = if type_str == "String" {
+                    (quote! { new.to_string() }, quote! { old.to_string() })
+                } else {
+                    (quote! { *new }, quote! { *old })
+                };
+
+                quote! {
+                    let #index_field_name = if let Some(diff) = difference.get(#diff_key) {
+                        let mut events = vec![];
+                        if let #avt_type_ident::#variant_ident(old) = &diff.old {
+                            let key_old = #old_value_expr;
+                            let (_, evs) = TableIndexCdc::remove_cdc(&self.#index_field_name, key_old, link);
+                            events.extend_from_slice(evs.as_ref());
+                        }
+
+                        if let #avt_type_ident::#variant_ident(new) = &diff.new {
+                            let key_new = #new_value_expr;
+                            let (_, evs) = TableIndexCdc::insert_cdc(&self.#index_field_name, key_new, link);
+                            events.extend_from_slice(evs.as_ref());
+                        }
+                        events
+                    } else {
+                        vec![]
+                    };
+                }
+            } else {
+                quote! {}
+            };
+
+            match_arm
+        });
+        let idents = self
+            .columns
+            .indexes
+            .values()
+            .map(|idx| &idx.name)
+            .collect::<Vec<_>>();
+
+        quote! {
+            fn process_difference_cdc(
+                &self,
+                link: Link,
+                difference: std::collections::HashMap<&str, Difference<#avt_type_ident>>
+            ) -> core::result::Result<#events_ident, WorkTableError> {
+                #(#process_difference_rows)*
+                core::result::Result::Ok(
+                    #events_ident {
+                        #(#idents,)*
+                    }
+                )
             }
         }
     }
@@ -107,18 +285,13 @@ impl Generator {
             .iter()
             .map(|(i, idx)| {
                 let index_field_name = &idx.name;
-                let lit = Literal::string(index_field_name.to_string().as_str());
                 if idx.is_unique {
                     quote! {
-                        println!("{} remove", #lit);
                         self.#index_field_name.remove(&row.#i);
-                        println!("{} removed", #lit);
                     }
                 } else {
                     quote! {
-                        println!("{} remove", #lit);
                         self.#index_field_name.remove(&row.#i, &link);
-                        println!("{} removed", #lit);
                     }
                 }
             })

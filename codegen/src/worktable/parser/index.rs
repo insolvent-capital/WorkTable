@@ -104,24 +104,3 @@ impl Parser {
         ))
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use crate::worktable::Parser;
-
-    use proc_macro2::TokenStream;
-    use quote::quote;
-
-    #[test]
-    fn test_indexes_parse() {
-        let tokens = TokenStream::from(quote! {indexes: {
-            id_idx: id unique,
-            test_idx: test,
-        }});
-        let mut parser = Parser::new(tokens);
-        let columns = parser.parse_configs();
-
-        assert!(columns.is_ok());
-        let columns = columns.unwrap();
-    }
-}

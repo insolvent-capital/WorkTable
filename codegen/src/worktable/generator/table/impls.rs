@@ -38,13 +38,22 @@ impl Generator {
     fn gen_table_new_fn(&self) -> TokenStream {
         let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
         let table_name = name_generator.get_work_table_literal_name();
+        let engine = name_generator.get_persistence_engine_ident();
+        let task = name_generator.get_persistence_task_ident();
+        let dir_name = name_generator.get_dir_name();
 
         if self.is_persist {
             quote! {
-                pub fn new(manager:  std::sync::Arc<DatabaseManager>) -> Self {
+                pub fn new(config: PersistenceConfig) -> eyre::Result<Self> {
                     let mut inner = WorkTable::default();
                     inner.table_name = #table_name;
-                    Self(inner, manager)
+                    let table_files_path = format!("{}/{}", config.tables_path, #dir_name);
+                    let engine: #engine = PersistenceEngine::from_table_files_path(table_files_path)?;
+                    core::result::Result::Ok(Self(
+                        inner,
+                        config,
+                        #task::run_engine(engine)
+                    ))
                 }
             }
         } else {
@@ -77,9 +86,21 @@ impl Generator {
         let row_type = name_generator.get_row_type_ident();
         let primary_key_type = name_generator.get_primary_key_type_ident();
 
+        let insert = if self.is_persist {
+            quote! {
+                let (pk, op) = self.0.insert_cdc(row)?;
+                self.2.apply_operation(op);
+                core::result::Result::Ok(pk)
+            }
+        } else {
+            quote! {
+                self.0.insert(row)
+            }
+        };
+
         quote! {
             pub fn insert(&self, row: #row_type) -> core::result::Result<#primary_key_type, WorkTableError> {
-                self.0.insert(row)
+                #insert
             }
         }
     }

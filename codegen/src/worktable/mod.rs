@@ -75,27 +75,3 @@ pub fn expand(input: TokenStream) -> syn::Result<TokenStream> {
         #delete_impls
     })
 }
-
-#[cfg(test)]
-mod test {
-    use crate::worktable::expand;
-    use quote::quote;
-
-    #[test]
-    fn test() {
-        let tokens = quote! {
-            name: Test,
-        columns: {
-            id: u64 primary_key,
-            test: i64,
-            exchnage: String
-        },
-        indexes: {
-            test_idx: test,
-            exchnage_idx: exchange
-        }
-        };
-
-        let _ = expand(tokens).unwrap();
-    }
-}

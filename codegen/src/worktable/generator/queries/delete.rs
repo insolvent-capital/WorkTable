@@ -32,7 +32,33 @@ impl Generator {
     }
 
     fn gen_full_row_delete(&mut self) -> TokenStream {
-        let pk_ident = &self.pk.as_ref().unwrap().ident;
+        let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
+        let pk_ident = name_generator.get_primary_key_type_ident();
+        let secondary_events_ident = name_generator.get_space_secondary_index_events_ident();
+
+        let delete_logic = if self.is_persist {
+            quote! {
+                let secondary_keys_events = self.0.indexes.delete_row_cdc(row, link)?;
+                let (_, primary_key_events) = TableIndexCdc::remove_cdc(&self.0.pk_map, pk.clone(), link);
+                self.0.data.delete(link).map_err(WorkTableError::PagesError)?;
+                let mut op: Operation<
+                    <<#pk_ident as TablePrimaryKey>::Generator as PrimaryKeyGeneratorState>::State,
+                    #pk_ident,
+                    #secondary_events_ident
+                > = Operation::Delete(DeleteOperation {
+                    id: Default::default(),
+                    secondary_keys_events,
+                    primary_key_events,
+                });
+                self.2.apply_operation(op);
+            }
+        } else {
+            quote! {
+                self.0.indexes.delete_row(row, link)?;
+                self.0.pk_map.remove(&pk);
+                self.0.data.delete(link).map_err(WorkTableError::PagesError)?;
+            }
+        };
 
         let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
         let lock_ident = name_generator.get_lock_type_ident();
@@ -55,9 +81,7 @@ impl Generator {
                     .ok_or(WorkTableError::NotFound)?;
 
                 let row = self.select(pk.clone()).unwrap();
-                self.0.indexes.delete_row(row, link)?;
-                self.0.pk_map.remove(&pk);
-                self.0.data.delete(link).map_err(WorkTableError::PagesError)?;
+                #delete_logic
 
                 lock.unlock();  // Releases locks
                 self.0.lock_map.remove(&pk); // Removes locks

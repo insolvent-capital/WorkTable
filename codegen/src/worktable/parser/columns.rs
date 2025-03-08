@@ -248,7 +248,6 @@ mod tests {
         #[test]
         fn test_row_parse() {
             let row_tokens = TokenStream::from(quote! {id: i64 primary_key,});
-            let iter = &mut row_tokens.clone().into_iter();
 
             let mut parser = Parser::new(row_tokens);
             let row = parser.parse_row();
@@ -264,7 +263,6 @@ mod tests {
         #[test]
         fn test_row_parse_no_comma() {
             let row_tokens = TokenStream::from(quote! {id: i64 primary_key TreeIndex});
-            let iter = &mut row_tokens.clone().into_iter();
 
             let mut parser = Parser::new(row_tokens);
             let row = parser.parse_row();
@@ -280,7 +278,6 @@ mod tests {
         #[test]
         fn test_row_parse_no_primary_key() {
             let row_tokens = TokenStream::from(quote! {id: i64,});
-            let iter = &mut row_tokens.clone().into_iter();
 
             let mut parser = Parser::new(row_tokens);
             let row = parser.parse_row();
@@ -296,7 +293,6 @@ mod tests {
         #[test]
         fn test_row_parse_no_primary_key_no_comma() {
             let row_tokens = TokenStream::from(quote! {id: i64});
-            let iter = &mut row_tokens.clone().into_iter();
 
             let mut parser = Parser::new(row_tokens);
             let row = parser.parse_row();
@@ -312,7 +308,6 @@ mod tests {
         #[test]
         fn test_row_parse_optional() {
             let row_tokens = TokenStream::from(quote! {id: i64 optional});
-            let iter = &mut row_tokens.clone().into_iter();
 
             let mut parser = Parser::new(row_tokens);
             let row = parser.parse_row();

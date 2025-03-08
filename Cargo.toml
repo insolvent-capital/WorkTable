@@ -19,6 +19,7 @@ perf_measurements = ["dep:performance_measurement", "dep:performance_measurement
 eyre = "0.6.12"
 derive_more = { version = "1.0.0", features = ["from", "error", "display", "into"] }
 tokio = { version = "1", features = ["full"] }
+tracing = "0.1.40"
 rkyv = { version = "0.8.9", features = ["uuid-1"] }
 lockfree = { version = "0.5.1" }
 worktable_codegen = { path = "codegen", version = "0.4.1" }
@@ -26,11 +27,11 @@ scc = "2.1.16"
 futures = "0.3.30"
 uuid = { version = "1.10.0", features = ["v4"] }
 data_bucket = { git = "https://github.com/pathscale/DataBucket", branch = "main" }
-#data_bucket = { path = "../DataBucket", version = "0.1.1" }
+# data_bucket = { path = "../DataBucket", version = "0.1.0" }
 performance_measurement_codegen = { path = "performance_measurement/codegen", version = "0.1.0", optional = true }
 performance_measurement = { path = "performance_measurement", version = "0.1.0", optional = true }
-indexset = { version = "0.10.3", features = ["concurrent", "multimap"] }
-# indexset = { path = "../indexset", version = "0.10.3", features = ["concurrent", "multimap"] }
+indexset = { version = "0.11.2", features = ["concurrent", "cdc", "multimap"] }
+convert_case = "0.6.0"
 
 [dev-dependencies]
 async-std = "1.13.0"

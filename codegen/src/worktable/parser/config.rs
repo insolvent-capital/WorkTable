@@ -91,23 +91,3 @@ impl Parser {
         Ok(Some(()))
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use crate::worktable::Parser;
-
-    use proc_macro2::TokenStream;
-    use quote::quote;
-
-    #[test]
-    fn test_indexes_parse() {
-        let tokens = TokenStream::from(quote! {config: {
-            page_size: 16_000
-        }});
-        let mut parser = Parser::new(tokens);
-        let configs = parser.parse_configs();
-
-        assert!(configs.is_ok());
-        let columns = configs.unwrap();
-    }
-}

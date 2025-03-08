@@ -4,6 +4,7 @@ use std::ops::{Deref, DerefMut};
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use data_bucket::page::PageId;
+use data_bucket::page::INNER_PAGE_SIZE;
 use data_bucket::{DataPage, GeneralPage};
 use derive_more::{Display, Error};
 #[cfg(feature = "perf_measurements")]
@@ -18,7 +19,6 @@ use rkyv::{
     Archive, Deserialize, Portable, Serialize,
 };
 
-use crate::persistence::page::INNER_PAGE_SIZE;
 use crate::prelude::Link;
 
 /// Length of the [`Data`] page header.
@@ -200,6 +200,16 @@ impl<Row, const DATA_LENGTH: usize> Data<Row, DATA_LENGTH> {
         let row = self.get_row_ref(link)?;
         rkyv::deserialize::<_, rkyv::rancor::Error>(row)
             .map_err(|_| ExecutionError::DeserializeError)
+    }
+
+    pub fn get_raw_row(&self, link: Link) -> Result<Vec<u8>, ExecutionError> {
+        if link.offset > self.free_offset.load(Ordering::Relaxed) {
+            return Err(ExecutionError::DeserializeError);
+        }
+
+        let inner_data = unsafe { &mut *self.inner_data.get() };
+        let bytes = &mut inner_data[link.offset as usize..(link.offset + link.length) as usize];
+        Ok(bytes.to_vec())
     }
 
     pub fn get_bytes(&self) -> [u8; DATA_LENGTH] {

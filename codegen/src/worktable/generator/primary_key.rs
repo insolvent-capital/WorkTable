@@ -62,16 +62,18 @@ impl Generator {
                 Clone,
                 rkyv::Archive,
                 Debug,
+                Default,
                 rkyv::Deserialize,
+                Hash,
                 rkyv::Serialize,
                 From,
                 Eq,
                 Into,
                 PartialEq,
                 PartialOrd,
-                Hash,
                 Ord,
             )]
+            #[rkyv(derive(PartialEq, Eq, PartialOrd, Ord, Debug))]
             pub struct #ident(#(#types),*);
         }
     }

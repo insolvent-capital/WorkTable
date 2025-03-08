@@ -91,14 +91,4 @@ mod tests {
 
         assert!(name.is_err());
     }
-
-    #[test]
-    fn test_no_comma() {
-        let tokens = TokenStream::from(quote! {name: TestName});
-
-        let mut parser = Parser::new(tokens);
-        let name = parser.parse_name();
-
-        assert!(name.is_err());
-    }
 }

@@ -54,12 +54,26 @@ impl Generator {
             .values()
             .map(|idx| idx.field.clone())
             .collect();
+
         let diff_container = quote! {
             let row_old = self.select(pk.clone()).unwrap();
             let row_new = row.clone();
+            let updated_bytes: Vec<u8> = vec![];
             let mut diffs: std::collections::HashMap<&str, Difference<#avt_type_ident>> = std::collections::HashMap::new();
         };
         let diff_process = self.gen_process_diffs_on_index(idents.as_slice(), idents.as_slice());
+        let persist_call = if self.is_persist {
+            quote! {
+                if let Operation::Update(op) = &mut op {
+                     op.bytes = self.0.data.select_raw(link)?;
+                } else {
+                    unreachable!("")
+                };
+                self.2.apply_operation(op);
+            }
+        } else {
+            quote! {}
+        };
 
         quote! {
             pub async fn update(&self, row: #row_ident) -> core::result::Result<(), WorkTableError> {
@@ -89,6 +103,9 @@ impl Generator {
 
                 lock.unlock();  // Releases locks
                 self.0.lock_map.remove(&pk); // Removes locks
+
+                #persist_call
+
                 core::result::Result::Ok(())
             }
         }
@@ -149,6 +166,8 @@ impl Generator {
     fn gen_process_diffs_on_index(&self, idents: &[Ident], idx_idents: &[Ident]) -> TokenStream {
         let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
         let avt_type_ident = name_generator.get_available_type_ident();
+        let secondary_events_ident = name_generator.get_space_secondary_index_events_ident();
+        let primary_key_ident = name_generator.get_primary_key_type_ident();
 
         let diff = idents
             .iter()
@@ -171,9 +190,29 @@ impl Generator {
             })
             .collect::<Vec<_>>();
 
+        let process_difference = if self.is_persist {
+            quote! {
+                let secondary_keys_events = self.0.indexes.process_difference_cdc(link, diffs)?;
+                let mut op: Operation<
+                    <<#primary_key_ident as TablePrimaryKey>::Generator as PrimaryKeyGeneratorState>::State,
+                    #primary_key_ident,
+                    #secondary_events_ident
+                > = Operation::Update(UpdateOperation {
+                    id: Default::default(),
+                    secondary_keys_events,
+                    bytes: updated_bytes,
+                    link,
+                });
+            }
+        } else {
+            quote! {
+                self.0.indexes.process_difference(link, diffs)?;
+            }
+        };
+
         quote! {
             #(#diff)*
-            self.0.indexes.process_difference(link, diffs)?;
+            #process_difference
         }
     }
 
@@ -221,6 +260,7 @@ impl Generator {
             let diff_container = quote! {
                 let row_old = self.select(by.clone()).unwrap();
                 let row_new = row.clone();
+                let updated_bytes: Vec<u8> = vec![];
                 let mut diffs: std::collections::HashMap<&str, Difference<#avt_type_ident>> = std::collections::HashMap::new();
             };
 
@@ -228,6 +268,18 @@ impl Generator {
             quote! {
                 #diff_container
                 #process
+            }
+        } else {
+            quote! {}
+        };
+        let persist_call = if self.is_persist {
+            quote! {
+                if let Operation::Update(op) = &mut op {
+                     op.bytes = self.0.data.select_raw(link)?;
+                } else {
+                    unreachable!("")
+                };
+                self.2.apply_operation(op);
             }
         } else {
             quote! {}
@@ -260,6 +312,8 @@ impl Generator {
 
                 lock.#unlock_ident();
                 self.0.lock_map.remove(&by);
+
+                #persist_call
 
                 core::result::Result::Ok(())
             }
