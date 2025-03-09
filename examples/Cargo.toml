@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 
-worktable = { path = "..", version = "0.4.1", features = ["perf_measurements"]}
+worktable = { path = "..", version = "0.5.0", features = ["perf_measurements"] }
 rkyv = { version = "0.8.9", features = ["uuid-1"] }
 lockfree = "0.5.1"
 derive_more = { version = "1.0.0", features = ["full"] }

@@ -1,6 +1,6 @@
 [package]
 name = "worktable_codegen"
-version = "0.4.1"
+version = "0.5.0"
 edition = "2021"
 license = "MIT"
 description = "WorkTable codegeneration crate"
@@ -9,10 +9,6 @@ description = "WorkTable codegeneration crate"
 name = "worktable_codegen"
 path = "src/lib.rs"
 proc-macro = true
-
-[dev-dependencies]
-scc = "2.2.5"
-lockfree = "0.5.1"
 
 [dependencies]
 rkyv = { version = "0.7.45" }
