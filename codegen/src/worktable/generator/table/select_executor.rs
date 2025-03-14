@@ -1,150 +1,166 @@
+use convert_case::{Case, Casing};
+use proc_macro2::Ident;
+use proc_macro2::Span;
 use proc_macro2::{Literal, TokenStream};
 use quote::quote;
 
 use crate::name_generator::WorktableNameGenerator;
 use crate::worktable::generator::Generator;
+use quote::ToTokens;
+use syn::Type;
+
+fn is_numeric_type(ty: &Type) -> bool {
+    matches!(
+        ty.to_token_stream().to_string().as_str(),
+        "i8" | "i16"
+            | "i32"
+            | "i64"
+            | "i128"
+            | "u8"
+            | "u16"
+            | "u32"
+            | "u64"
+            | "u128"
+            | "f32"
+            | "f64"
+    )
+}
 
 impl Generator {
-    pub fn gen_table_select_executor_impl(&self) -> TokenStream {
+    pub fn gen_table_column_range_type(&self) -> TokenStream {
         let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
-        let ident = name_generator.get_work_table_ident();
-        let row_type = name_generator.get_row_type_ident();
+        let column_range_type = name_generator.get_column_range_type_ident();
 
-        let columns = self.columns.columns_map.keys().map(|name| {
-            let lit = Literal::string(name.to_string().as_str());
-            if let Some(index) = self.columns.indexes.get(name) {
-                let idx_name = &index.name;
-                quote! {
-                        #lit => {
-                            let mut limit = q.params.limit.unwrap_or(usize::MAX);
-                            let mut offset = q.params.offset.unwrap_or(0);
-                            let mut iter = self.0.indexes.#idx_name.iter();
-                            let mut rows = vec![];
+        let unique_types: std::collections::HashSet<String> = self
+            .columns
+            .columns_map
+            .values()
+            .map(|ty| ty.to_token_stream().to_string())
+            .filter(|ty| is_numeric_type(&syn::parse_str::<Type>(ty).unwrap()))
+            .map(|ty| ty.to_string())
+            .collect();
 
-                            while let Some((_, l)) = iter.next() {
-                                if q.params.orders.len() < 2 {
-                                    if offset != 0 {
-                                        offset -= 1;
-                                        continue;
-                                    }
-                                }
-                                let next = self.0.data.select(*l).map_err(WorkTableError::PagesError)?;
-                                rows.push(next);
-                                if q.params.orders.len() < 2 {
-                                    limit -= 1;
-                                    if limit == 0 {
-                                        break
-                                    }
-                                }
-                            }
-
-                            rows
-                        },
-                }
-            } else {
-                // TODO: Add support for non-indexed columns
-                quote! {
-                    #lit => todo!(),
-                }
+        let column_range_variants = unique_types.iter().map(|type_name| {
+            let variant_ident = Ident::new(
+                &type_name.to_string().to_case(Case::Pascal),
+                Span::call_site(),
+            );
+            let ty_ident = Ident::new(&type_name.to_string(), Span::call_site());
+            quote! {
+                #variant_ident(std::ops::RangeInclusive<#ty_ident>),
             }
-        }).collect::<Vec<_>>();
+        });
 
-        quote! {
-            impl SelectQueryExecutor<'_, #row_type> for #ident {
-                fn execute(&self, mut q: SelectQueryBuilder<#row_type, Self>) -> Result<Vec<#row_type>, WorkTableError> {
-                    if q.params.orders.is_empty() {
-                        let mut limit = q.params.limit.unwrap_or(usize::MAX);
-                        let mut offset = q.params.offset.unwrap_or(0);
-                        let mut iter = self.0.pk_map.iter();
-                        let mut rows = vec![];
+        let from_impls = unique_types.iter().map(|type_name| {
+            let variant_ident = Ident::new(
+                &type_name.to_string().to_case(Case::Pascal),
+                Span::call_site(),
+            );
+            let type_ident = Ident::new(&type_name.to_string(), Span::call_site());
 
-                        while let Some((_, l)) = iter.next() {
-                            if offset != 0 {
-                                offset -= 1;
-                                continue;
-                            }
-                            let next = self.0.data.select(*l).map_err(WorkTableError::PagesError)?;
-                            rows.push(next);
-                            if q.params.orders.len() < 2 {
-                                limit -= 1;
-                                if limit == 0 {
-                                    break
-                                }
-                            }
-                        }
-
-                        core::result::Result::Ok(rows)
-                    } else {
-                        let (order, column) = q.params.orders.pop_front().unwrap();
-                        q.params.orders.push_front((order, column.clone()));
-                        let rows = match column.as_str() {
-                            #(#columns)*
-                            _ => unreachable!()
-                        };
-                        #[allow(unreachable_code)]
-                        core::result::Result::Ok(SelectResult::<_, Self>::new(rows).with_params(q.params).execute())
+            quote! {
+                impl From<std::ops::RangeInclusive<#type_ident>> for #column_range_type {
+                    fn from(range: std::ops::RangeInclusive<#type_ident>) -> Self {
+                        Self::#variant_ident(range)
+                    }
+                }
+                impl From<std::ops::Range<#type_ident>> for #column_range_type {
+                    fn from(range: std::ops::Range<#type_ident>) -> Self {
+                        let end = range.end.saturating_sub(1);
+                        Self::#variant_ident(range.start..=end)
                     }
                 }
             }
+        });
+
+        quote! {
+            #[derive(Debug, Clone)]
+            pub enum #column_range_type {
+                #(#column_range_variants)*
+            }
+
+            #(#from_impls)*
         }
     }
 
-    pub fn gen_table_select_result_executor_impl(&self) -> TokenStream {
+    pub fn gen_table_select_query_executor_impl(&self) -> TokenStream {
         let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
-        let ident = name_generator.get_work_table_ident();
         let row_type = name_generator.get_row_type_ident();
+        let column_range_type = name_generator.get_column_range_type_ident();
 
-        let columns = self
+        let order_matches = self.columns.columns_map.keys().map(|column| {
+        let col_lit = Literal::string(&column.to_string());
+        let col_ident = Ident::new(&column.to_string(), Span::call_site());
+        quote! {
+            #col_lit => |a: &#row_type, b: &#row_type| a.#col_ident.partial_cmp(&b.#col_ident).unwrap(),
+        }
+    });
+
+        let range_matches = self
             .columns
             .columns_map
-            .keys()
-            .map(|name| {
-                let lit = Literal::string(name.to_string().as_str());
-                quote! {
-                    #lit => {
-                        sort = Box::new(move |left, right| {match sort(left, right) {
-                            std::cmp::Ordering::Equal => {
-                                match q {
-                                    Order::Asc => {
-                                        (&left.#name).partial_cmp(&right.#name).unwrap()
-                                    },
-                                    Order::Desc => {
-                                        (&right.#name).partial_cmp(&left.#name).unwrap()
-                                    }
-                                }
-                            },
-                            std::cmp::Ordering::Less => {
-                                std::cmp::Ordering::Less
-                            },
-                            std::cmp::Ordering::Greater => {
-                                std::cmp::Ordering::Greater
-                            },
-                        }});
-                    }
-                }
+            .iter()
+            .filter(|(_, ty)| {
+                is_numeric_type(&syn::parse_str::<Type>(&ty.to_token_stream().to_string()).unwrap())
             })
-            .collect::<Vec<_>>();
+            .map(|(column, ty)| {
+                let col_lit = Literal::string(column.to_string().as_str());
+                let col_ident = Ident::new(&column.to_string(), Span::call_site());
+                let variant_ident =
+                    Ident::new(&ty.to_string().to_case(Case::Pascal), Span::call_site());
+                quote! {
+                    (#col_lit, #column_range_type::#variant_ident(range)) => {
+                        Box::new(iter.filter(move |row| range.contains(&row.#col_ident)))
+                            as Box<dyn DoubleEndedIterator<Item = #row_type>>
+                    },
+                }
+            });
 
         quote! {
-            impl SelectResultExecutor<#row_type> for #ident {
-                fn execute(mut q: SelectResult<#row_type, Self>) -> Vec<#row_type> {
-                    let mut sort: Box<dyn Fn(&#row_type, &#row_type) ->  std::cmp::Ordering> = Box::new(|left: &#row_type, right: &#row_type| { std::cmp::Ordering::Equal });
-                    while let Some((q, col)) = q.params.orders.pop_front() {
-                        match col.as_str() {
-                            #(#columns)*
-                            _ => unreachable!()
+            impl<I> SelectQueryExecutor<#row_type, I, #column_range_type>
+            for SelectQueryBuilder<#row_type, I, #column_range_type>
+            where
+                I: DoubleEndedIterator<Item = #row_type> + Sized,
+            {
+                fn execute(self) -> Result<Vec<#row_type>, WorkTableError> {
+                    let mut iter: Box<dyn DoubleEndedIterator<Item = #row_type>> = Box::new(self.iter);
+                    if !self.params.range.is_empty() {
+                        for (range, column) in &self.params.range {
+                            iter = match (column.as_str(), range.clone().into()) {
+                                #(#range_matches)*
+                                _ => unreachable!(),
+                            };
                         }
                     }
-                    q.vals.sort_by(sort);
+                    if let Some((order, col)) = &self.params.order {
+                        let cmp = match col.as_str() {
+                            #(#order_matches)*
+                            _ => unreachable!(),
+                        };
 
-                    let offset = q.params.offset.unwrap_or(0);
-                    let mut vals = q.vals.as_slice()[offset..].to_vec();
-                    if let Some(l) = q.params.limit {
-                        vals.truncate(l);
-                        vals
-                    } else {
-                        vals
+                        // We cannot sort Iterator itself without Vec
+                        let mut items: Vec<#row_type> = iter.collect();
+                        items.sort_by(cmp);
+
+                        iter = Box::new(items.into_iter());
+
+                        if *order == Order::Desc {
+                            iter = Box::new(iter.rev());
+                        }
                     }
+
+                    let iter_result: Box<dyn Iterator<Item = #row_type>> = if let Some(offset) = self.params.offset {
+                        Box::new(iter.skip(offset))
+                    } else {
+                        Box::new(iter)
+                    };
+
+                    let iter_result: Box<dyn Iterator<Item = #row_type>> = if let Some(limit) = self.params.limit {
+                         Box::new(iter_result.take(limit))
+                    } else {
+                        Box::new(iter_result)
+                    };
+                    Ok(iter_result.collect())
                 }
             }
         }

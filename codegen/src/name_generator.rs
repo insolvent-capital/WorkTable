@@ -36,6 +36,13 @@ impl WorktableNameGenerator {
         )
     }
 
+    pub fn get_column_range_type_ident(&self) -> Ident {
+        Ident::new(
+            format!("{}ColumnRange", self.name).as_str(),
+            Span::mixed_site(),
+        )
+    }
+
     pub fn get_work_table_ident(&self) -> Ident {
         Ident::new(
             format!("{}WorkTable", self.name).as_str(),

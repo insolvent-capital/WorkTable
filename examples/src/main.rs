@@ -55,8 +55,14 @@ fn main() {
     println!("Select All {:?}", select_all);
 
     // Select by Idx
-    let select_by_attr = my_table.select_by_attr("Attribute1".to_string());
-    println!("Select by idx {:?}", select_by_attr.unwrap().vals);
+    let select_by_attr = my_table
+        .select_by_attr("Attribute1".to_string())
+        .execute()
+        .unwrap();
+
+    for row in select_by_attr {
+        println!("Select by idx, row {:?}", row);
+    }
 
     // Update Value query
     let update = my_table.update_val_by_id(ValByIdQuery { val: 1337 }, pk.clone());

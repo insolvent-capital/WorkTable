@@ -1,27 +1,30 @@
-use std::marker::PhantomData;
+use std::collections::VecDeque;
 
 use crate::select::{Order, QueryParams};
 use crate::WorkTableError;
 
-pub trait SelectQueryExecutor<'a, Row>
+#[derive(Clone)]
+pub struct SelectQueryBuilder<Row, I, ColumnRange>
 where
-    Self: Sized,
+    I: DoubleEndedIterator<Item = Row> + Sized,
 {
-    fn execute(&self, q: SelectQueryBuilder<'a, Row, Self>) -> Result<Vec<Row>, WorkTableError>;
+    pub params: QueryParams<ColumnRange>,
+    pub iter: I,
 }
 
-pub struct SelectQueryBuilder<'a, Row, W> {
-    table: &'a W,
-    pub params: QueryParams,
-    phantom_data: PhantomData<Row>,
-}
-
-impl<'a, Row, W> SelectQueryBuilder<'a, Row, W> {
-    pub fn new(table: &'a W) -> Self {
+impl<Row, I, ColumnRange> SelectQueryBuilder<Row, I, ColumnRange>
+where
+    I: DoubleEndedIterator<Item = Row> + Sized,
+{
+    pub fn new(iter: I) -> Self {
         Self {
-            table,
-            params: QueryParams::default(),
-            phantom_data: PhantomData,
+            params: QueryParams {
+                limit: None,
+                offset: None,
+                order: None,
+                range: VecDeque::new(),
+            },
+            iter,
         }
     }
 
@@ -36,14 +39,23 @@ impl<'a, Row, W> SelectQueryBuilder<'a, Row, W> {
     }
 
     pub fn order_by<S: Into<String>>(mut self, order: Order, column: S) -> Self {
-        self.params.orders.push_back((order, column.into()));
+        self.params.order = Some((order, column.into()));
         self
     }
 
-    pub fn execute(self) -> Result<Vec<Row>, WorkTableError>
+    pub fn where_by<R>(mut self, range: R, column: impl Into<String>) -> Self
     where
-        W: SelectQueryExecutor<'a, Row>,
+        R: Into<ColumnRange>,
     {
-        self.table.execute(self)
+        self.params.range.push_back((range.into(), column.into()));
+        self
     }
+}
+
+pub trait SelectQueryExecutor<Row, I, T>
+where
+    Self: Sized,
+    I: DoubleEndedIterator<Item = Row> + Sized,
+{
+    fn execute(self) -> Result<Vec<Row>, WorkTableError>;
 }

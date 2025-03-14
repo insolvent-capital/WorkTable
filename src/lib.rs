@@ -28,9 +28,7 @@ pub mod prelude {
         UpdateOperation,
     };
     pub use crate::primary_key::{PrimaryKeyGenerator, PrimaryKeyGeneratorState, TablePrimaryKey};
-    pub use crate::table::select::{
-        Order, SelectQueryBuilder, SelectQueryExecutor, SelectResult, SelectResultExecutor,
-    };
+    pub use crate::table::select::{Order, QueryParams, SelectQueryBuilder, SelectQueryExecutor};
     pub use crate::{
         lock::Lock, Difference, IndexMap, IndexMultiMap, TableIndex, TableIndexCdc, TableRow,
         TableSecondaryIndex, TableSecondaryIndexCdc, WorkTable, WorkTableError,
