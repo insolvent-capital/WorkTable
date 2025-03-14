@@ -88,13 +88,13 @@ impl Generator {
             .map(|i| {
                 let literal_name = Literal::string(i.to_string().as_str());
                 quote! {
-                    #i: SpaceIndex::secondary_from_table_files_path(path, #literal_name)?,
+                    #i: SpaceIndex::secondary_from_table_files_path(path, #literal_name).await?,
                 }
             })
             .collect();
 
         quote! {
-            fn from_table_files_path<S: AsRef<str>>(path: S) -> eyre::Result<Self> {
+            async fn from_table_files_path<S: AsRef<str>>(path: S) -> eyre::Result<Self> {
                 let path = path.as_ref();
                 Ok(Self {
                     #(#fields)*
@@ -113,14 +113,14 @@ impl Generator {
             .map(|i| {
                 quote! {
                     for event in events.#i {
-                        self.#i.process_change_event(event)?;
+                        self.#i.process_change_event(event).await?;
                     }
                 }
             })
             .collect();
 
         quote! {
-            fn process_change_events(&mut self, events: #events_ident) -> eyre::Result<()> {
+            async fn process_change_events(&mut self, events: #events_ident) -> eyre::Result<()> {
                 #(#process)*
                 core::result::Result::Ok(())
             }

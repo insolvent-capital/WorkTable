@@ -81,7 +81,7 @@ impl<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>
                     engine_progress_notify.notify_waiters();
                     engine_queue.pop().await
                 };
-                let res = engine.apply_operation(next_op);
+                let res = engine.apply_operation(next_op).await;
                 if let Err(err) = res {
                     tracing::warn!("{}", err);
                 }

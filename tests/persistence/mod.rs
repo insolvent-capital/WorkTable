@@ -47,13 +47,13 @@ worktable!(
 
 pub const TEST_ROW_COUNT: usize = 100;
 
-pub fn get_empty_test_wt() -> TestPersistWorkTable {
+pub async fn get_empty_test_wt() -> TestPersistWorkTable {
     let config = PersistenceConfig::new("tests/data", "tests/data").unwrap();
-    TestPersistWorkTable::new(config).unwrap()
+    TestPersistWorkTable::new(config).await.unwrap()
 }
 
-pub fn get_test_wt() -> TestPersistWorkTable {
-    let table = get_empty_test_wt();
+pub async fn get_test_wt() -> TestPersistWorkTable {
+    let table = get_empty_test_wt().await;
 
     for i in 1..100 {
         let row = TestPersistRow { another: i, id: i };
@@ -63,9 +63,11 @@ pub fn get_test_wt() -> TestPersistWorkTable {
     table
 }
 
-pub fn get_test_wt_without_secondary_indexes() -> TestWithoutSecondaryIndexesWorkTable {
+pub async fn get_test_wt_without_secondary_indexes() -> TestWithoutSecondaryIndexesWorkTable {
     let config = PersistenceConfig::new("tests/data", "tests/data").unwrap();
-    let table = TestWithoutSecondaryIndexesWorkTable::new(config).unwrap();
+    let table = TestWithoutSecondaryIndexesWorkTable::new(config)
+        .await
+        .unwrap();
 
     for i in 1..TEST_ROW_COUNT {
         let row = TestWithoutSecondaryIndexesRow {

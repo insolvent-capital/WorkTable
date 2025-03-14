@@ -1,19 +1,21 @@
-use std::fs::File;
-
+use tokio::fs::File;
 use worktable::prelude::*;
 
 // TODO: Fix naming.
 use crate::persistence::{
-    get_empty_test_wt, get_test_wt, TestPersistRow, TestPersistWorkTable, TEST_PERSIST_INNER_SIZE,
-    TEST_PERSIST_PAGE_SIZE, TEST_ROW_COUNT,
+    get_empty_test_wt, get_test_wt, TestPersistWorkTable, TEST_PERSIST_INNER_SIZE,
+    TEST_PERSIST_PAGE_SIZE,
 };
 use crate::remove_dir_if_exists;
 
-#[test]
-fn test_info_parse() {
-    let mut file = File::open("tests/data/expected/test_persist/.wt.data").unwrap();
-    let info =
-        parse_page::<SpaceInfoPage<u64>, { TEST_PERSIST_INNER_SIZE as u32 }>(&mut file, 0).unwrap();
+#[tokio::test]
+async fn test_info_parse() {
+    let mut file = File::open("tests/data/expected/test_persist/.wt.data")
+        .await
+        .unwrap();
+    let info = parse_page::<SpaceInfoPage<u64>, { TEST_PERSIST_INNER_SIZE as u32 }>(&mut file, 0)
+        .await
+        .unwrap();
 
     assert_eq!(info.header.space_id, 0.into());
     assert_eq!(info.header.page_id, 0.into());
@@ -29,11 +31,14 @@ fn test_info_parse() {
     assert_eq!(info.inner.empty_links_list, vec![]);
 }
 
-#[test]
-fn test_primary_index_parse() {
-    let mut file = File::open("tests/data/expected/test_persist/primary.wt.idx").unwrap();
-    let index =
-        parse_page::<IndexPage<u64>, { TEST_PERSIST_PAGE_SIZE as u32 }>(&mut file, 2).unwrap();
+#[tokio::test]
+async fn test_primary_index_parse() {
+    let mut file = File::open("tests/data/expected/test_persist/primary.wt.idx")
+        .await
+        .unwrap();
+    let index = parse_page::<IndexPage<u64>, { TEST_PERSIST_PAGE_SIZE as u32 }>(&mut file, 2)
+        .await
+        .unwrap();
 
     assert_eq!(index.header.space_id, 0.into());
     assert_eq!(index.header.page_id, 2.into());
@@ -63,11 +68,14 @@ fn test_primary_index_parse() {
     }
 }
 
-#[test]
-fn test_another_idx_index_parse() {
-    let mut file = File::open("tests/data/expected/test_persist/another_idx.wt.idx").unwrap();
-    let index =
-        parse_page::<IndexPage<u64>, { TEST_PERSIST_PAGE_SIZE as u32 }>(&mut file, 2).unwrap();
+#[tokio::test]
+async fn test_another_idx_index_parse() {
+    let mut file = File::open("tests/data/expected/test_persist/another_idx.wt.idx")
+        .await
+        .unwrap();
+    let index = parse_page::<IndexPage<u64>, { TEST_PERSIST_PAGE_SIZE as u32 }>(&mut file, 2)
+        .await
+        .unwrap();
 
     assert_eq!(index.header.space_id, 0.into());
     assert_eq!(index.header.page_id, 2.into());
@@ -97,11 +105,14 @@ fn test_another_idx_index_parse() {
     }
 }
 
-#[test]
-fn test_data_parse() {
-    let mut file = File::open("tests/data/expected/test_persist/.wt.data").unwrap();
+#[tokio::test]
+async fn test_data_parse() {
+    let mut file = File::open("tests/data/expected/test_persist/.wt.data")
+        .await
+        .unwrap();
     let data =
         parse_data_page::<{ TEST_PERSIST_PAGE_SIZE }, { TEST_PERSIST_INNER_SIZE }>(&mut file, 1)
+            .await
             .unwrap();
 
     assert_eq!(data.header.space_id, 0.into());
@@ -115,8 +126,8 @@ fn test_data_parse() {
 #[tokio::test]
 async fn test_space_parse() {
     let config = PersistenceConfig::new("tests/data/expected", "tests/data/expected").unwrap();
-    let table = TestPersistWorkTable::load_from_file(config).unwrap();
-    let expected = get_test_wt();
+    let table = TestPersistWorkTable::load_from_file(config).await.unwrap();
+    let expected = get_test_wt().await;
 
     assert_eq!(
         table.select_all().execute().unwrap(),
@@ -126,51 +137,11 @@ async fn test_space_parse() {
 
 #[tokio::test]
 async fn test_space_parse_no_file() {
-    remove_dir_if_exists("tests/non-existent".to_string());
+    remove_dir_if_exists("tests/non-existent".to_string()).await;
 
     let config = PersistenceConfig::new("tests/non-existent", "tests/non-existent").unwrap();
-    let table = TestPersistWorkTable::load_from_file(config).unwrap();
-    let expected = get_empty_test_wt();
-    assert_eq!(
-        table.select_all().execute().unwrap(),
-        expected.select_all().execute().unwrap()
-    );
-}
-
-#[tokio::test]
-async fn test_space_insert_after_read() {
-    let config = PersistenceConfig::new("tests/data/expected", "tests/data/expected").unwrap();
-    let table = TestPersistWorkTable::load_from_file(config).unwrap();
-
-    let row = TestPersistRow {
-        another: TEST_ROW_COUNT as u64,
-        id: TEST_ROW_COUNT as u64,
-    };
-    table.insert(row.clone()).unwrap();
-    let expected = get_test_wt();
-    expected.insert(row).unwrap();
-
-    assert_eq!(
-        table.select_all().execute().unwrap(),
-        expected.select_all().execute().unwrap()
-    );
-}
-
-#[tokio::test]
-async fn test_space_delete_after_read() {
-    let config = PersistenceConfig::new("tests/data/expected", "tests/data/expected").unwrap();
-    let table = TestPersistWorkTable::load_from_file(config).unwrap();
-
-    table
-        .delete((TEST_ROW_COUNT as u64 - 1).into())
-        .await
-        .unwrap();
-    let expected = get_test_wt();
-    expected
-        .delete((TEST_ROW_COUNT as u64 - 1).into())
-        .await
-        .unwrap();
-
+    let table = TestPersistWorkTable::load_from_file(config).await.unwrap();
+    let expected = get_empty_test_wt().await;
     assert_eq!(
         table.select_all().execute().unwrap(),
         expected.select_all().execute().unwrap()

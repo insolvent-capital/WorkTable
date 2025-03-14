@@ -143,15 +143,15 @@ impl Generator {
                 let index_name_literal = Literal::string(i.to_string().as_str());
                 quote! {
                     {
-                        let mut file = std::fs::File::create(format!("{}/{}{}", path, #index_name_literal, #index_extension))?;
+                        let mut file = tokio::fs::File::create(format!("{}/{}{}", path, #index_name_literal, #index_extension)).await?;
                         let mut info = #ident::space_info_default();
-                        info.inner.page_count = self.#i.1.len() as u32 + self.#i.0.len() as u32;;
-                        persist_page(&mut info, &mut file)?;
+                        info.inner.page_count = self.#i.1.len() as u32 + self.#i.0.len() as u32;
+                        persist_page(&mut info, &mut file).await?;
                         for mut page in &mut self.#i.0 {
-                            persist_page(&mut page, &mut file)?;
+                            persist_page(&mut page, &mut file).await?;
                         }
                         for mut page in &mut self.#i.1 {
-                            persist_page(&mut page, &mut file)?;
+                            persist_page(&mut page, &mut file).await?;
                         }
                     }
                 }
@@ -159,7 +159,7 @@ impl Generator {
             .collect::<Vec<_>>();
 
         quote! {
-            pub fn persist(&mut self, path: &str) -> eyre::Result<()>
+            pub async fn persist(&mut self, path: &str) -> eyre::Result<()>
             {
                 #(#persist_logic)*
                 Ok(())
@@ -193,14 +193,14 @@ impl Generator {
             .map(|(l, i)| quote! {
                 let #i = {
                     let mut #i = vec![];
-                    let mut file = std::fs::File::open(format!("{}/{}{}", path, #l, #index_extension))?;
-                    let info = parse_page::<SpaceInfoPage<()>, { #page_const_name as u32 }>(&mut file, 0)?;
-                    let file_length = file.metadata()?.len();
+                    let mut file = tokio::fs::File::open(format!("{}/{}{}", path, #l, #index_extension)).await?;
+                    let info = parse_page::<SpaceInfoPage<()>, { #page_const_name as u32 }>(&mut file, 0).await?;
+                    let file_length = file.metadata().await?.len();
                     let page_id = file_length / (#page_const_name as u64 + GENERAL_HEADER_SIZE as u64) + 1;
                     let next_page_id = std::sync::Arc::new(std::sync::atomic::AtomicU32::new(page_id as u32));
-                    let toc = IndexTableOfContents::<_, { #page_const_name as u32 }>::parse_from_file(&mut file, 0.into(), next_page_id.clone())?;
+                    let toc = IndexTableOfContents::<_, { #page_const_name as u32 }>::parse_from_file(&mut file, 0.into(), next_page_id.clone()).await?;
                     for page_id in toc.iter().map(|(_, page_id)| page_id) {
-                        let index = parse_page::<IndexPage<_>, { #page_const_name as u32 }>(&mut file, (*page_id).into())?;
+                        let index = parse_page::<IndexPage<_>, { #page_const_name as u32 }>(&mut file, (*page_id).into()).await?;
                         #i.push(index);
                     }
                     (toc.pages, #i)
@@ -220,7 +220,7 @@ impl Generator {
             .collect::<Vec<_>>();
 
         quote! {
-            pub fn parse_from_file(path: &str) -> eyre::Result<Self> {
+            pub async fn parse_from_file(path: &str) -> eyre::Result<Self> {
                 #(#field_names_literals)*
 
                 Ok(Self {

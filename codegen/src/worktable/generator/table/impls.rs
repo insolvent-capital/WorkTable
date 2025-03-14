@@ -44,11 +44,11 @@ impl Generator {
 
         if self.is_persist {
             quote! {
-                pub fn new(config: PersistenceConfig) -> eyre::Result<Self> {
+                pub async fn new(config: PersistenceConfig) -> eyre::Result<Self> {
                     let mut inner = WorkTable::default();
                     inner.table_name = #table_name;
                     let table_files_path = format!("{}/{}", config.tables_path, #dir_name);
-                    let engine: #engine = PersistenceEngine::from_table_files_path(table_files_path)?;
+                    let engine: #engine = PersistenceEngine::from_table_files_path(table_files_path).await?;
                     core::result::Result::Ok(Self(
                         inner,
                         config,

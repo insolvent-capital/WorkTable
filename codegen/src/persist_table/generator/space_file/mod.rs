@@ -88,29 +88,29 @@ impl Generator {
 
         quote! {
             impl #space_ident {
-                pub fn persist(&mut self) -> eyre::Result<()> {
+                pub async fn persist(&mut self) -> eyre::Result<()> {
                     let prefix = &self.path;
-                    std::fs::create_dir_all(prefix)?;
+                    tokio::fs::create_dir_all(prefix).await?;
 
                     {
-                        let mut primary_index_file = std::fs::File::create(format!("{}/primary{}", &self.path, #index_extension))?;
+                        let mut primary_index_file = tokio::fs::File::create(format!("{}/primary{}", &self.path, #index_extension)).await?;
                         let mut info = self.get_primary_index_info()?;
-                        persist_page(&mut info, &mut primary_index_file)?;
+                        persist_page(&mut info, &mut primary_index_file).await?;
                         for mut toc_page in &mut self.primary_index.0 {
-                            persist_page(&mut toc_page, &mut primary_index_file)?;
+                            persist_page(&mut toc_page, &mut primary_index_file).await?;
                         }
                         for mut primary_index_page in &mut self.primary_index.1 {
-                            persist_page(&mut primary_index_page, &mut primary_index_file)?;
+                            persist_page(&mut primary_index_page, &mut primary_index_file).await?;
                         }
                     }
 
-                    self.indexes.persist(&prefix)?;
+                    self.indexes.persist(&prefix).await?;
 
                     {
-                        let mut data_file = std::fs::File::create(format!("{}/{}", &self.path, #data_extension))?;
-                        persist_page(&mut self.data_info, &mut data_file)?;
+                        let mut data_file = tokio::fs::File::create(format!("{}/{}", &self.path, #data_extension)).await?;
+                        persist_page(&mut self.data_info, &mut data_file).await?;
                         for mut data_page in &mut self.data {
-                            persist_page(&mut data_page, &mut data_file)?;
+                            persist_page(&mut data_page, &mut data_file).await?;
                         }
                     }
 
@@ -146,7 +146,7 @@ impl Generator {
         let dir_name = name_generator.get_dir_name();
 
         quote! {
-            pub fn into_worktable(self, config: PersistenceConfig) -> #wt_ident {
+            pub async fn into_worktable(self, config: PersistenceConfig) -> #wt_ident {
                 let mut page_id = 1;
                 let data = self.data.into_iter().map(|p| {
                     let mut data = Data::from_data_page(p);
@@ -179,6 +179,7 @@ impl Generator {
 
                 let path = format!("{}/{}", config.tables_path.as_str(), #dir_name);
                 let engine: #engine_ident = PersistenceEngine::from_table_files_path(path)
+                                .await
                                 .expect("should not panic as SpaceFile is ok");
                 #wt_ident(
                     table,
@@ -199,31 +200,31 @@ impl Generator {
         let data_extension = Literal::string(WT_DATA_EXTENSION);
 
         quote! {
-            pub fn parse_file(path: &str) -> eyre::Result<Self> {
+            pub async fn parse_file(path: &str) -> eyre::Result<Self> {
                 let mut primary_index = {
                     let mut primary_index = vec![];
-                    let mut primary_file = std::fs::File::open(format!("{}/primary{}", path, #index_extension))?;
-                    let info = parse_page::<SpaceInfoPage<()>, { #page_const_name as u32 }>(&mut primary_file, 0)?;
-                    let file_length = primary_file.metadata()?.len();
+                    let mut primary_file = tokio::fs::File::open(format!("{}/primary{}", path, #index_extension)).await?;
+                    let info = parse_page::<SpaceInfoPage<()>, { #page_const_name as u32 }>(&mut primary_file, 0).await?;
+                    let file_length = primary_file.metadata().await?.len();
                     let count = file_length / (#page_const_name as u64 + GENERAL_HEADER_SIZE as u64);
                     let next_page_id = std::sync::Arc::new(std::sync::atomic::AtomicU32::new(count as u32));
-                    let toc = IndexTableOfContents::<_, { #page_const_name as u32 }>::parse_from_file(&mut primary_file, 0.into(), next_page_id.clone())?;
+                    let toc = IndexTableOfContents::<_, { #page_const_name as u32 }>::parse_from_file(&mut primary_file, 0.into(), next_page_id.clone()).await?;
                     for page_id in toc.iter().map(|(_, page_id)| page_id) {
-                        let index = parse_page::<IndexPage<#pk_type>, { #page_const_name as u32 }>(&mut primary_file, (*page_id).into())?;
+                        let index = parse_page::<IndexPage<#pk_type>, { #page_const_name as u32 }>(&mut primary_file, (*page_id).into()).await?;
                         primary_index.push(index);
                     }
                     (toc.pages, primary_index)
                 };
 
-                let indexes = #persisted_index_name::parse_from_file(path)?;
+                let indexes = #persisted_index_name::parse_from_file(path).await?;
                 let (data, data_info) = {
                     let mut data = vec![];
-                    let mut data_file = std::fs::File::open(format!("{}/{}", path, #data_extension))?;
-                    let info = parse_page::<SpaceInfoPage<<<#pk_type as TablePrimaryKey>::Generator as PrimaryKeyGeneratorState>::State>, { #page_const_name as u32 }>(&mut data_file, 0)?;
-                    let file_length = data_file.metadata()?.len();
+                    let mut data_file = tokio::fs::File::open(format!("{}/{}", path, #data_extension)).await?;
+                    let info = parse_page::<SpaceInfoPage<<<#pk_type as TablePrimaryKey>::Generator as PrimaryKeyGeneratorState>::State>, { #page_const_name as u32 }>(&mut data_file, 0).await?;
+                    let file_length = data_file.metadata().await?.len();
                     let count = file_length / (#inner_const_name as u64 + GENERAL_HEADER_SIZE as u64);
                     for page_id in 1..=count {
-                        let index = parse_data_page::<{ #page_const_name }, { #inner_const_name }>(&mut data_file, page_id as u32)?;
+                        let index = parse_data_page::<{ #page_const_name }, { #inner_const_name }>(&mut data_file, page_id as u32).await?;
                         data.push(index);
                     }
                     (data, info)

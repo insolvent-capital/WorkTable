@@ -45,7 +45,6 @@ pub mod prelude {
 
     pub use derive_more::{From, Into};
     pub use lockfree::set::Set as LockFreeSet;
-    pub use scc::{ebr::Guard, tree_index::TreeIndex};
     pub use worktable_codegen::{PersistIndex, PersistTable};
 
     pub const WT_INDEX_EXTENSION: &str = ".wt.idx";

@@ -260,6 +260,7 @@ where
         Ok(res)
     }
 
+    #[allow(clippy::missing_safety_doc)]
     #[cfg_attr(
         feature = "perf_measurements",
         performance_measurement(prefix_name = "DataPages")

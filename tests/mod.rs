@@ -1,5 +1,3 @@
-use std::fs;
-use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::Path;
 
@@ -7,8 +5,8 @@ mod persistence;
 mod worktable;
 
 pub fn check_if_files_are_same(got: String, expected: String) -> bool {
-    let got = File::open(got).unwrap();
-    let expected = File::open(expected).unwrap();
+    let got = std::fs::File::open(got).unwrap();
+    let expected = std::fs::File::open(expected).unwrap();
 
     // Check if file sizes are different
     if got.metadata().unwrap().len() != expected.metadata().unwrap().len() {
@@ -30,7 +28,7 @@ pub fn check_if_files_are_same(got: String, expected: String) -> bool {
 }
 
 pub fn check_if_dirs_are_same(got: String, expected: String) -> bool {
-    let paths = fs::read_dir(&expected).unwrap();
+    let paths = std::fs::read_dir(&expected).unwrap();
     for file in paths {
         let file_name = file.unwrap().file_name();
         if !check_if_files_are_same(
@@ -44,14 +42,14 @@ pub fn check_if_dirs_are_same(got: String, expected: String) -> bool {
     true
 }
 
-pub fn remove_file_if_exists(path: String) {
+pub async fn remove_file_if_exists(path: String) {
     if Path::new(path.as_str()).exists() {
-        fs::remove_file(path.as_str()).unwrap();
+        tokio::fs::remove_file(path.as_str()).await.unwrap();
     }
 }
 
-pub fn remove_dir_if_exists(path: String) {
+pub async fn remove_dir_if_exists(path: String) {
     if Path::new(path.as_str()).exists() {
-        fs::remove_dir_all(path).unwrap()
+        tokio::fs::remove_dir_all(path).await.unwrap()
     }
 }

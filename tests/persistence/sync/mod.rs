@@ -4,8 +4,6 @@ use worktable::prelude::{PersistenceConfig, PrimaryKeyGeneratorState};
 
 #[test]
 fn test_space_insert_sync() {
-    remove_dir_if_exists("tests/data/sync/insert".to_string());
-
     let config =
         PersistenceConfig::new("tests/data/sync/insert", "tests/data/sync/insert").unwrap();
 
@@ -17,8 +15,12 @@ fn test_space_insert_sync() {
         .unwrap();
 
     runtime.block_on(async {
+        remove_dir_if_exists("tests/data/sync/insert".to_string()).await;
+
         let pk = {
-            let table = TestPersistWorkTable::load_from_file(config.clone()).unwrap();
+            let table = TestPersistWorkTable::load_from_file(config.clone())
+                .await
+                .unwrap();
             let row = TestPersistRow {
                 another: 42,
                 id: table.get_next_pk().0,
@@ -28,7 +30,7 @@ fn test_space_insert_sync() {
             row.id
         };
         {
-            let table = TestPersistWorkTable::load_from_file(config).unwrap();
+            let table = TestPersistWorkTable::load_from_file(config).await.unwrap();
             assert!(table.select(pk.into()).is_some());
             assert_eq!(table.0.pk_gen.get_state(), pk + 1)
         }
@@ -37,8 +39,6 @@ fn test_space_insert_sync() {
 
 #[test]
 fn test_space_insert_many_sync() {
-    remove_dir_if_exists("tests/data/sync/insert_many".to_string());
-
     let config =
         PersistenceConfig::new("tests/data/sync/insert_many", "tests/data/sync/insert_many")
             .unwrap();
@@ -51,9 +51,13 @@ fn test_space_insert_many_sync() {
         .unwrap();
 
     runtime.block_on(async {
+        remove_dir_if_exists("tests/data/sync/insert_many".to_string()).await;
+
         let mut pks = vec![];
         {
-            let table = TestPersistWorkTable::load_from_file(config.clone()).unwrap();
+            let table = TestPersistWorkTable::load_from_file(config.clone())
+                .await
+                .unwrap();
             for i in 0..20 {
                 let pk = {
                     let row = TestPersistRow {
@@ -69,7 +73,7 @@ fn test_space_insert_many_sync() {
         }
 
         {
-            let table = TestPersistWorkTable::load_from_file(config).unwrap();
+            let table = TestPersistWorkTable::load_from_file(config).await.unwrap();
             let last = *pks.last().unwrap();
             for pk in pks {
                 assert!(table.select(pk.into()).is_some());
@@ -81,8 +85,6 @@ fn test_space_insert_many_sync() {
 
 #[test]
 fn test_space_update_full_sync() {
-    remove_dir_if_exists("tests/data/sync/update_full".to_string());
-
     let config =
         PersistenceConfig::new("tests/data/sync/update_full", "tests/data/sync/update_full")
             .unwrap();
@@ -95,8 +97,12 @@ fn test_space_update_full_sync() {
         .unwrap();
 
     runtime.block_on(async {
+        remove_dir_if_exists("tests/data/sync/update_full".to_string()).await;
+
         let pk = {
-            let table = TestPersistWorkTable::load_from_file(config.clone()).unwrap();
+            let table = TestPersistWorkTable::load_from_file(config.clone())
+                .await
+                .unwrap();
             let row = TestPersistRow {
                 another: 42,
                 id: table.get_next_pk().0,
@@ -113,7 +119,7 @@ fn test_space_update_full_sync() {
             row.id
         };
         {
-            let table = TestPersistWorkTable::load_from_file(config).unwrap();
+            let table = TestPersistWorkTable::load_from_file(config).await.unwrap();
             assert!(table.select(pk.into()).is_some());
             assert_eq!(table.select(pk.into()).unwrap().another, 13);
             assert_eq!(table.0.pk_gen.get_state(), pk + 1)
@@ -123,8 +129,6 @@ fn test_space_update_full_sync() {
 
 #[test]
 fn test_space_update_query_sync() {
-    remove_dir_if_exists("tests/data/sync/update_query".to_string());
-
     let config = PersistenceConfig::new(
         "tests/data/sync/update_query",
         "tests/data/sync/update_query",
@@ -139,8 +143,12 @@ fn test_space_update_query_sync() {
         .unwrap();
 
     runtime.block_on(async {
+        remove_dir_if_exists("tests/data/sync/update_query".to_string()).await;
+
         let pk = {
-            let table = TestPersistWorkTable::load_from_file(config.clone()).unwrap();
+            let table = TestPersistWorkTable::load_from_file(config.clone())
+                .await
+                .unwrap();
             let row = TestPersistRow {
                 another: 42,
                 id: table.get_next_pk().0,
@@ -154,7 +162,7 @@ fn test_space_update_query_sync() {
             row.id
         };
         {
-            let table = TestPersistWorkTable::load_from_file(config).unwrap();
+            let table = TestPersistWorkTable::load_from_file(config).await.unwrap();
             assert!(table.select(pk.into()).is_some());
             assert_eq!(table.select(pk.into()).unwrap().another, 13);
             assert_eq!(table.0.pk_gen.get_state(), pk + 1)
@@ -164,8 +172,6 @@ fn test_space_update_query_sync() {
 
 #[test]
 fn test_space_delete_sync() {
-    remove_dir_if_exists("tests/data/sync/delete".to_string());
-
     let config =
         PersistenceConfig::new("tests/data/sync/delete", "tests/data/sync/delete").unwrap();
 
@@ -177,8 +183,12 @@ fn test_space_delete_sync() {
         .unwrap();
 
     runtime.block_on(async {
+        remove_dir_if_exists("tests/data/sync/delete".to_string()).await;
+
         let pk = {
-            let table = TestPersistWorkTable::load_from_file(config.clone()).unwrap();
+            let table = TestPersistWorkTable::load_from_file(config.clone())
+                .await
+                .unwrap();
             let row = TestPersistRow {
                 another: 42,
                 id: table.get_next_pk().0,
@@ -189,7 +199,7 @@ fn test_space_delete_sync() {
             row.id
         };
         {
-            let table = TestPersistWorkTable::load_from_file(config).unwrap();
+            let table = TestPersistWorkTable::load_from_file(config).await.unwrap();
             assert!(table.select(pk.into()).is_none());
             assert_eq!(table.0.pk_gen.get_state(), pk + 1)
         }
@@ -198,8 +208,6 @@ fn test_space_delete_sync() {
 
 #[test]
 fn test_space_delete_query_sync() {
-    remove_dir_if_exists("tests/data/sync/delete_query".to_string());
-
     let config = PersistenceConfig::new(
         "tests/data/sync/delete_query",
         "tests/data/sync/delete_query",
@@ -214,8 +222,12 @@ fn test_space_delete_query_sync() {
         .unwrap();
 
     runtime.block_on(async {
+        remove_dir_if_exists("tests/data/sync/delete_query".to_string()).await;
+
         let pk = {
-            let table = TestPersistWorkTable::load_from_file(config.clone()).unwrap();
+            let table = TestPersistWorkTable::load_from_file(config.clone())
+                .await
+                .unwrap();
             let row = TestPersistRow {
                 another: 42,
                 id: table.get_next_pk().0,
@@ -226,7 +238,7 @@ fn test_space_delete_query_sync() {
             row.id
         };
         {
-            let table = TestPersistWorkTable::load_from_file(config).unwrap();
+            let table = TestPersistWorkTable::load_from_file(config).await.unwrap();
             assert!(table.select(pk.into()).is_none());
             assert_eq!(table.0.pk_gen.get_state(), pk + 1)
         }

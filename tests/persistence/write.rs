@@ -4,8 +4,6 @@ use crate::persistence::{get_test_wt, get_test_wt_without_secondary_indexes};
 
 #[test]
 fn test_persist() {
-    remove_dir_if_exists("tests/data/test_persist".to_string());
-
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2)
         .enable_io()
@@ -14,9 +12,11 @@ fn test_persist() {
         .unwrap();
 
     runtime.block_on(async {
-        let table = get_test_wt();
+        remove_dir_if_exists("tests/data/test_persist".to_string()).await;
+
+        let table = get_test_wt().await;
         table.wait_for_ops().await;
-        table.persist().unwrap();
+        table.persist().await.unwrap();
 
         assert!(check_if_dirs_are_same(
             "tests/data/test_persist".to_string(),
@@ -27,8 +27,6 @@ fn test_persist() {
 
 #[test]
 fn test_persist_without_secondary_indexes() {
-    remove_dir_if_exists("tests/data/test_without_secondary_indexes".to_string());
-
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2)
         .enable_io()
@@ -37,9 +35,11 @@ fn test_persist_without_secondary_indexes() {
         .unwrap();
 
     runtime.block_on(async {
-        let table = get_test_wt_without_secondary_indexes();
+        remove_dir_if_exists("tests/data/test_without_secondary_indexes".to_string()).await;
+
+        let table = get_test_wt_without_secondary_indexes().await;
         table.wait_for_ops().await;
-        table.persist().unwrap();
+        table.persist().await.unwrap();
 
         assert!(check_if_dirs_are_same(
             "tests/data/test_without_secondary_indexes".to_string(),

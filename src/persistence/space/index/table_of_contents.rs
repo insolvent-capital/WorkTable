@@ -1,4 +1,3 @@
-use std::fs::File;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 
@@ -14,6 +13,7 @@ use rkyv::ser::sharing::Share;
 use rkyv::ser::Serializer;
 use rkyv::util::AlignedVec;
 use rkyv::{rancor, Archive, Deserialize, Serialize};
+use tokio::fs::File;
 
 #[derive(Debug)]
 pub struct IndexTableOfContents<T, const DATA_LENGTH: u32> {
@@ -130,7 +130,7 @@ where
         page.inner.pop_empty_page()
     }
 
-    pub fn persist(&mut self, file: &mut File) -> eyre::Result<()>
+    pub async fn persist(&mut self, file: &mut File) -> eyre::Result<()>
     where
         T: Archive
             + Ord
@@ -139,17 +139,18 @@ where
             + SizeMeasurable
             + for<'a> Serialize<
                 Strategy<Serializer<AlignedVec, ArenaHandle<'a>, Share>, rancor::Error>,
-            >,
+            > + Send
+            + Sync,
         <T as Archive>::Archived: Deserialize<T, Strategy<Pool, rancor::Error>> + Ord + Eq,
     {
         for page in &mut self.pages {
-            persist_page(page, file)?;
+            persist_page(page, file).await?;
         }
 
         Ok(())
     }
 
-    pub fn parse_from_file(
+    pub async fn parse_from_file(
         file: &mut File,
         space_id: SpaceId,
         next_page_id: Arc<AtomicU32>,
@@ -165,7 +166,7 @@ where
             >,
         <T as Archive>::Archived: Deserialize<T, Strategy<Pool, rancor::Error>> + Ord + Eq,
     {
-        let first_page = parse_page::<TableOfContentsPage<T>, DATA_LENGTH>(file, 1);
+        let first_page = parse_page::<TableOfContentsPage<T>, DATA_LENGTH>(file, 1).await;
         if let Ok(page) = first_page {
             if page.header.next_id.is_empty() {
                 Ok(Self {
@@ -179,7 +180,8 @@ where
                 let mut ind = false;
 
                 while !ind {
-                    let page = parse_page::<TableOfContentsPage<T>, DATA_LENGTH>(file, index)?;
+                    let page =
+                        parse_page::<TableOfContentsPage<T>, DATA_LENGTH>(file, index).await?;
                     ind = page.header.next_id.is_empty();
                     table_of_contents_pages.push(page);
                     index += 1;

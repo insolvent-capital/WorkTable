@@ -36,9 +36,9 @@ impl Generator {
 
     fn gen_worktable_persist_fn(&self) -> TokenStream {
         quote! {
-            pub fn persist(&self) -> eyre::Result<()> {
+            pub async fn persist(&self) -> eyre::Result<()> {
                 let mut space = self.into_space();
-                space.persist()?;
+                space.persist().await?;
                 Ok(())
             }
         }
@@ -51,13 +51,13 @@ impl Generator {
         let dir_name = name_generator.get_dir_name();
 
         quote! {
-            pub fn load_from_file(config: PersistenceConfig) -> eyre::Result<Self> {
+            pub async fn load_from_file(config: PersistenceConfig) -> eyre::Result<Self> {
                 let filename = format!("{}/{}", config.tables_path.as_str(), #dir_name);
                 if !std::path::Path::new(filename.as_str()).exists() {
-                    return #wt_ident::new(config);
+                    return #wt_ident::new(config).await;
                 };
-                let space = #space_ident::parse_file(&filename)?;
-                let table = space.into_worktable(config);
+                let space = #space_ident::parse_file(&filename).await?;
+                let table = space.into_worktable(config).await;
                 Ok(table)
             }
         }

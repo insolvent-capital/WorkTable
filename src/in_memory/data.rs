@@ -126,6 +126,7 @@ impl<Row, const DATA_LENGTH: usize> Data<Row, DATA_LENGTH> {
         Ok(link)
     }
 
+    #[allow(clippy::missing_safety_doc)]
     #[cfg_attr(
         feature = "perf_measurements",
         performance_measurement(prefix_name = "DataRow")
