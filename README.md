@@ -210,6 +210,33 @@ query.
 But if user's logic needs some simultaneous update of row parts from different code parts. `update` logic supports
 smart lock logic that allows simultaneous update of not overlapping row fields.
 
+#### `select_all` query declaration
+
+`select_all` queries are used to select row's data. select_all query returns Result<SelectQueryBuilder> accepts next params
+
+ ```rust
+ .where_by(std::ops::Range, "column"), Returns exact range of a column, works only with Number types, 
+                                       e.g. .where_by(0..10u64, "test") exclusive or for inclusive .where_by(0..=10u64, "test"), default i32; Supports multiple chain 
+ .order_by(Order::Desc||Order::Asc, "column"), Returns rows sorted by column,  e.g .order_by(Order::Desc, "test"); Supports multiple chain
+ .offset(usize), Skips first N records, e.g .offset(5) - 
+ .limit(usize), Takes first N records, e.g .limit(5) 
+ 
+
+ The all params could be chained, for example - my_table.select_all()
+                                                              .where_by(10..=30i32, "test")
+                                                              .where_by(0..=35u64, "test2")
+                                                              .order_by(Order::Desc, "test")
+                                                              .order_by(Order::Asc, "test2")
+                                                              .limit(10)
+                                                              .offset(5)
+                                                              .execute()
+
+ ```
+
+ `select_by_index_filed` the same as select_all, just iterates by non unique index, for unique index returns `Option<TestRow>`
+
+
+
 ## WorkTable internals structure
 
 ```rust 

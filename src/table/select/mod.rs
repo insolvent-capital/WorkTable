@@ -16,6 +16,6 @@ type Column = String;
 pub struct QueryParams<ColumnRange> {
     pub limit: Option<usize>,
     pub offset: Option<usize>,
-    pub order: Option<(Order, Column)>,
+    pub order: VecDeque<(Order, Column)>,
     pub range: VecDeque<(ColumnRange, Column)>,
 }

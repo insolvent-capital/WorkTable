@@ -21,7 +21,7 @@ where
             params: QueryParams {
                 limit: None,
                 offset: None,
-                order: None,
+                order: VecDeque::new(),
                 range: VecDeque::new(),
             },
             iter,
@@ -39,7 +39,7 @@ where
     }
 
     pub fn order_by<S: Into<String>>(mut self, order: Order, column: S) -> Self {
-        self.params.order = Some((order, column.into()));
+        self.params.order.push_back((order, column.into()));
         self
     }
 

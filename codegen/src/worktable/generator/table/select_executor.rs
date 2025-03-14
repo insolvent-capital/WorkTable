@@ -89,12 +89,20 @@ impl Generator {
         let column_range_type = name_generator.get_column_range_type_ident();
 
         let order_matches = self.columns.columns_map.keys().map(|column| {
-        let col_lit = Literal::string(&column.to_string());
-        let col_ident = Ident::new(&column.to_string(), Span::call_site());
-        quote! {
-            #col_lit => |a: &#row_type, b: &#row_type| a.#col_ident.partial_cmp(&b.#col_ident).unwrap(),
-        }
-    });
+            let col_lit = Literal::string(&column.to_string());
+            let col_ident = Ident::new(&column.to_string(), Span::call_site());
+            quote! {
+                #col_lit => {
+                    let cmp = a.#col_ident.partial_cmp(&b.#col_ident).unwrap_or(std::cmp::Ordering::Equal);
+                    if cmp != std::cmp::Ordering::Equal {
+                        return match order {
+                            Order::Asc => cmp,
+                            Order::Desc => cmp.reverse(),
+                        };
+                    }
+                }
+            }
+        });
 
         let range_matches = self
             .columns
@@ -124,6 +132,7 @@ impl Generator {
             {
                 fn execute(self) -> Result<Vec<#row_type>, WorkTableError> {
                     let mut iter: Box<dyn DoubleEndedIterator<Item = #row_type>> = Box::new(self.iter);
+
                     if !self.params.range.is_empty() {
                         for (range, column) in &self.params.range {
                             iter = match (column.as_str(), range.clone().into()) {
@@ -132,21 +141,21 @@ impl Generator {
                             };
                         }
                     }
-                    if let Some((order, col)) = &self.params.order {
-                        let cmp = match col.as_str() {
-                            #(#order_matches)*
-                            _ => unreachable!(),
-                        };
 
-                        // We cannot sort Iterator itself without Vec
+                    if !self.params.order.is_empty() {
                         let mut items: Vec<#row_type> = iter.collect();
-                        items.sort_by(cmp);
+
+                        items.sort_by(|a, b| {
+                            for (order, col) in &self.params.order {
+                                match col.as_str() {
+                                    #(#order_matches)*
+                                    _ => continue,
+                                }
+                            }
+                            std::cmp::Ordering::Equal
+                        });
 
                         iter = Box::new(items.into_iter());
-
-                        if *order == Order::Desc {
-                            iter = Box::new(iter.rev());
-                        }
                     }
 
                     let iter_result: Box<dyn Iterator<Item = #row_type>> = if let Some(offset) = self.params.offset {
@@ -156,10 +165,11 @@ impl Generator {
                     };
 
                     let iter_result: Box<dyn Iterator<Item = #row_type>> = if let Some(limit) = self.params.limit {
-                         Box::new(iter_result.take(limit))
+                        Box::new(iter_result.take(limit))
                     } else {
                         Box::new(iter_result)
                     };
+
                     Ok(iter_result.collect())
                 }
             }

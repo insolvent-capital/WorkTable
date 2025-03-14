@@ -541,6 +541,118 @@ fn select_all_test() {
 }
 
 #[test]
+fn select_all_range_test() {
+    let table = TestWorkTable::default();
+
+    let row1 = TestRow {
+        id: table.get_next_pk().into(),
+        test: 3,
+        another: 1,
+        exchange: "M".to_string(),
+    };
+    let row2 = TestRow {
+        id: table.get_next_pk().into(),
+        test: 1,
+        another: 2,
+        exchange: "N".to_string(),
+    };
+    let row3 = TestRow {
+        id: table.get_next_pk().into(),
+        test: 2,
+        another: 1,
+        exchange: "P".to_string(),
+    };
+
+    let _ = table.insert(row1.clone()).unwrap();
+    let _ = table.insert(row2.clone()).unwrap();
+    let _ = table.insert(row3.clone()).unwrap();
+
+    let all = table
+        .select_all()
+        .where_by(0..2i64, "test")
+        .execute()
+        .unwrap();
+
+    assert_eq!(all.len(), 1);
+}
+
+#[test]
+fn select_all_range_inclusive_test() {
+    let table = TestWorkTable::default();
+
+    let row1 = TestRow {
+        id: table.get_next_pk().into(),
+        test: 3,
+        another: 1,
+        exchange: "M".to_string(),
+    };
+    let row2 = TestRow {
+        id: table.get_next_pk().into(),
+        test: 1,
+        another: 2,
+        exchange: "N".to_string(),
+    };
+    let row3 = TestRow {
+        id: table.get_next_pk().into(),
+        test: 2,
+        another: 1,
+        exchange: "P".to_string(),
+    };
+
+    let _ = table.insert(row1.clone()).unwrap();
+    let _ = table.insert(row2.clone()).unwrap();
+    let _ = table.insert(row3.clone()).unwrap();
+
+    let all = table
+        .select_all()
+        .where_by(0..=2i64, "test")
+        .execute()
+        .unwrap();
+
+    assert_eq!(all.len(), 2);
+}
+
+#[test]
+fn select_all_order_multiple_test() {
+    let table = TestWorkTable::default();
+
+    let row1 = TestRow {
+        id: table.get_next_pk().into(),
+        test: 3,
+        another: 1,
+        exchange: "M".to_string(),
+    };
+    let row2 = TestRow {
+        id: table.get_next_pk().into(),
+        test: 1,
+        another: 2,
+        exchange: "N".to_string(),
+    };
+    let row3 = TestRow {
+        id: table.get_next_pk().into(),
+        test: 2,
+        another: 1,
+        exchange: "P".to_string(),
+    };
+
+    let _ = table.insert(row1.clone()).unwrap();
+    let _ = table.insert(row2.clone()).unwrap();
+    let _ = table.insert(row3.clone()).unwrap();
+
+    let all = table
+        .select_all()
+        .order_by(Order::Asc, "another")
+        .order_by(Order::Desc, "test")
+        .execute()
+        .unwrap();
+
+    assert_eq!(all.len(), 3);
+    assert_eq!(&all[0], &row1);
+    assert_eq!(&all[1], &row3);
+    assert_eq!(&all[2], &row2);
+}
+
+#[test]
 fn select_all_limit_test() {
     let table = TestWorkTable::default();
     let row1 = TestRow {

@@ -7,3 +7,4 @@ target
 
 Cargo.lock
 *.DS_Store
+tests/data/sync/
