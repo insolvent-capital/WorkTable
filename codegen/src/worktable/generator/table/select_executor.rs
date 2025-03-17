@@ -130,6 +130,17 @@ impl Generator {
             where
                 I: DoubleEndedIterator<Item = #row_type> + Sized,
             {
+
+                fn where_by<F>(self, predicate: F) -> SelectQueryBuilder<#row_type, impl DoubleEndedIterator<Item = #row_type>  + Sized, #column_range_type>
+                where
+                    F: FnMut(&#row_type) -> bool,
+                {
+                    SelectQueryBuilder {
+                        params: self.params,
+                        iter: self.iter.filter(predicate),
+                    }
+                }
+
                 fn execute(self) -> Result<Vec<#row_type>, WorkTableError> {
                     let mut iter: Box<dyn DoubleEndedIterator<Item = #row_type>> = Box::new(self.iter);
 

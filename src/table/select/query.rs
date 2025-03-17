@@ -3,7 +3,6 @@ use std::collections::VecDeque;
 use crate::select::{Order, QueryParams};
 use crate::WorkTableError;
 
-#[derive(Clone)]
 pub struct SelectQueryBuilder<Row, I, ColumnRange>
 where
     I: DoubleEndedIterator<Item = Row> + Sized,
@@ -43,7 +42,7 @@ where
         self
     }
 
-    pub fn where_by<R>(mut self, range: R, column: impl Into<String>) -> Self
+    pub fn range_by<R>(mut self, range: R, column: impl Into<String>) -> Self
     where
         R: Into<ColumnRange>,
     {
@@ -52,10 +51,16 @@ where
     }
 }
 
-pub trait SelectQueryExecutor<Row, I, T>
+pub trait SelectQueryExecutor<Row, I, ColumnRange>
 where
     Self: Sized,
     I: DoubleEndedIterator<Item = Row> + Sized,
 {
     fn execute(self) -> Result<Vec<Row>, WorkTableError>;
+    fn where_by<F>(
+        self,
+        predicate: F,
+    ) -> SelectQueryBuilder<Row, impl DoubleEndedIterator<Item = Row> + Sized, ColumnRange>
+    where
+        F: FnMut(&Row) -> bool;
 }

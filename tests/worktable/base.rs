@@ -569,7 +569,7 @@ fn select_all_range_test() {
 
     let all = table
         .select_all()
-        .where_by(0..2i64, "test")
+        .range_by(0..2i64, "test")
         .execute()
         .unwrap();
 
@@ -605,11 +605,146 @@ fn select_all_range_inclusive_test() {
 
     let all = table
         .select_all()
-        .where_by(0..=2i64, "test")
+        .range_by(0..=2i64, "test")
         .execute()
         .unwrap();
 
     assert_eq!(all.len(), 2);
+}
+
+#[test]
+fn select_all_where_by_eq_string_test() {
+    let table = TestWorkTable::default();
+
+    let row1 = TestRow {
+        id: table.get_next_pk().into(),
+        test: 3,
+        another: 1,
+        exchange: "M1".to_string(),
+    };
+    let row2 = TestRow {
+        id: table.get_next_pk().into(),
+        test: 1,
+        another: 2,
+        exchange: "N1".to_string(),
+    };
+    let row3 = TestRow {
+        id: table.get_next_pk().into(),
+        test: 2,
+        another: 1,
+        exchange: "P1".to_string(),
+    };
+
+    let _ = table.insert(row1.clone()).unwrap();
+    let _ = table.insert(row2.clone()).unwrap();
+    let _ = table.insert(row3.clone()).unwrap();
+
+    let all = table.select_all();
+
+    let equal = all.where_by(|row| row.exchange.eq("P1")).execute().unwrap();
+    assert_eq!(equal.len(), 1);
+}
+
+#[test]
+fn select_all_where_by_contains_string_test() {
+    let table = TestWorkTable::default();
+
+    let row1 = TestRow {
+        id: table.get_next_pk().into(),
+        test: 3,
+        another: 1,
+        exchange: "M1".to_string(),
+    };
+    let row2 = TestRow {
+        id: table.get_next_pk().into(),
+        test: 1,
+        another: 2,
+        exchange: "N1".to_string(),
+    };
+    let row3 = TestRow {
+        id: table.get_next_pk().into(),
+        test: 2,
+        another: 1,
+        exchange: "P1".to_string(),
+    };
+
+    let _ = table.insert(row1.clone()).unwrap();
+    let _ = table.insert(row2.clone()).unwrap();
+    let _ = table.insert(row3.clone()).unwrap();
+
+    let all = table.select_all();
+    let contains = all
+        .where_by(|row| row.exchange.contains("1"))
+        .execute()
+        .unwrap();
+
+    assert_eq!(contains.len(), 3);
+}
+
+#[test]
+fn select_all_where_by_gt_string_number_test() {
+    let table = TestWorkTable::default();
+
+    let row1 = TestRow {
+        id: table.get_next_pk().into(),
+        test: 3,
+        another: 1,
+        exchange: "M1".to_string(),
+    };
+    let row2 = TestRow {
+        id: table.get_next_pk().into(),
+        test: 1,
+        another: 2,
+        exchange: "N1".to_string(),
+    };
+    let row3 = TestRow {
+        id: table.get_next_pk().into(),
+        test: 2,
+        another: 1,
+        exchange: "P1".to_string(),
+    };
+
+    let _ = table.insert(row1.clone()).unwrap();
+    let _ = table.insert(row2.clone()).unwrap();
+    let _ = table.insert(row3.clone()).unwrap();
+
+    let all = table.select_all();
+
+    let equal = all.where_by(|row| row.test > 1).execute().unwrap();
+    assert_eq!(equal.len(), 2);
+}
+
+#[test]
+fn select_all_where_by_eq_string_number_test() {
+    let table = TestWorkTable::default();
+
+    let row1 = TestRow {
+        id: table.get_next_pk().into(),
+        test: 3,
+        another: 1,
+        exchange: "M1".to_string(),
+    };
+    let row2 = TestRow {
+        id: table.get_next_pk().into(),
+        test: 1,
+        another: 2,
+        exchange: "N1".to_string(),
+    };
+    let row3 = TestRow {
+        id: table.get_next_pk().into(),
+        test: 2,
+        another: 1,
+        exchange: "P1".to_string(),
+    };
+
+    let _ = table.insert(row1.clone()).unwrap();
+    let _ = table.insert(row2.clone()).unwrap();
+    let _ = table.insert(row3.clone()).unwrap();
+
+    let all = table.select_all();
+
+    let equal = all.where_by(|row| row.another == 1).execute().unwrap();
+    assert_eq!(equal.len(), 2);
 }
 
 #[test]
