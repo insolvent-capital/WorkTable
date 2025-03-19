@@ -9,11 +9,16 @@ impl Generator {
         let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
         let avt_type_ident = name_generator.get_available_type_ident();
 
-        let rows: Vec<_> = self
+        let unique_types: std::collections::HashSet<String> = self
             .columns
             .indexes
             .iter()
             .filter_map(|(_, idx)| self.columns.columns_map.get(&idx.field))
+            .map(|ty| ty.to_string())
+            .collect();
+
+        let rows: Vec<_> = unique_types
+            .iter()
             .map(|s| {
                 let type_ident = Ident::new(s.to_string().as_str(), Span::mixed_site());
                 let type_upper =

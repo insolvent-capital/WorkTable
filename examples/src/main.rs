@@ -13,11 +13,13 @@ fn main() {
             attr: String,
             attr2: i16,
             attr_float: f64,
+            attr_string: String,
 
         },
         indexes: {
             idx1: attr,
             idx2: attr2,
+            idx3: attr_string,
         },
         queries: {
             update: {
@@ -43,6 +45,7 @@ fn main() {
         test: 1,
         id: 0,
         attr_float: 100.0,
+        attr_string: "String_attr".to_string(),
     };
 
     // insert
