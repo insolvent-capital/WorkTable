@@ -2,6 +2,8 @@ use crate::persistence::{AnotherByIdQuery, TestPersistRow, TestPersistWorkTable}
 use crate::remove_dir_if_exists;
 use worktable::prelude::{PersistenceConfig, PrimaryKeyGeneratorState};
 
+mod string_re_read;
+
 #[test]
 fn test_space_insert_sync() {
     let config = PersistenceConfig::new("tests/data/sync/insert", "tests/data/sync/insert");

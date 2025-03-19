@@ -7,8 +7,8 @@ use crate::persistence::SpaceDataOps;
 use crate::prelude::WT_DATA_EXTENSION;
 use convert_case::{Case, Casing};
 use data_bucket::{
-    parse_page, persist_page, update_at, DataPage, GeneralHeader, GeneralPage, Link, PageType,
-    Persistable, SizeMeasurable, SpaceInfoPage, GENERAL_HEADER_SIZE,
+    parse_general_header_by_index, parse_page, persist_page, update_at, DataPage, GeneralHeader,
+    GeneralPage, Link, PageType, Persistable, SizeMeasurable, SpaceInfoPage, GENERAL_HEADER_SIZE,
 };
 use rkyv::api::high::HighDeserializer;
 use rkyv::rancor::Strategy;
@@ -75,12 +75,14 @@ where
         let info = parse_page::<_, DATA_LENGTH>(&mut data_file, 0).await?;
         let file_length = data_file.metadata().await?.len();
         let page_id = file_length / (DATA_LENGTH as u64 + GENERAL_HEADER_SIZE as u64);
+        let last_page_header =
+            parse_general_header_by_index(&mut data_file, page_id as u32).await?;
 
         Ok(Self {
             data_file,
             info,
             last_page_id: page_id as u32,
-            current_data_length: 0,
+            current_data_length: last_page_header.data_length,
         })
     }
 
@@ -117,6 +119,7 @@ where
         }
         self.current_data_length += link.length;
         self.update_data_length().await?;
+        println!("{:?}", self.current_data_length);
         update_at::<{ DATA_LENGTH }>(&mut self.data_file, link, bytes).await
     }
 

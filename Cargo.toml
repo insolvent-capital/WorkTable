@@ -25,9 +25,9 @@ lockfree = { version = "0.5.1" }
 worktable_codegen = { path = "codegen", version = "0.5.1" }
 futures = "0.3.30"
 uuid = { version = "1.10.0", features = ["v4"] }
-data_bucket = "0.2.1"
-# data_bucket = { git = "https://github.com/pathscale/DataBucket", branch = "main" }
-# data_bucket = { path = "../DataBucket", version = "0.2.0" }
+#data_bucket = "0.2.1"
+data_bucket = { git = "https://github.com/pathscale/DataBucket", branch = "main" }
+# data_bucket = { path = "../DataBucket", version = "0.2.1" }
 performance_measurement_codegen = { path = "performance_measurement/codegen", version = "0.1.0", optional = true }
 performance_measurement = { path = "performance_measurement", version = "0.1.0", optional = true }
 indexset = { version = "0.11.2", features = ["concurrent", "cdc", "multimap"] }
