@@ -9,10 +9,22 @@ use crate::worktable::generator::Generator;
 use quote::ToTokens;
 use syn::Type;
 
+const RANGE_VARIANTS: &[&str] = &["", "Inclusive", "From", "To", "ToInclusive"];
+
 fn is_numeric_type(ty: &Type) -> bool {
     matches!(
         ty.to_token_stream().to_string().as_str(),
-        "i8" | "i16" | "i32" | "i64" | "i128" | "u8" | "u16" | "u32" | "u64" | "u128"
+        "i8" | "i16"
+            | "i32"
+            | "i64"
+            | "i128"
+            | "u8"
+            | "u16"
+            | "u32"
+            | "u64"
+            | "u128"
+            | "f32"
+            | "f64"
     )
 }
 
@@ -31,39 +43,48 @@ impl Generator {
             .collect();
 
         let column_range_variants = unique_types.iter().map(|type_name| {
-            let variant_ident = Ident::new(
-                &type_name.to_string().to_case(Case::Pascal),
-                Span::call_site(),
-            );
             let ty_ident = Ident::new(&type_name.to_string(), Span::call_site());
+            let variants: Vec<_> = RANGE_VARIANTS
+                .iter()
+                .map(|v| {
+                    let variant_ident = Ident::new(
+                        &format!("{}{}", type_name.to_string().to_case(Case::Pascal), v),
+                        Span::call_site(),
+                    );
+                    let range_ident = Ident::new(&format!("Range{}", v), Span::call_site());
+                    quote! {
+                        #variant_ident(std::ops::#range_ident<#ty_ident>),
+                    }
+                })
+                .collect();
+
             quote! {
-                #variant_ident(std::ops::RangeInclusive<#ty_ident>),
+                #(#variants)*
             }
         });
 
         let from_impls = unique_types.iter().map(|type_name| {
-            let variant_ident = Ident::new(
-                &type_name.to_string().to_case(Case::Pascal),
-                Span::call_site(),
-            );
-            let type_ident = Ident::new(&type_name.to_string(), Span::call_site());
+            let ty_ident = Ident::new(&type_name.to_string(), Span::call_site());
+            let variants: Vec<_> = RANGE_VARIANTS
+                .iter()
+                .map(|v| {
+                    let variant_ident = Ident::new(
+                        &format!("{}{}", type_name.to_string().to_case(Case::Pascal), v),
+                        Span::call_site(),
+                    );
+                    let range_ident = Ident::new(&format!("Range{}", v), Span::call_site());
+                    quote! {
+                        impl From<std::ops::#range_ident<#ty_ident>> for #column_range_type {
+                            fn from(range: std::ops::#range_ident<#ty_ident>) -> Self {
+                                Self::#variant_ident(range)
+                            }
+                        }
+                    }
+                })
+                .collect();
 
             quote! {
-                impl From<std::ops::RangeInclusive<#type_ident>> for #column_range_type {
-                    fn from(range: std::ops::RangeInclusive<#type_ident>) -> Self {
-                        Self::#variant_ident(range)
-                    }
-                }
-                impl From<std::ops::Range<#type_ident>> for #column_range_type {
-                    fn from(range: std::ops::Range<#type_ident>) -> Self {
-                        let end = if range.end > range.start {
-                            range.end.saturating_sub(1)
-                        } else {
-                            range.end
-                        };
-                        Self::#variant_ident(range.start..=end)
-                    }
-                }
+                #(#variants)*
             }
         });
 
@@ -106,15 +127,26 @@ impl Generator {
                 is_numeric_type(&syn::parse_str::<Type>(&ty.to_token_stream().to_string()).unwrap())
             })
             .map(|(column, ty)| {
-                let col_lit = Literal::string(column.to_string().as_str());
-                let col_ident = Ident::new(&column.to_string(), Span::call_site());
-                let variant_ident =
-                    Ident::new(&ty.to_string().to_case(Case::Pascal), Span::call_site());
+                let variants: Vec<_> = RANGE_VARIANTS
+                    .iter()
+                    .map(|v| {
+                        let col_lit = Literal::string(column.to_string().as_str());
+                        let col_ident = Ident::new(&column.to_string(), Span::call_site());
+                        let variant_ident = Ident::new(
+                            &format!("{}{}", ty.to_string().to_case(Case::Pascal), v),
+                            Span::call_site(),
+                        );
+                        quote! {
+                            (#col_lit, #column_range_type::#variant_ident(range)) => {
+                                Box::new(iter.filter(move |row| range.contains(&row.#col_ident)))
+                                    as Box<dyn DoubleEndedIterator<Item = #row_type>>
+                            },
+                        }
+                    })
+                    .collect();
+
                 quote! {
-                    (#col_lit, #column_range_type::#variant_ident(range)) => {
-                        Box::new(iter.filter(move |row| range.contains(&row.#col_ident)))
-                            as Box<dyn DoubleEndedIterator<Item = #row_type>>
-                    },
+                    #(#variants)*
                 }
             });
 

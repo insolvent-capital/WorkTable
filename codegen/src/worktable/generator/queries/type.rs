@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
@@ -9,7 +11,7 @@ impl Generator {
         let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
         let avt_type_ident = name_generator.get_available_type_ident();
 
-        let unique_types: std::collections::HashSet<String> = self
+        let unique_types: HashSet<String> = self
             .columns
             .indexes
             .iter()

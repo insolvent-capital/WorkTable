@@ -75,13 +75,12 @@ impl Generator {
 
         Ok(quote! {
             pub fn #fn_name(&self, by: #type_) -> SelectQueryBuilder<#row_ident, impl DoubleEndedIterator<Item = #row_ident> + '_, #column_range_type> {
-                let rows: Vec<#row_ident> = self.0.indexes.#field_ident
+                let rows = self.0.indexes.#field_ident
                     .get(&by)
                     .into_iter()
-                    .filter_map(|(_, link)| self.0.data.select(*link).ok())
-                    .collect();
+                    .filter_map(|(_, link)| self.0.data.select(*link).ok());
 
-                SelectQueryBuilder::new(rows.into_iter())
+                SelectQueryBuilder::new(rows)
             }
         })
     }

@@ -5,13 +5,10 @@ pub struct PersistenceConfig {
 }
 
 impl PersistenceConfig {
-    pub fn new<S1: Into<String>, S2: Into<String>>(
-        config_path: S1,
-        table_files_dir: S2,
-    ) -> eyre::Result<Self> {
-        Ok(Self {
+    pub fn new<S1: Into<String>, S2: Into<String>>(config_path: S1, table_files_dir: S2) -> Self {
+        Self {
             config_path: config_path.into(),
             tables_path: table_files_dir.into(),
-        })
+        }
     }
 }

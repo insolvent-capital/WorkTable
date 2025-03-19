@@ -4,8 +4,7 @@ use worktable::prelude::{PersistenceConfig, PrimaryKeyGeneratorState};
 
 #[test]
 fn test_space_insert_sync() {
-    let config =
-        PersistenceConfig::new("tests/data/sync/insert", "tests/data/sync/insert").unwrap();
+    let config = PersistenceConfig::new("tests/data/sync/insert", "tests/data/sync/insert");
 
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2)
@@ -40,8 +39,7 @@ fn test_space_insert_sync() {
 #[test]
 fn test_space_insert_many_sync() {
     let config =
-        PersistenceConfig::new("tests/data/sync/insert_many", "tests/data/sync/insert_many")
-            .unwrap();
+        PersistenceConfig::new("tests/data/sync/insert_many", "tests/data/sync/insert_many");
 
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2)
@@ -86,8 +84,7 @@ fn test_space_insert_many_sync() {
 #[test]
 fn test_space_update_full_sync() {
     let config =
-        PersistenceConfig::new("tests/data/sync/update_full", "tests/data/sync/update_full")
-            .unwrap();
+        PersistenceConfig::new("tests/data/sync/update_full", "tests/data/sync/update_full");
 
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2)
@@ -132,8 +129,7 @@ fn test_space_update_query_sync() {
     let config = PersistenceConfig::new(
         "tests/data/sync/update_query",
         "tests/data/sync/update_query",
-    )
-    .unwrap();
+    );
 
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2)
@@ -172,8 +168,7 @@ fn test_space_update_query_sync() {
 
 #[test]
 fn test_space_delete_sync() {
-    let config =
-        PersistenceConfig::new("tests/data/sync/delete", "tests/data/sync/delete").unwrap();
+    let config = PersistenceConfig::new("tests/data/sync/delete", "tests/data/sync/delete");
 
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2)
@@ -211,8 +206,7 @@ fn test_space_delete_query_sync() {
     let config = PersistenceConfig::new(
         "tests/data/sync/delete_query",
         "tests/data/sync/delete_query",
-    )
-    .unwrap();
+    );
 
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2)
