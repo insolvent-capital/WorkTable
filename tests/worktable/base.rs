@@ -30,6 +30,20 @@ worktable! (
     }
 );
 
+worktable! (
+    name: TestFloat,
+    columns: {
+        id: u64 primary_key autoincrement,
+        test: i64,
+        another: f64,
+        exchange: String
+    },
+    indexes: {
+        test_idx: test unique,
+        exchnage_idx: exchange,
+    }
+);
+
 #[test]
 fn table_name() {
     let table = TestWorkTable::default();
@@ -643,6 +657,42 @@ fn select_all_where_by_eq_string_test() {
 
     let equal = all.where_by(|row| row.exchange.eq("P1")).execute().unwrap();
     assert_eq!(equal.len(), 1);
+}
+
+#[test]
+fn select_all_range_float_test() {
+    let table = TestFloatWorkTable::default();
+
+    let row1 = TestFloatRow {
+        id: table.get_next_pk().into(),
+        test: 3,
+        another: 100.0,
+        exchange: "M".to_string(),
+    };
+    let row2 = TestFloatRow {
+        id: table.get_next_pk().into(),
+        test: 1,
+        another: 200.0,
+        exchange: "N".to_string(),
+    };
+    let row3 = TestFloatRow {
+        id: table.get_next_pk().into(),
+        test: 2,
+        another: 300.0,
+        exchange: "P".to_string(),
+    };
+
+    let _ = table.insert(row1.clone()).unwrap();
+    let _ = table.insert(row2.clone()).unwrap();
+    let _ = table.insert(row3.clone()).unwrap();
+
+    let all = table
+        .select_all()
+        .where_by(|row| row.another > 99.0 && row.another < 300.0)
+        .execute()
+        .unwrap();
+
+    assert_eq!(all.len(), 2);
 }
 
 #[test]

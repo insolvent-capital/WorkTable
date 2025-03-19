@@ -12,6 +12,7 @@ fn main() {
             test: u8,
             attr: String,
             attr2: i16,
+            attr_float: f64,
 
         },
         indexes: {
@@ -41,6 +42,7 @@ fn main() {
         attr2: 345,
         test: 1,
         id: 0,
+        attr_float: 100.0,
     };
 
     // insert

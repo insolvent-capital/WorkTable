@@ -12,17 +12,7 @@ use syn::Type;
 fn is_numeric_type(ty: &Type) -> bool {
     matches!(
         ty.to_token_stream().to_string().as_str(),
-        "i8" | "i16"
-            | "i32"
-            | "i64"
-            | "i128"
-            | "u8"
-            | "u16"
-            | "u32"
-            | "u64"
-            | "u128"
-            | "f32"
-            | "f64"
+        "i8" | "i16" | "i32" | "i64" | "i128" | "u8" | "u16" | "u32" | "u64" | "u128"
     )
 }
 
@@ -66,7 +56,11 @@ impl Generator {
                 }
                 impl From<std::ops::Range<#type_ident>> for #column_range_type {
                     fn from(range: std::ops::Range<#type_ident>) -> Self {
-                        let end = range.end.saturating_sub(1);
+                        let end = if range.end > range.start {
+                            range.end.saturating_sub(1)
+                        } else {
+                            range.end
+                        };
                         Self::#variant_ident(range.start..=end)
                     }
                 }
