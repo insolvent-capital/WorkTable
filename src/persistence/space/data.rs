@@ -119,7 +119,6 @@ where
         }
         self.current_data_length += link.length;
         self.update_data_length().await?;
-        println!("{:?}", self.current_data_length);
         update_at::<{ DATA_LENGTH }>(&mut self.data_file, link, bytes).await
     }
 
