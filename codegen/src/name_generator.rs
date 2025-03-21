@@ -29,6 +29,13 @@ impl WorktableNameGenerator {
         Ident::new(format!("{}Row", self.name).as_str(), Span::mixed_site())
     }
 
+    pub fn get_row_fields_enum_ident(&self) -> Ident {
+        Ident::new(
+            format!("{}RowFields", self.name).as_str(),
+            Span::mixed_site(),
+        )
+    }
+
     pub fn get_available_type_ident(&self) -> Ident {
         Ident::new(
             format!("{}AvaiableTypes", self.name).as_str(),

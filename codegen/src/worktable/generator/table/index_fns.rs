@@ -13,6 +13,7 @@ impl Generator {
         let ident = name_generator.get_work_table_ident();
         let row_ident = name_generator.get_row_type_ident();
         let column_range_type = name_generator.get_column_range_type_ident();
+        let row_fields_ident = name_generator.get_row_fields_enum_ident();
 
         let fn_defs = self
             .columns
@@ -28,6 +29,7 @@ impl Generator {
                         &self.columns.columns_map,
                         row_ident.clone(),
                         &column_range_type,
+                        &row_fields_ident,
                     )
                 }
             })
@@ -66,6 +68,7 @@ impl Generator {
         columns_map: &HashMap<Ident, TokenStream>,
         row_ident: Ident,
         column_range_type: &Ident,
+        row_fields_ident: &Ident,
     ) -> syn::Result<TokenStream> {
         let type_ = columns_map
             .get(i)
@@ -74,7 +77,11 @@ impl Generator {
         let field_ident = &idx.name;
 
         Ok(quote! {
-            pub fn #fn_name(&self, by: #type_) -> SelectQueryBuilder<#row_ident, impl DoubleEndedIterator<Item = #row_ident> + '_, #column_range_type> {
+            pub fn #fn_name(&self, by: #type_) -> SelectQueryBuilder<#row_ident,
+                                                                     impl DoubleEndedIterator<Item = #row_ident> + '_,
+                                                                     #column_range_type,
+                                                                     #row_fields_ident>
+            {
                 let rows = self.0.indexes.#field_ident
                     .get(&by)
                     .into_iter()

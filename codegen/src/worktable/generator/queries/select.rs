@@ -21,9 +21,14 @@ impl Generator {
         let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
         let row_ident = name_generator.get_row_type_ident();
         let column_range_type = name_generator.get_column_range_type_ident();
+        let row_fields_ident = name_generator.get_row_fields_enum_ident();
 
         quote! {
-            pub fn select_all(&self) -> SelectQueryBuilder<#row_ident, impl DoubleEndedIterator<Item = #row_ident> + '_ + Sized, #column_range_type> {
+            pub fn select_all(&self) -> SelectQueryBuilder<#row_ident,
+                                                           impl DoubleEndedIterator<Item = #row_ident> + '_ + Sized,
+                                                           #column_range_type,
+                                                           #row_fields_ident>
+            {
                 let iter = self.0.pk_map
                     .iter()
                     .filter_map(|(_, link)| self.0.data.select(*link).ok());

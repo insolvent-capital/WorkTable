@@ -1,7 +1,7 @@
 use convert_case::{Case, Casing};
 use proc_macro2::Ident;
 use proc_macro2::Span;
-use proc_macro2::{Literal, TokenStream};
+use proc_macro2::TokenStream;
 use quote::quote;
 
 use crate::name_generator::WorktableNameGenerator;
@@ -102,12 +102,13 @@ impl Generator {
         let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
         let row_type = name_generator.get_row_type_ident();
         let column_range_type = name_generator.get_column_range_type_ident();
+        let row_fields_ident = name_generator.get_row_fields_enum_ident();
 
         let order_matches = self.columns.columns_map.keys().map(|column| {
-            let col_lit = Literal::string(&column.to_string());
+            let column_variant = Ident::new(&column.to_string().to_case(Case::Pascal), Span::mixed_site());
             let col_ident = Ident::new(&column.to_string(), Span::call_site());
             quote! {
-                #col_lit => {
+                #row_fields_ident::#column_variant => {
                     let cmp = a.#col_ident.partial_cmp(&b.#col_ident).unwrap_or(std::cmp::Ordering::Equal);
                     if cmp != std::cmp::Ordering::Equal {
                         return match order {
@@ -130,14 +131,14 @@ impl Generator {
                 let variants: Vec<_> = RANGE_VARIANTS
                     .iter()
                     .map(|v| {
-                        let col_lit = Literal::string(column.to_string().as_str());
+                        let column_variant = Ident::new(&column.to_string().to_case(Case::Pascal), Span::mixed_site());
                         let col_ident = Ident::new(&column.to_string(), Span::call_site());
                         let variant_ident = Ident::new(
                             &format!("{}{}", ty.to_string().to_case(Case::Pascal), v),
                             Span::call_site(),
                         );
                         quote! {
-                            (#col_lit, #column_range_type::#variant_ident(range)) => {
+                            (#row_fields_ident::#column_variant, #column_range_type::#variant_ident(range)) => {
                                 Box::new(iter.filter(move |row| range.contains(&row.#col_ident)))
                                     as Box<dyn DoubleEndedIterator<Item = #row_type>>
                             },
@@ -151,13 +152,16 @@ impl Generator {
             });
 
         quote! {
-            impl<I> SelectQueryExecutor<#row_type, I, #column_range_type>
-            for SelectQueryBuilder<#row_type, I, #column_range_type>
+            impl<I> SelectQueryExecutor<#row_type, I, #column_range_type, #row_fields_ident>
+            for SelectQueryBuilder<#row_type, I, #column_range_type, #row_fields_ident>
             where
                 I: DoubleEndedIterator<Item = #row_type> + Sized,
             {
 
-                fn where_by<F>(self, predicate: F) -> SelectQueryBuilder<#row_type, impl DoubleEndedIterator<Item = #row_type>  + Sized, #column_range_type>
+                fn where_by<F>(self, predicate: F) -> SelectQueryBuilder<#row_type,
+                                                                         impl DoubleEndedIterator<Item = #row_type>  + Sized,
+                                                                         #column_range_type,
+                                                                         #row_fields_ident>
                 where
                     F: FnMut(&#row_type) -> bool,
                 {
@@ -172,7 +176,7 @@ impl Generator {
 
                     if !self.params.range.is_empty() {
                         for (range, column) in &self.params.range {
-                            iter = match (column.as_str(), range.clone().into()) {
+                            iter = match (column, range.clone().into()) {
                                 #(#range_matches)*
                                 _ => unreachable!(),
                             };
@@ -184,7 +188,7 @@ impl Generator {
 
                         items.sort_by(|a, b| {
                             for (order, col) in &self.params.order {
-                                match col.as_str() {
+                                match col {
                                     #(#order_matches)*
                                     _ => continue,
                                 }
