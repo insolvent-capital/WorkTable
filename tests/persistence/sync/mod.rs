@@ -1,8 +1,34 @@
-use crate::persistence::{AnotherByIdQuery, TestPersistRow, TestPersistWorkTable};
 use crate::remove_dir_if_exists;
-use worktable::prelude::{PersistenceConfig, PrimaryKeyGeneratorState};
+
+use worktable::prelude::*;
+use worktable::worktable;
 
 mod string_re_read;
+
+worktable! (
+    name: TestSync,
+    persist: true,
+    columns: {
+        id: u64 primary_key autoincrement,
+        another: u64,
+        non_unique: u32,
+        field: f64,
+    },
+    indexes: {
+        another_idx: another unique,
+        non_unique_idx: non_unique
+    },
+    queries: {
+        update: {
+            AnotherById(another) by id,
+            FieldByAnother(field) by another,
+            AnotherByNonUnique(another) by non_unique
+        },
+        delete: {
+             ByAnother() by another,
+        }
+    }
+);
 
 #[test]
 fn test_space_insert_sync() {
@@ -19,11 +45,13 @@ fn test_space_insert_sync() {
         remove_dir_if_exists("tests/data/sync/insert".to_string()).await;
 
         let pk = {
-            let table = TestPersistWorkTable::load_from_file(config.clone())
+            let table = TestSyncWorkTable::load_from_file(config.clone())
                 .await
                 .unwrap();
-            let row = TestPersistRow {
+            let row = TestSyncRow {
                 another: 42,
+                non_unique: 0,
+                field: 0.234,
                 id: table.get_next_pk().0,
             };
             table.insert(row.clone()).unwrap();
@@ -31,7 +59,7 @@ fn test_space_insert_sync() {
             row.id
         };
         {
-            let table = TestPersistWorkTable::load_from_file(config).await.unwrap();
+            let table = TestSyncWorkTable::load_from_file(config).await.unwrap();
             assert!(table.select(pk.into()).is_some());
             assert_eq!(table.0.pk_gen.get_state(), pk + 1)
         }
@@ -55,13 +83,15 @@ fn test_space_insert_many_sync() {
 
         let mut pks = vec![];
         {
-            let table = TestPersistWorkTable::load_from_file(config.clone())
+            let table = TestSyncWorkTable::load_from_file(config.clone())
                 .await
                 .unwrap();
             for i in 0..20 {
                 let pk = {
-                    let row = TestPersistRow {
+                    let row = TestSyncRow {
                         another: i,
+                        non_unique: (i % 4) as u32,
+                        field: i as f64 / 100.0,
                         id: table.get_next_pk().0,
                     };
                     table.insert(row.clone()).unwrap();
@@ -73,7 +103,7 @@ fn test_space_insert_many_sync() {
         }
 
         {
-            let table = TestPersistWorkTable::load_from_file(config).await.unwrap();
+            let table = TestSyncWorkTable::load_from_file(config).await.unwrap();
             let last = *pks.last().unwrap();
             for pk in pks {
                 assert!(table.select(pk.into()).is_some());
@@ -99,17 +129,21 @@ fn test_space_update_full_sync() {
         remove_dir_if_exists("tests/data/sync/update_full".to_string()).await;
 
         let pk = {
-            let table = TestPersistWorkTable::load_from_file(config.clone())
+            let table = TestSyncWorkTable::load_from_file(config.clone())
                 .await
                 .unwrap();
-            let row = TestPersistRow {
+            let row = TestSyncRow {
                 another: 42,
+                non_unique: 0,
+                field: 0.0,
                 id: table.get_next_pk().0,
             };
             table.insert(row.clone()).unwrap();
             table
-                .update(TestPersistRow {
+                .update(TestSyncRow {
                     another: 13,
+                    non_unique: 0,
+                    field: 0.0,
                     id: row.id,
                 })
                 .await
@@ -118,7 +152,7 @@ fn test_space_update_full_sync() {
             row.id
         };
         {
-            let table = TestPersistWorkTable::load_from_file(config).await.unwrap();
+            let table = TestSyncWorkTable::load_from_file(config).await.unwrap();
             assert!(table.select(pk.into()).is_some());
             assert_eq!(table.select(pk.into()).unwrap().another, 13);
             assert_eq!(table.0.pk_gen.get_state(), pk + 1)
@@ -127,10 +161,10 @@ fn test_space_update_full_sync() {
 }
 
 #[test]
-fn test_space_update_query_sync() {
+fn test_space_update_query_pk_sync() {
     let config = PersistenceConfig::new(
-        "tests/data/sync/update_query",
-        "tests/data/sync/update_query",
+        "tests/data/sync/update_query_pk",
+        "tests/data/sync/update_query_pk",
     );
 
     let runtime = tokio::runtime::Builder::new_multi_thread()
@@ -141,14 +175,16 @@ fn test_space_update_query_sync() {
         .unwrap();
 
     runtime.block_on(async {
-        remove_dir_if_exists("tests/data/sync/update_query".to_string()).await;
+        remove_dir_if_exists("tests/data/sync/update_query_pk".to_string()).await;
 
         let pk = {
-            let table = TestPersistWorkTable::load_from_file(config.clone())
+            let table = TestSyncWorkTable::load_from_file(config.clone())
                 .await
                 .unwrap();
-            let row = TestPersistRow {
+            let row = TestSyncRow {
                 another: 42,
+                non_unique: 0,
+                field: 0.0,
                 id: table.get_next_pk().0,
             };
             table.insert(row.clone()).unwrap();
@@ -160,7 +196,95 @@ fn test_space_update_query_sync() {
             row.id
         };
         {
-            let table = TestPersistWorkTable::load_from_file(config).await.unwrap();
+            let table = TestSyncWorkTable::load_from_file(config).await.unwrap();
+            assert!(table.select(pk.into()).is_some());
+            assert_eq!(table.select(pk.into()).unwrap().another, 13);
+            assert_eq!(table.0.pk_gen.get_state(), pk + 1)
+        }
+    });
+}
+
+#[test]
+fn test_space_update_query_unique_sync() {
+    let config = PersistenceConfig::new(
+        "tests/data/sync/update_query_unique",
+        "tests/data/sync/update_query_unique",
+    );
+
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .enable_io()
+        .enable_time()
+        .build()
+        .unwrap();
+
+    runtime.block_on(async {
+        remove_dir_if_exists("tests/data/sync/update_query_unique".to_string()).await;
+
+        let pk = {
+            let table = TestSyncWorkTable::load_from_file(config.clone())
+                .await
+                .unwrap();
+            let row = TestSyncRow {
+                another: 42,
+                non_unique: 0,
+                field: 0.0,
+                id: table.get_next_pk().0,
+            };
+            table.insert(row.clone()).unwrap();
+            table
+                .update_field_by_another(FieldByAnotherQuery { field: 1.0 }, 42)
+                .await
+                .unwrap();
+            table.wait_for_ops().await;
+            row.id
+        };
+        {
+            let table = TestSyncWorkTable::load_from_file(config).await.unwrap();
+            assert!(table.select(pk.into()).is_some());
+            assert_eq!(table.select(pk.into()).unwrap().field, 1.0);
+            assert_eq!(table.0.pk_gen.get_state(), pk + 1)
+        }
+    });
+}
+
+#[test]
+fn test_space_update_query_non_unique_sync() {
+    let config = PersistenceConfig::new(
+        "tests/data/sync/update_query_non_unique",
+        "tests/data/sync/update_query_non_unique",
+    );
+
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .enable_io()
+        .enable_time()
+        .build()
+        .unwrap();
+
+    runtime.block_on(async {
+        remove_dir_if_exists("tests/data/sync/update_query_non_unique".to_string()).await;
+
+        let pk = {
+            let table = TestSyncWorkTable::load_from_file(config.clone())
+                .await
+                .unwrap();
+            let row = TestSyncRow {
+                another: 42,
+                non_unique: 10,
+                field: 0.0,
+                id: table.get_next_pk().0,
+            };
+            table.insert(row.clone()).unwrap();
+            table
+                .update_another_by_non_unique(AnotherByNonUniqueQuery { another: 13 }, 10)
+                .await
+                .unwrap();
+            table.wait_for_ops().await;
+            row.id
+        };
+        {
+            let table = TestSyncWorkTable::load_from_file(config).await.unwrap();
             assert!(table.select(pk.into()).is_some());
             assert_eq!(table.select(pk.into()).unwrap().another, 13);
             assert_eq!(table.0.pk_gen.get_state(), pk + 1)
@@ -183,11 +307,13 @@ fn test_space_delete_sync() {
         remove_dir_if_exists("tests/data/sync/delete".to_string()).await;
 
         let pk = {
-            let table = TestPersistWorkTable::load_from_file(config.clone())
+            let table = TestSyncWorkTable::load_from_file(config.clone())
                 .await
                 .unwrap();
-            let row = TestPersistRow {
+            let row = TestSyncRow {
                 another: 42,
+                non_unique: 0,
+                field: 0.0,
                 id: table.get_next_pk().0,
             };
             table.insert(row.clone()).unwrap();
@@ -196,7 +322,7 @@ fn test_space_delete_sync() {
             row.id
         };
         {
-            let table = TestPersistWorkTable::load_from_file(config).await.unwrap();
+            let table = TestSyncWorkTable::load_from_file(config).await.unwrap();
             assert!(table.select(pk.into()).is_none());
             assert_eq!(table.0.pk_gen.get_state(), pk + 1)
         }
@@ -221,11 +347,13 @@ fn test_space_delete_query_sync() {
         remove_dir_if_exists("tests/data/sync/delete_query".to_string()).await;
 
         let pk = {
-            let table = TestPersistWorkTable::load_from_file(config.clone())
+            let table = TestSyncWorkTable::load_from_file(config.clone())
                 .await
                 .unwrap();
-            let row = TestPersistRow {
+            let row = TestSyncRow {
                 another: 42,
+                non_unique: 0,
+                field: 0.0,
                 id: table.get_next_pk().0,
             };
             table.insert(row.clone()).unwrap();
@@ -234,7 +362,7 @@ fn test_space_delete_query_sync() {
             row.id
         };
         {
-            let table = TestPersistWorkTable::load_from_file(config).await.unwrap();
+            let table = TestSyncWorkTable::load_from_file(config).await.unwrap();
             assert!(table.select(pk.into()).is_none());
             assert_eq!(table.0.pk_gen.get_state(), pk + 1)
         }

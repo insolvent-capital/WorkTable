@@ -34,7 +34,7 @@ impl Generator {
             .collect();
 
         quote! {
-            #[derive(Debug)]
+            #[derive(Debug, Default)]
             pub struct #ident {
                 #(#fields)*
             }
