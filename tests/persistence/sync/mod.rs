@@ -51,7 +51,7 @@ fn test_space_insert_sync() {
             let row = TestSyncRow {
                 another: 42,
                 non_unique: 0,
-                field: 0.234,
+                field: 0.234.into(),
                 id: table.get_next_pk().0,
             };
             table.insert(row.clone()).unwrap();
@@ -91,7 +91,7 @@ fn test_space_insert_many_sync() {
                     let row = TestSyncRow {
                         another: i,
                         non_unique: (i % 4) as u32,
-                        field: i as f64 / 100.0,
+                        field: (i as f64 / 100.0).into(),
                         id: table.get_next_pk().0,
                     };
                     table.insert(row.clone()).unwrap();
@@ -135,7 +135,7 @@ fn test_space_update_full_sync() {
             let row = TestSyncRow {
                 another: 42,
                 non_unique: 0,
-                field: 0.0,
+                field: 0.0.into(),
                 id: table.get_next_pk().0,
             };
             table.insert(row.clone()).unwrap();
@@ -143,7 +143,7 @@ fn test_space_update_full_sync() {
                 .update(TestSyncRow {
                     another: 13,
                     non_unique: 0,
-                    field: 0.0,
+                    field: 0.0.into(),
                     id: row.id,
                 })
                 .await
@@ -184,7 +184,7 @@ fn test_space_update_query_pk_sync() {
             let row = TestSyncRow {
                 another: 42,
                 non_unique: 0,
-                field: 0.0,
+                field: 0.0.into(),
                 id: table.get_next_pk().0,
             };
             table.insert(row.clone()).unwrap();
@@ -228,12 +228,12 @@ fn test_space_update_query_unique_sync() {
             let row = TestSyncRow {
                 another: 42,
                 non_unique: 0,
-                field: 0.0,
+                field: 0.0.into(),
                 id: table.get_next_pk().0,
             };
             table.insert(row.clone()).unwrap();
             table
-                .update_field_by_another(FieldByAnotherQuery { field: 1.0 }, 42)
+                .update_field_by_another(FieldByAnotherQuery { field: 1.0.into() }, 42)
                 .await
                 .unwrap();
             table.wait_for_ops().await;
@@ -272,7 +272,7 @@ fn test_space_update_query_non_unique_sync() {
             let row = TestSyncRow {
                 another: 42,
                 non_unique: 10,
-                field: 0.0,
+                field: 0.0.into(),
                 id: table.get_next_pk().0,
             };
             table.insert(row.clone()).unwrap();
@@ -313,7 +313,7 @@ fn test_space_delete_sync() {
             let row = TestSyncRow {
                 another: 42,
                 non_unique: 0,
-                field: 0.0,
+                field: 0.0.into(),
                 id: table.get_next_pk().0,
             };
             table.insert(row.clone()).unwrap();
@@ -353,7 +353,7 @@ fn test_space_delete_query_sync() {
             let row = TestSyncRow {
                 another: 42,
                 non_unique: 0,
-                field: 0.0,
+                field: 0.0.into(),
                 id: table.get_next_pk().0,
             };
             table.insert(row.clone()).unwrap();

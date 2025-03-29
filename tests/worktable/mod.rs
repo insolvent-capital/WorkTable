@@ -3,6 +3,7 @@ mod base;
 mod config;
 mod count;
 mod custom_pk;
+mod float;
 mod index;
 mod option;
 mod tuple_primary_key;

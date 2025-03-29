@@ -6,6 +6,20 @@ use quote::quote;
 use crate::name_generator::WorktableNameGenerator;
 use crate::worktable::generator::Generator;
 
+pub fn map_to_uppercase(str: &str) -> String {
+    if str.contains("OrderedFloat") {
+        let mut split = str.split("<");
+        let _ = split.next();
+        let inner_type = split
+            .next()
+            .expect("OrderedFloat def contains inner type")
+            .replace(">", "");
+        format!("Ordered{}", inner_type.to_uppercase().trim())
+    } else {
+        str.to_uppercase()
+    }
+}
+
 impl Generator {
     pub fn gen_available_types_def(&mut self) -> syn::Result<TokenStream> {
         let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
@@ -22,9 +36,12 @@ impl Generator {
         let rows: Vec<_> = unique_types
             .iter()
             .map(|s| {
-                let type_ident = Ident::new(s.to_string().as_str(), Span::mixed_site());
-                let type_upper =
-                    Ident::new(s.to_string().to_uppercase().as_str(), Span::mixed_site());
+                let type_ident: TokenStream = s
+                    .to_string()
+                    .parse()
+                    .expect("should be valid because parsed from declaration");
+                let type_upper = map_to_uppercase(s);
+                let type_upper = Ident::new(type_upper.as_str(), Span::mixed_site());
                 Some(quote! {
                     #[from]
                     #type_upper(#type_ident),
@@ -34,8 +51,7 @@ impl Generator {
 
         if !rows.is_empty() {
             Ok(quote! {
-                #[derive(rkyv::Archive, Debug, derive_more::Display, rkyv::Deserialize, Clone, rkyv::Serialize)]
-                #[derive(From, PartialEq)]
+                #[derive(Clone, Debug, derive_more::Display, From,  PartialEq)]
                 #[non_exhaustive]
                 pub enum #avt_type_ident {
                     #(#rows)*
@@ -68,9 +84,28 @@ impl Generator {
                                 .get(i)
                                 .ok_or(syn::Error::new(i.span(), "Unexpected column name"))?;
 
-                            Ok::<_, syn::Error>(quote! {
-                                pub #i: #type_,
-                            })
+                            let def = if type_.to_string().contains("OrderedFloat") {
+                                let inner_type = type_.to_string();
+                                let mut split = inner_type.split("<");
+                                let _ = split.next();
+                                let inner_type = split
+                                    .next()
+                                    .expect("OrderedFloat def contains inner type")
+                                    .to_uppercase()
+                                    .replace(">", "");
+                                let ident = Ident::new(
+                                    format!("Ordered{}Def", inner_type.trim()).as_str(),
+                                    Span::call_site(),
+                                );
+                                quote! {
+                                    #[rkyv(with = #ident)]
+                                    pub #i: #type_,
+                                }
+                            } else {
+                                quote! {pub #i: #type_,}
+                            };
+
+                            Ok::<_, syn::Error>(def)
                         })
                         .collect::<Result<Vec<_>, _>>()?;
 

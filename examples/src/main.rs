@@ -44,7 +44,7 @@ fn main() {
         attr2: 345,
         test: 1,
         id: 0,
-        attr_float: 100.0,
+        attr_float: 100.0.into(),
         attr_string: "String_attr".to_string(),
     };
 

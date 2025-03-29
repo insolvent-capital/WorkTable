@@ -6,6 +6,7 @@ mod row;
 mod table;
 pub use data_bucket;
 mod persistence;
+mod util;
 
 // mod ty;
 // mod value;
@@ -29,6 +30,7 @@ pub mod prelude {
     };
     pub use crate::primary_key::{PrimaryKeyGenerator, PrimaryKeyGeneratorState, TablePrimaryKey};
     pub use crate::table::select::{Order, QueryParams, SelectQueryBuilder, SelectQueryExecutor};
+    pub use crate::util::{OrderedF32Def, OrderedF64Def};
     pub use crate::{
         lock::Lock, Difference, IndexMap, IndexMultiMap, TableIndex, TableIndexCdc, TableRow,
         TableSecondaryIndex, TableSecondaryIndexCdc, WorkTable, WorkTableError,

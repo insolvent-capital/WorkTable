@@ -72,7 +72,26 @@ impl Generator {
             .columns_map
             .iter()
             .map(|(name, type_)| {
-                quote! {pub #name: #type_,}
+                if type_.to_string().contains("OrderedFloat") {
+                    let inner_type = type_.to_string();
+                    let mut split = inner_type.split("<");
+                    let _ = split.next();
+                    let inner_type = split
+                        .next()
+                        .expect("OrderedFloat def contains inner type")
+                        .to_uppercase()
+                        .replace(">", "");
+                    let ident = Ident::new(
+                        format!("Ordered{}Def", inner_type.trim()).as_str(),
+                        Span::call_site(),
+                    );
+                    quote! {
+                        #[rkyv(with = #ident)]
+                        pub #name: #type_,
+                    }
+                } else {
+                    quote! {pub #name: #type_,}
+                }
             })
             .collect();
 

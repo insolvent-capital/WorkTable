@@ -1,6 +1,7 @@
 use crate::name_generator::WorktableNameGenerator;
 use crate::worktable::generator::Generator;
 
+use crate::worktable::generator::queries::r#type::map_to_uppercase;
 use proc_macro2::{Ident, Literal, Span, TokenStream};
 use quote::quote;
 
@@ -188,7 +189,7 @@ impl Generator {
 
             let match_arm = if let Some(t) = self.columns.columns_map.get(&idx.field) {
                 let type_str = t.to_string();
-                let variant_ident = Ident::new(&type_str.to_uppercase(), Span::mixed_site());
+                let variant_ident = Ident::new(&map_to_uppercase(&type_str), Span::mixed_site());
 
                 let (new_value_expr, old_value_expr) = if type_str == "String" {
                     (quote! { new.to_string() }, quote! { old.to_string() })
@@ -317,7 +318,7 @@ impl Generator {
 
             let match_arm = if let Some(t) = self.columns.columns_map.get(&idx.field) {
                 let type_str = t.to_string();
-                let variant_ident = Ident::new(&type_str.to_uppercase(), Span::mixed_site());
+                let variant_ident = Ident::new(&map_to_uppercase(&type_str), Span::mixed_site());
 
                 let (new_value_expr, old_value_expr) = if type_str == "String" {
                     (quote! { new.to_string() }, quote! { old.to_string() })
