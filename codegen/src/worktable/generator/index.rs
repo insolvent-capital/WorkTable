@@ -47,11 +47,11 @@ impl Generator {
 
         let derive = if self.is_persist {
             quote! {
-                #[derive(Debug, Default, PersistIndex)]
+                #[derive(Debug, HeapSize, Default, PersistIndex)]
             }
         } else {
             quote! {
-                #[derive(Debug, Default)]
+                #[derive(Debug, HeapSize, Default)]
             }
         };
 

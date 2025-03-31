@@ -1,3 +1,4 @@
+mod heap_size;
 mod name_generator;
 mod persist_index;
 mod persist_table;
@@ -23,6 +24,13 @@ pub fn persist_index(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(PersistTable)]
 pub fn persist_table(input: TokenStream) -> TokenStream {
     persist_table::expand(input.into())
+        .unwrap_or_else(|e| e.to_compile_error())
+        .into()
+}
+
+#[proc_macro_derive(HeapSize)]
+pub fn heap_size(input: TokenStream) -> TokenStream {
+    heap_size::expand(input.into())
         .unwrap_or_else(|e| e.to_compile_error())
         .into()
 }

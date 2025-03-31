@@ -19,6 +19,7 @@ impl Generator {
         let iter_with_fn = self.gen_table_iter_with_fn();
         let iter_with_async_fn = self.gen_table_iter_with_async_fn();
         let count_fn = self.gen_table_count_fn();
+        let system_info_fn = self.gen_system_info_fn();
 
         quote! {
             impl #ident {
@@ -31,6 +32,7 @@ impl Generator {
                 #get_next_fn
                 #iter_with_fn
                 #iter_with_async_fn
+                #system_info_fn
             }
         }
     }
@@ -219,6 +221,14 @@ impl Generator {
             pub fn count(&self) -> Option<usize> {
                 let count = self.0.pk_map.len();
                 (count > 0).then_some(count)
+            }
+        }
+    }
+
+    fn gen_system_info_fn(&self) -> TokenStream {
+        quote! {
+            pub fn system_info(&self) -> SystemInfo {
+                self.0.system_info()
             }
         }
     }

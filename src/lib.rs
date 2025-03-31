@@ -30,6 +30,7 @@ pub mod prelude {
     };
     pub use crate::primary_key::{PrimaryKeyGenerator, PrimaryKeyGeneratorState, TablePrimaryKey};
     pub use crate::table::select::{Order, QueryParams, SelectQueryBuilder, SelectQueryExecutor};
+    pub use crate::table::system_info::{HeapSize, SystemInfo};
     pub use crate::util::{OrderedF32Def, OrderedF64Def};
     pub use crate::{
         lock::Lock, Difference, IndexMap, IndexMultiMap, TableIndex, TableIndexCdc, TableRow,
@@ -45,7 +46,7 @@ pub mod prelude {
 
     pub use derive_more::{From, Into};
     pub use lockfree::set::Set as LockFreeSet;
-    pub use worktable_codegen::{PersistIndex, PersistTable};
+    pub use worktable_codegen::{HeapSize, PersistIndex, PersistTable};
 
     pub const WT_INDEX_EXTENSION: &str = ".wt.idx";
     pub const WT_DATA_EXTENSION: &str = ".wt.data";
