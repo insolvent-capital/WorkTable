@@ -10,7 +10,7 @@ pub fn map_index_pages_to_toc_and_general<T, const DATA_LENGTH: u32>(
     Vec<GeneralPage<IndexPage<T>>>,
 )
 where
-    T: Clone + Ord + Eq + SizeMeasurable,
+    T: Clone + Default + Ord + Eq + SizeMeasurable,
 {
     let mut general_index_pages = vec![];
     let next_page_id = Arc::new(AtomicU32::new(1));

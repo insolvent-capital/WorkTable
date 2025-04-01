@@ -33,7 +33,7 @@ pub use table_of_contents::IndexTableOfContents;
 pub use util::map_index_pages_to_toc_and_general;
 
 #[derive(Debug)]
-pub struct SpaceIndex<T, const DATA_LENGTH: u32> {
+pub struct SpaceIndex<T: Ord + Eq, const DATA_LENGTH: u32> {
     space_id: SpaceId,
     table_of_contents: IndexTableOfContents<T, DATA_LENGTH>,
     next_page_id: Arc<AtomicU32>,
@@ -108,6 +108,8 @@ where
             >,
     {
         let size = get_index_page_size_from_data_length::<T>(DATA_LENGTH as usize);
+        println!("Length {}", DATA_LENGTH);
+        println!("Size {}", size);
         let mut page = IndexPage::new(node_id.key.clone(), size);
         page.current_index = 1;
         page.current_length = 1;

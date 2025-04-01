@@ -16,7 +16,7 @@ use rkyv::{rancor, Archive, Deserialize, Serialize};
 use tokio::fs::File;
 
 #[derive(Debug)]
-pub struct IndexTableOfContents<T, const DATA_LENGTH: u32> {
+pub struct IndexTableOfContents<T: Ord + Eq, const DATA_LENGTH: u32> {
     current_page: usize,
     next_page_id: Arc<AtomicU32>,
     pub pages: Vec<GeneralPage<TableOfContentsPage<T>>>,
@@ -24,7 +24,7 @@ pub struct IndexTableOfContents<T, const DATA_LENGTH: u32> {
 
 impl<T, const DATA_LENGTH: u32> IndexTableOfContents<T, DATA_LENGTH>
 where
-    T: SizeMeasurable,
+    T: SizeMeasurable + Ord + Eq,
 {
     pub fn new(space_id: SpaceId, next_page_id: Arc<AtomicU32>) -> Self {
         let page_id = next_page_id.fetch_add(1, Ordering::Relaxed);
@@ -40,10 +40,7 @@ where
         }
     }
 
-    pub fn get(&self, node_id: &T) -> Option<PageId>
-    where
-        T: Ord + Eq,
-    {
+    pub fn get(&self, node_id: &T) -> Option<PageId> {
         for page in &self.pages {
             if page.inner.contains(node_id) {
                 return Some(
@@ -63,7 +60,7 @@ where
 
     pub fn insert(&mut self, node_id: T, page_id: PageId)
     where
-        T: Clone + Ord + Eq + SizeMeasurable,
+        T: Clone + SizeMeasurable,
     {
         let next_page_id = self.next_page_id.clone();
 
@@ -95,7 +92,7 @@ where
 
     pub fn remove(&mut self, node_id: &T)
     where
-        T: Clone + Ord + Eq + SizeMeasurable,
+        T: Clone + SizeMeasurable,
     {
         let mut removed = false;
         let mut i = 0;
@@ -117,10 +114,7 @@ where
         self.pages.iter().flat_map(|v| v.inner.iter())
     }
 
-    pub fn update_key(&mut self, old_key: &T, new_key: T)
-    where
-        T: Ord + Eq,
-    {
+    pub fn update_key(&mut self, old_key: &T, new_key: T) {
         let page = self.get_current_page_mut();
         page.inner.update_key(old_key, new_key);
     }
@@ -133,8 +127,6 @@ where
     pub async fn persist(&mut self, file: &mut File) -> eyre::Result<()>
     where
         T: Archive
-            + Ord
-            + Eq
             + Clone
             + SizeMeasurable
             + for<'a> Serialize<
@@ -157,8 +149,6 @@ where
     ) -> eyre::Result<Self>
     where
         T: Archive
-            + Ord
-            + Eq
             + Clone
             + SizeMeasurable
             + for<'a> Serialize<
