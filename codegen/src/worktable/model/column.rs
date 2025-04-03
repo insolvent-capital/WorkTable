@@ -10,8 +10,13 @@ fn is_float(ident: &Ident) -> bool {
     matches!(ident.to_string().as_str(), "f64" | "f32")
 }
 
+fn is_sized(ident: &Ident) -> bool {
+    !matches!(ident.to_string().as_str(), "String")
+}
+
 #[derive(Debug, Clone)]
 pub struct Columns {
+    pub is_sized: bool,
     pub columns_map: HashMap<Ident, TokenStream>,
     pub indexes: HashMap<Ident, Index>,
     pub primary_keys: Vec<Ident>,
@@ -30,11 +35,15 @@ pub struct Row {
 impl Columns {
     pub fn try_from_rows(rows: Vec<Row>, input: &TokenStream) -> syn::Result<Self> {
         let mut columns_map = HashMap::new();
+        let mut sized = true;
         let mut pk = vec![];
         let mut gen_type = None;
 
         for row in rows {
             let type_ = &row.type_;
+            if sized {
+                sized = is_sized(type_)
+            }
             let type_ = if is_float(type_) {
                 quote! { ordered_float::OrderedFloat<#type_> }
             } else {
@@ -64,6 +73,7 @@ impl Columns {
         }
 
         Ok(Self {
+            is_sized: sized,
             columns_map,
             indexes: Default::default(),
             primary_keys: pk,

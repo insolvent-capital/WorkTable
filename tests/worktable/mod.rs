@@ -7,5 +7,6 @@ mod float;
 mod index;
 mod option;
 mod tuple_primary_key;
+mod unsized_;
 mod uuid;
 mod with_enum;

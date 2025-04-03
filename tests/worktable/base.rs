@@ -1,5 +1,6 @@
 use std::sync::Arc;
 use std::time::Duration;
+
 use worktable::prelude::*;
 use worktable::worktable;
 
@@ -188,6 +189,31 @@ async fn update() {
     let selected_row = table.select(pk).unwrap();
 
     assert_eq!(selected_row, updated);
+    assert!(table.select(2.into()).is_none())
+}
+
+#[tokio::test]
+async fn update_string() {
+    let table = TestWorkTable::default();
+    let row = TestRow {
+        id: table.get_next_pk().into(),
+        test: 1,
+        another: 1,
+        exchange: "test".to_string(),
+    };
+    let pk = table.insert(row.clone()).unwrap();
+    let first_link = table.0.pk_map.get(&pk).unwrap().get().value;
+    let updated = TestRow {
+        id: pk.clone().into(),
+        test: 2,
+        another: 3,
+        exchange: "much bigger test to make size of new row bigger than previous one".to_string(),
+    };
+    table.update(updated.clone()).await.unwrap();
+    let selected_row = table.select(pk).unwrap();
+
+    assert_eq!(selected_row, updated);
+    assert_eq!(table.0.data.get_empty_links().first().unwrap(), &first_link);
     assert!(table.select(2.into()).is_none())
 }
 

@@ -57,6 +57,21 @@ impl Generator {
         let diff_process = self.gen_process_diffs_on_index(idents.as_slice(), Some(&idents));
         let persist_call = self.gen_persist_call();
         let persist_op = self.gen_persist_op();
+        let size_check = if self.columns.is_sized {
+            quote! {}
+        } else {
+            quote! {
+                if bytes.len() > link.length as usize {
+                    self.delete_without_lock(pk.clone()).await?;
+                    self.insert(row)?;
+
+                    lock.unlock();  // Releases locks
+                    self.0.lock_map.remove(&pk); // Removes locks
+
+                    return core::result::Result::Ok(());
+                }
+            }
+        };
 
         quote! {
             pub async fn update(&self, row: #row_ident) -> core::result::Result<(), WorkTableError> {
@@ -70,12 +85,14 @@ impl Generator {
                 self.0.lock_map.insert(pk.clone(), lock.clone()); // adds LockType to LockMap
 
                 let mut bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&row).map_err(|_| WorkTableError::SerializeError)?;
-                let mut archived_row = unsafe { rkyv::access_unchecked_mut::<<#row_ident as rkyv::Archive>::Archived>(&mut bytes[..]).unseal_unchecked() };
                 let link = self.0
                     .pk_map
                     .get(&pk)
                     .map(|v| v.get().value)
                     .ok_or(WorkTableError::NotFound)?;
+                #size_check
+
+                let mut archived_row = unsafe { rkyv::access_unchecked_mut::<<#row_ident as rkyv::Archive>::Archived>(&mut bytes[..]).unseal_unchecked() };
 
                 #diff_process
                 #persist_op
@@ -119,6 +136,22 @@ impl Generator {
                         Some(columns)
                     }
                 };
+                let unsized_columns = if self.columns.is_sized {
+                    None
+                } else {
+                    let fields = op
+                        .columns
+                        .iter()
+                        .filter(|c| {
+                            self.columns.columns_map.get(c).unwrap().to_string() == "String"
+                        })
+                        .collect::<Vec<_>>();
+                    if fields.is_empty() {
+                        None
+                    } else {
+                        Some(fields)
+                    }
+                };
 
                 let idents = &op.columns;
                 if let Some(index) = index {
@@ -131,6 +164,7 @@ impl Generator {
                             index_name,
                             idents,
                             indexes_columns.as_ref(),
+                            unsized_columns,
                         )
                     } else {
                         self.gen_non_unique_update(
@@ -139,11 +173,18 @@ impl Generator {
                             index_name,
                             idents,
                             indexes_columns.as_ref(),
+                            unsized_columns,
                         )
                     }
                 } else if self.columns.primary_keys.len() == 1 {
                     if *self.columns.primary_keys.first().unwrap() == op.by {
-                        self.gen_pk_update(snake_case_name, name, idents, indexes_columns.as_ref())
+                        self.gen_pk_update(
+                            snake_case_name,
+                            name,
+                            idents,
+                            indexes_columns.as_ref(),
+                            unsized_columns,
+                        )
                     } else {
                         todo!()
                     }
@@ -167,6 +208,49 @@ impl Generator {
                     unreachable!("")
                 };
                 self.2.apply_operation(op);
+            }
+        } else {
+            quote! {}
+        }
+    }
+
+    fn gen_size_check(&self, unsized_fields: Option<Vec<&Ident>>, idents: &[Ident]) -> TokenStream {
+        if let Some(f) = unsized_fields {
+            let fields_check: Vec<_> = f
+                .iter()
+                .map(|f| {
+                    let fn_ident =
+                        Ident::new(format!("get_{}_size", f).as_str(), Span::call_site());
+                    quote! {
+                        if !need_to_reinsert {
+                            need_to_reinsert = archived_row.#fn_ident() > self.#fn_ident(link)?
+                        }
+                    }
+                })
+                .collect();
+            let row_updates = idents
+                .iter()
+                .map(|i| {
+                    quote! {
+                        row_old.#i = row.#i;
+                    }
+                })
+                .collect::<Vec<_>>();
+
+            quote! {
+                let mut need_to_reinsert = false;
+                #(#fields_check)*
+                if need_to_reinsert {
+                    let mut row_old = self.select(pk.clone()).unwrap();
+                    #(#row_updates)*
+                    self.delete_without_lock(pk.clone()).await?;
+                    self.insert(row_old)?;
+
+                    lock.unlock();  // Releases locks
+                    self.0.lock_map.remove(&pk); // Removes locks
+
+                    return core::result::Result::Ok(());
+                }
             }
         } else {
             quote! {}
@@ -272,6 +356,7 @@ impl Generator {
         name: &Ident,
         idents: &[Ident],
         idx_idents: Option<&Vec<Ident>>,
+        unsized_fields: Option<Vec<&Ident>>,
     ) -> TokenStream {
         let pk_ident = &self.pk.as_ref().unwrap().ident;
         let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
@@ -305,6 +390,7 @@ impl Generator {
             })
             .collect::<Vec<_>>();
 
+        let size_check = self.gen_size_check(unsized_fields, idents);
         let diff_process = self.gen_process_diffs_on_index(idents, idx_idents);
         let persist_call = self.gen_persist_call();
         let persist_op = self.gen_persist_op();
@@ -328,6 +414,7 @@ impl Generator {
                         .map(|v| v.get().value)
                         .ok_or(WorkTableError::NotFound)?;
 
+                #size_check
                 #diff_process
                 #persist_op
 
@@ -352,6 +439,7 @@ impl Generator {
         index: &Ident,
         idents: &[Ident],
         idx_idents: Option<&Vec<Ident>>,
+        unsized_fields: Option<Vec<&Ident>>,
     ) -> TokenStream {
         let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
         let lock_type_ident = name_generator.get_lock_type_ident();
@@ -386,20 +474,63 @@ impl Generator {
             })
             .collect::<Vec<_>>();
 
+        let size_check = if let Some(f) = unsized_fields {
+            let fields_check: Vec<_> = f
+                .iter()
+                .map(|f| {
+                    let fn_ident =
+                        Ident::new(format!("get_{}_size", f).as_str(), Span::call_site());
+                    quote! {
+                        if !need_to_reinsert {
+                            need_to_reinsert = archived_row.#fn_ident() > self.#fn_ident(link)?
+                        }
+                    }
+                })
+                .collect();
+            let row_updates = idents
+                .iter()
+                .map(|i| {
+                    quote! {
+                        row_old.#i = row.#i.clone();
+                    }
+                })
+                .collect::<Vec<_>>();
+
+            quote! {
+                let mut need_to_reinsert = false;
+                #(#fields_check)*
+                if need_to_reinsert {
+                    let mut row_old = self.select(pk.clone()).unwrap();
+                    #(#row_updates)*
+                    self.delete_without_lock(pk.clone()).await?;
+                    self.insert(row_old)?;
+
+                    let lock = self.0.lock_map.get(&pk).expect("was inserted before and not deleted");
+                    lock.unlock();  // Releases locks
+                    self.0.lock_map.remove(&pk); // Removes locks
+                } else {
+                    links_to_unlock.push(link)
+                }
+            }
+        } else {
+            quote! {}
+        };
         let diff_process = self.gen_process_diffs_on_index(idents, idx_idents);
         let persist_call = self.gen_persist_call();
         let persist_op = self.gen_persist_op();
 
         quote! {
             pub async fn #method_ident(&self, row: #query_ident, by: #by_ident) -> core::result::Result<(), WorkTableError> {
-                for (_, link) in self.0.indexes.#index.get(&by) {
+                let links: Vec<_> = self.0.indexes.#index.get(&by).map(|(_, l)| *l).collect();
+
+                for link in links.iter() {
                     let pk = self.0.data.select(*link)?.get_primary_key();
                     if let Some(lock) = self.0.lock_map.get(&pk) {
                         lock.#lock_await_ident().await;
                     }
                 }
 
-                for (_, link) in self.0.indexes.#index.get(&by) {
+                for link in links.iter() {
                     let pk = self.0.data.select(*link)?.get_primary_key();
                     let lock_id = self.0.lock_map.next_id();
                     let mut lock = #lock_type_ident::new(lock_id.into());
@@ -407,8 +538,8 @@ impl Generator {
                     self.0.lock_map.insert(pk.clone(), std::sync::Arc::new(lock.clone()));
                 }
 
-                for (_, link) in self.0.indexes.#index.get(&by) {
-                    let link = *link;
+                let mut links_to_unlock = vec![];
+                for link in links.into_iter() {
                     let pk = self.0.data.select(link)?.get_primary_key().clone();
                     let mut bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&row)
                         .map_err(|_| WorkTableError::SerializeError)?;
@@ -418,6 +549,7 @@ impl Generator {
                             .unseal_unchecked()
                     };
 
+                    #size_check
                     #diff_process
                     #persist_op
 
@@ -429,7 +561,7 @@ impl Generator {
 
                     #persist_call
                 }
-                for (_, link) in self.0.indexes.#index.get(&by) {
+                for link in links_to_unlock.iter() {
                     let pk = self.0.data.select(*link)?.get_primary_key();
                     if let Some(lock) = self.0.lock_map.get(&pk) {
                         lock.#unlock_ident();
@@ -448,6 +580,7 @@ impl Generator {
         index: &Ident,
         idents: &[Ident],
         idx_idents: Option<&Vec<Ident>>,
+        unsized_fields: Option<Vec<&Ident>>,
     ) -> TokenStream {
         let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
         let lock_type_ident = name_generator.get_lock_type_ident();
@@ -477,10 +610,11 @@ impl Generator {
             .iter()
             .map(|i| {
                 quote! {
-                    std::mem::swap(&mut archived.inner.#i, &mut archived_new_row.#i);
+                    std::mem::swap(&mut archived.inner.#i, &mut archived_row.#i);
                 }
             })
             .collect::<Vec<_>>();
+        let size_check = self.gen_size_check(unsized_fields, idents);
         let diff_process = self.gen_process_diffs_on_index(idents, idx_idents);
         let persist_call = self.gen_persist_call();
         let persist_op = self.gen_persist_op();
@@ -490,7 +624,7 @@ impl Generator {
                  let mut bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&row)
                     .map_err(|_| WorkTableError::SerializeError)?;
 
-                let mut archived_new_row = unsafe {
+                let mut archived_row = unsafe {
                     rkyv::access_unchecked_mut::<<#query_ident as rkyv::Archive>::Archived>(&mut bytes[..])
                         .unseal_unchecked()
                 };
@@ -509,6 +643,7 @@ impl Generator {
                 lock.#lock_ident();
                 self.0.lock_map.insert(pk.clone(), std::sync::Arc::new(lock.clone()));
 
+                #size_check
                 #diff_process
                 #persist_op
 

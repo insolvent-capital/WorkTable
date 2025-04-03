@@ -22,10 +22,12 @@ impl Generator {
             quote! {}
         };
         let full_row_delete = self.gen_full_row_delete();
+        let full_row_delete_without_lock = self.gen_full_row_delete_without_lock();
 
         Ok(quote! {
             impl #table_ident {
                 #full_row_delete
+                #full_row_delete_without_lock
                 #custom_deletes
             }
         })
@@ -34,9 +36,48 @@ impl Generator {
     fn gen_full_row_delete(&mut self) -> TokenStream {
         let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
         let pk_ident = name_generator.get_primary_key_type_ident();
+        let lock_ident = name_generator.get_lock_type_ident();
+        let delete_logic = self.gen_delete_logic();
+
+        quote! {
+            pub async fn delete(&self, pk: #pk_ident) -> core::result::Result<(), WorkTableError> {
+                if let Some(lock) = self.0.lock_map.get(&pk) {
+                    lock.lock_await().await;   // Waiting for all locks released
+                }
+
+                let lock_id = self.0.lock_map.next_id();
+                let lock = std::sync::Arc::new(#lock_ident::with_lock(lock_id.into()));   //Creates new LockType with None
+                self.0.lock_map.insert(pk.clone(), lock.clone()); // adds LockType to LockMap
+
+                #delete_logic
+
+                lock.unlock();  // Releases locks
+                self.0.lock_map.remove(&pk); // Removes locks
+
+                core::result::Result::Ok(())
+            }
+        }
+    }
+
+    fn gen_full_row_delete_without_lock(&mut self) -> TokenStream {
+        let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
+        let pk_ident = name_generator.get_primary_key_type_ident();
+        let delete_logic = self.gen_delete_logic();
+
+        quote! {
+            pub async fn delete_without_lock(&self, pk: #pk_ident) -> core::result::Result<(), WorkTableError> {
+                #delete_logic
+                core::result::Result::Ok(())
+            }
+        }
+    }
+
+    fn gen_delete_logic(&self) -> TokenStream {
+        let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
+        let pk_ident = name_generator.get_primary_key_type_ident();
         let secondary_events_ident = name_generator.get_space_secondary_index_events_ident();
 
-        let delete_logic = if self.is_persist {
+        let process = if self.is_persist {
             quote! {
                 let secondary_keys_events = self.0.indexes.delete_row_cdc(row, link)?;
                 let (_, primary_key_events) = TableIndexCdc::remove_cdc(&self.0.pk_map, pk.clone(), link);
@@ -60,34 +101,14 @@ impl Generator {
             }
         };
 
-        let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
-        let lock_ident = name_generator.get_lock_type_ident();
-
         quote! {
-            pub async fn delete(&self, pk: #pk_ident) -> core::result::Result<(), WorkTableError> {
-
-                if let Some(lock) = self.0.lock_map.get(&pk) {
-                    lock.lock_await().await;   // Waiting for all locks released
-                }
-
-                let lock_id = self.0.lock_map.next_id();
-                let lock = std::sync::Arc::new(#lock_ident::with_lock(lock_id.into()));   //Creates new LockType with None
-                self.0.lock_map.insert(pk.clone(), lock.clone()); // adds LockType to LockMap
-
-                let link = self.0
+            let link = self.0
                     .pk_map
                     .get(&pk)
                     .map(|v| v.get().value)
                     .ok_or(WorkTableError::NotFound)?;
-
-                let row = self.select(pk.clone()).unwrap();
-                #delete_logic
-
-                lock.unlock();  // Releases locks
-                self.0.lock_map.remove(&pk); // Removes locks
-
-                core::result::Result::Ok(())
-            }
+            let row = self.select(pk.clone()).unwrap();
+            #process
         }
     }
 
