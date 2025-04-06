@@ -96,7 +96,7 @@ impl Generator {
             .collect();
 
         quote! {
-            #[derive(rkyv::Archive, Debug, rkyv::Deserialize, Clone, rkyv::Serialize, PartialEq)]
+            #[derive(rkyv::Archive, Debug, rkyv::Deserialize, Clone, rkyv::Serialize, PartialEq, MemStat)]
             #[rkyv(derive(Debug))]
             #[repr(C)]
             pub struct #ident {

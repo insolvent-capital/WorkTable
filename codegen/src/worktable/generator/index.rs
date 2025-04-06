@@ -25,7 +25,7 @@ impl Generator {
 
     /// Generates table's secondary index struct definition. It has fields with index names and types varying on index
     /// uniqueness. For unique index it's `TreeIndex<T, Link`, for non-unique `TreeIndex<T, Arc<LockFreeSet<Link>>>`.
-    /// Index also derives `PersistIndex` macro.
+    /// Index also derives `PersistIndex` and `MemStat` macro.
     fn gen_type_def(&mut self) -> TokenStream {
         let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
         let ident = name_generator.get_index_type_ident();
@@ -47,11 +47,11 @@ impl Generator {
 
         let derive = if self.is_persist {
             quote! {
-                #[derive(Debug, Default, PersistIndex)]
+                #[derive(Debug, MemStat, Default, PersistIndex)]
             }
         } else {
             quote! {
-                #[derive(Debug, Default)]
+                #[derive(Debug, MemStat, Default)]
             }
         };
 
@@ -73,12 +73,14 @@ impl Generator {
         let save_row_fn = self.gen_save_row_index_fn();
         let delete_row_fn = self.gen_delete_row_index_fn();
         let process_difference_fn = self.gen_process_difference_index_fn();
+        let info_fn = self.gen_index_info_fn();
 
         quote! {
             impl TableSecondaryIndex<#row_type_ident, #avt_type_ident> for #index_type_ident {
                 #save_row_fn
                 #delete_row_fn
                 #process_difference_fn
+                #info_fn
             }
         }
     }
@@ -354,6 +356,50 @@ impl Generator {
             ) -> core::result::Result<(), WorkTableError> {
                 #(#process_difference_rows)*
                 core::result::Result::Ok(())
+            }
+        }
+    }
+
+    fn gen_index_info_fn(&self) -> TokenStream {
+        let rows = self.columns.indexes.values().map(|idx| {
+            let index_field_name = &idx.name;
+            let index_name_str = index_field_name.to_string();
+
+            if idx.is_unique {
+                quote! {
+
+                    info.push(IndexInfo {
+                        name: #index_name_str.to_string(),
+                        index_type: IndexKind::Unique,
+                        key_count: self.#index_field_name.len(),
+                        capacity: self.#index_field_name.capacity(),
+                        heap_size: self.#index_field_name.heap_size(),
+                        used_size: self.#index_field_name.used_size(),
+                        node_count: self.#index_field_name.node_count(),
+
+
+                    });
+                }
+            } else {
+                quote! {
+                    info.push(IndexInfo {
+                        name: #index_name_str.to_string(),
+                        index_type: IndexKind::NonUnique,
+                        key_count: self.#index_field_name.len(),
+                        capacity: self.#index_field_name.capacity(),
+                        heap_size: self.#index_field_name.heap_size(),
+                        used_size: self.#index_field_name.used_size(),
+                        node_count: self.#index_field_name.node_count(),
+                    });
+                }
+            }
+        });
+
+        quote! {
+            fn index_info(&self) -> Vec<IndexInfo> {
+                let mut info = Vec::new();
+                #(#rows)*
+                info
             }
         }
     }

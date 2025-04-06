@@ -2,7 +2,7 @@ use rkyv::{Archive, Deserialize, Serialize};
 use worktable::prelude::*;
 use worktable::worktable;
 
-#[derive(Archive, Clone, Copy, Debug, Deserialize, Serialize, PartialEq, PartialOrd)]
+#[derive(Archive, Clone, Copy, Debug, Deserialize, Serialize, PartialEq, PartialOrd, MemStat)]
 #[rkyv(compare(PartialEq), derive(Debug))]
 pub enum SomeEnum {
     First,

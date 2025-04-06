@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use data_bucket::Link;
 
+use crate::system_info::IndexInfo;
 use crate::Difference;
 use crate::WorkTableError;
 
@@ -15,6 +16,8 @@ pub trait TableSecondaryIndex<Row, AvailableTypes> {
         link: Link,
         differences: HashMap<&str, Difference<AvailableTypes>>,
     ) -> Result<(), WorkTableError>;
+
+    fn index_info(&self) -> Vec<IndexInfo>;
 }
 
 pub trait TableSecondaryIndexCdc<Row, AvailableTypes, SecondaryEvents> {
@@ -45,5 +48,9 @@ where
         _: HashMap<&str, Difference<AvailableTypes>>,
     ) -> Result<(), WorkTableError> {
         Ok(())
+    }
+
+    fn index_info(&self) -> Vec<IndexInfo> {
+        vec![]
     }
 }

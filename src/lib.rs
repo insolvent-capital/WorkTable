@@ -5,6 +5,7 @@ mod primary_key;
 mod row;
 mod table;
 pub use data_bucket;
+mod mem_stat;
 mod persistence;
 mod util;
 
@@ -22,6 +23,7 @@ pub use worktable_codegen::worktable;
 pub mod prelude {
     pub use crate::in_memory::{Data, DataPages, RowWrapper, StorableRow};
     pub use crate::lock::LockMap;
+    pub use crate::mem_stat::MemStat;
     pub use crate::persistence::{
         map_index_pages_to_toc_and_general, DeleteOperation, IndexTableOfContents, InsertOperation,
         Operation, PersistenceConfig, PersistenceEngine, PersistenceEngineOps, PersistenceTask,
@@ -30,6 +32,7 @@ pub mod prelude {
     };
     pub use crate::primary_key::{PrimaryKeyGenerator, PrimaryKeyGeneratorState, TablePrimaryKey};
     pub use crate::table::select::{Order, QueryParams, SelectQueryBuilder, SelectQueryExecutor};
+    pub use crate::table::system_info::{IndexInfo, IndexKind, SystemInfo};
     pub use crate::util::{OrderedF32Def, OrderedF64Def};
     pub use crate::{
         lock::Lock, Difference, IndexMap, IndexMultiMap, TableIndex, TableIndexCdc, TableRow,
@@ -45,7 +48,7 @@ pub mod prelude {
 
     pub use derive_more::{From, Into};
     pub use lockfree::set::Set as LockFreeSet;
-    pub use worktable_codegen::{PersistIndex, PersistTable};
+    pub use worktable_codegen::{MemStat, PersistIndex, PersistTable};
 
     pub const WT_INDEX_EXTENSION: &str = ".wt.idx";
     pub const WT_DATA_EXTENSION: &str = ".wt.data";
