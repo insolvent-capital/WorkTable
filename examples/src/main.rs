@@ -50,14 +50,15 @@ async fn main() {
         attr_float: 100.0.into(),
         attr_string: "String_attr0".to_string(),
     };
+    let pk: MyPrimaryKey = my_table.insert(row).expect("primary key");
 
-    for i in 2..1000000_i64 {
+    for i in 2..10 {
         let row = MyRow {
             val: 777,
             attr: format!("Attribute{}", i),
             attr2: 345 + i as i32,
             test: i as i32,
-            id: i as u64,
+            id: (i - 1) as u64,
             attr_float: (100.0 + i as f64).into(),
             attr_string: format!("String_attr{}", i),
         };
@@ -66,7 +67,6 @@ async fn main() {
     }
 
     // insert
-    let pk: MyPrimaryKey = my_table.insert(row).expect("primary key");
 
     // Select ALL records from WT
     let _select_all = my_table.select_all().execute();
@@ -87,8 +87,8 @@ async fn main() {
     //}
 
     // Update Value query
-    let update = my_table.update_val_by_id(ValByIdQuery { val: 1337 }, pk.clone());
-    let _ = block_on(update);
+    //  let update = my_table.update_val_by_id(ValByIdQuery { val: 1337 }, pk.clone());
+    //let _ = block_on(update);
 
     let _select_all = my_table.select_all().execute();
     //println!("Select after update val {:?}", select_all);
@@ -102,4 +102,6 @@ async fn main() {
     let info = my_table.system_info();
 
     println!("{info}");
+    //    my_table.wait_for_ops().await;
+    let _ = my_table.persist().await.unwrap();
 }

@@ -14,7 +14,7 @@ impl Generator {
         let from_file_fn = self.gen_worktable_from_file_fn();
         let wait_for_ops_fn = self.gen_worktable_wait_for_ops_fn();
 
-        quote! {
+        let t = quote! {
             impl #ident {
                 #space_info_fn
                 #persisted_pk_fn
@@ -23,7 +23,9 @@ impl Generator {
                 #from_file_fn
                 #wait_for_ops_fn
             }
-        }
+        };
+        println!("YYY{} ", t);
+        t
     }
 
     fn gen_worktable_wait_for_ops_fn(&self) -> TokenStream {
@@ -66,6 +68,7 @@ impl Generator {
     fn gen_worktable_space_info_fn(&self) -> TokenStream {
         let name_generator = WorktableNameGenerator::from_struct_ident(&self.struct_def.ident);
         let pk = name_generator.get_primary_key_type_ident();
+        let row_ident = name_generator.get_row_type_ident();
         let literal_name = name_generator.get_work_table_literal_name();
 
         quote! {
@@ -76,8 +79,8 @@ impl Generator {
                     name: #literal_name.to_string(),
                     pk_gen_state: <<#pk as TablePrimaryKey>::Generator as PrimaryKeyGeneratorState>::State::default(),
                     empty_links_list: vec![],
-                    primary_key_fields: vec![],
-                    row_schema: vec![],
+                    primary_key_fields: #row_ident::primary_key_fields(),
+                    row_schema: #row_ident::row_schema(),
                     secondary_index_types: vec![],
                 };
                 let header = GeneralHeader {

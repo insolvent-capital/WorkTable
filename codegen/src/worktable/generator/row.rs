@@ -28,7 +28,8 @@ impl Generator {
             .pk
             .clone()
             .expect("should be set in `Generator` at this point");
-        let primary_key_columns_clone = if primary_key.values.len() == 1 {
+
+        let primary_key_columns = if primary_key.values.len() == 1 {
             let pk_field = primary_key
                 .values
                 .keys()
@@ -52,11 +53,33 @@ impl Generator {
             }
         };
 
+        let row_schema_entries = self.columns.columns_map.iter().map(|(k, v)| {
+            let name_str = k.to_string();
+            let type_str = v.to_string();
+            quote! {
+                (#name_str.to_string(), #type_str.to_string())
+            }
+        });
+
+        let primary_key_fields = primary_key.values.keys().map(|key| {
+            let key_str = key.to_string();
+            quote! {
+                #key_str.to_string()
+            }
+        });
+
         quote! {
             impl TableRow<#primary_key_ident> for #ident {
-
                 fn get_primary_key(&self) -> #primary_key_ident {
-                    #primary_key_columns_clone
+                    #primary_key_columns
+                }
+
+                fn row_schema() -> Vec<(String, String)> {
+                    vec![#(#row_schema_entries),*]
+                }
+
+                fn primary_key_fields() -> Vec<String> {
+                    vec![#(#primary_key_fields),*]
                 }
             }
         }

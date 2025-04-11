@@ -46,33 +46,50 @@ impl Generator {
     fn gen_space_file_get_primary_index_info_fn(&self) -> TokenStream {
         let name_generator = WorktableNameGenerator::from_struct_ident(&self.struct_def.ident);
         let literal_name = name_generator.get_work_table_literal_name();
+        let row_ident = name_generator.get_row_type_ident();
+        let inner_size_ident = name_generator.get_page_inner_size_const_ident();
 
         quote! {
             fn get_primary_index_info(&self) -> eyre::Result<GeneralPage<SpaceInfoPage<()>>> {
+
+                let data: Vec<std::sync::Arc<Data<<#row_ident as StorableRow>::WrappedRow,#inner_size_ident >>> = self.data.clone()
+                     .into_iter()
+                     .enumerate()
+                     .map(|(i, page)| {
+                         let mut d = Data::from_data_page(page);
+                         d.set_page_id(PageId((i + 1) as u32));
+                         std::sync::Arc::new(d)
+                     })
+                     .collect();
+
+                let data_pages = DataPages::<#row_ident, #inner_size_ident>::from_data(data);
+
+
+
                 let mut info = {
                     let inner = SpaceInfoPage {
-                    id: 0.into(),
-                    page_count: 0,
-                    name: #literal_name.to_string(),
-                    pk_gen_state: (),
-                    empty_links_list: vec![],
-                    primary_key_fields: vec![],
-                    row_schema: vec![],
-                    secondary_index_types: vec![],
-                };
-                let header = GeneralHeader {
-                    data_version: DATA_VERSION,
-                    page_id: 0.into(),
-                    previous_id: 0.into(),
-                    next_id: 0.into(),
-                    page_type: PageType::SpaceInfo,
-                    space_id: 0.into(),
-                    data_length: 0,
-                };
-                GeneralPage {
-                    header,
-                    inner
-                }
+                        id: 0.into(),
+                        page_count: 0,
+                        name: #literal_name.to_string(),
+                        pk_gen_state: (),
+                        empty_links_list: data_pages.get_empty_links(),
+                        primary_key_fields: #row_ident::primary_key_fields(),
+                        row_schema: #row_ident::row_schema(),
+                        secondary_index_types: vec![],
+                    };
+                    let header = GeneralHeader {
+                        data_version: DATA_VERSION,
+                        page_id: 0.into(),
+                        previous_id: 0.into(),
+                        next_id: 0.into(),
+                        page_type: PageType::SpaceInfo,
+                        space_id: 0.into(),
+                        data_length: 0,
+                    };
+                    GeneralPage {
+                        header,
+                        inner
+                    }
                 };
                 info.inner.page_count = self.primary_index.0.len() as u32 + self.primary_index.1.len() as u32;
                 Ok(info)
