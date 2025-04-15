@@ -1,7 +1,8 @@
+use crate::persist_table::generator::PersistTableAttributes;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::ToTokens;
 use syn::spanned::Spanned;
-use syn::ItemStruct;
+use syn::{Attribute, ItemStruct};
 
 pub struct Parser;
 
@@ -29,5 +30,24 @@ impl Parser {
         let pk_type = gens.nth(1).unwrap();
 
         Ident::new(pk_type.trim(), Span::mixed_site())
+    }
+
+    pub fn parse_attributes(attrs: &Vec<Attribute>) -> PersistTableAttributes {
+        let mut res = PersistTableAttributes { pk_unsized: false };
+
+        for attr in attrs {
+            if attr.path().to_token_stream().to_string().as_str() == "table" {
+                attr.parse_nested_meta(|meta| {
+                    if meta.path.is_ident("pk_unsized") {
+                        res.pk_unsized = true;
+                        return Ok(());
+                    }
+                    Ok(())
+                })
+                .expect("always ok even on unrecognized attrs");
+            }
+        }
+
+        res
     }
 }

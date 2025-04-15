@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 
-worktable = { path = "..", version = "0.5.0", features = ["perf_measurements"] }
+worktable = { path = "..", version = "0.5.3", features = ["perf_measurements"] }
 rkyv = { version = "0.8.9", features = ["uuid-1"] }
 lockfree = "0.5.1"
 derive_more = { version = "1.0.0", features = ["full"] }
@@ -14,6 +14,6 @@ futures = "0.3.30"
 async-std = "1.10"
 either = "1.15.0"
 ordered-float = "5.0.0"
-indexset = { version = "0.11.3", features = ["concurrent", "cdc", "multimap"] }
+indexset = { version = "0.12.0", features = ["concurrent", "cdc", "multimap"] }
 tokio = { version = "1", features = ["full"] }
 

@@ -5,7 +5,7 @@ use quote::__private::Span;
 use quote::{quote, ToTokens};
 use syn::ItemStruct;
 
-use crate::name_generator::WorktableNameGenerator;
+use crate::name_generator::{is_unsized, WorktableNameGenerator};
 use crate::persist_table::WT_INDEX_EXTENSION;
 
 pub struct Generator {
@@ -95,8 +95,15 @@ impl Generator {
             .field_types
             .iter()
             .map(|(i, t)| {
-                quote! {
-                    #i: (Vec<GeneralPage<TableOfContentsPage<#t>>>, Vec<GeneralPage<IndexPage<#t>>>),
+                if is_unsized(&t.to_string()) {
+                    let const_size = name_generator.get_page_inner_size_const_ident();
+                    quote! {
+                        #i: (Vec<GeneralPage<TableOfContentsPage<#t>>>, Vec<GeneralPage<UnsizedIndexPage<#t, {#const_size as u32}>>>),
+                    }
+                } else {
+                    quote! {
+                        #i: (Vec<GeneralPage<TableOfContentsPage<#t>>>, Vec<GeneralPage<IndexPage<#t>>>),
+                    }
                 }
             })
             .collect();
@@ -200,7 +207,7 @@ impl Generator {
                     let next_page_id = std::sync::Arc::new(std::sync::atomic::AtomicU32::new(page_id as u32));
                     let toc = IndexTableOfContents::<_, { #page_const_name as u32 }>::parse_from_file(&mut file, 0.into(), next_page_id.clone()).await?;
                     for page_id in toc.iter().map(|(_, page_id)| page_id) {
-                        let index = parse_page::<IndexPage<_>, { #page_const_name as u32 }>(&mut file, (*page_id).into()).await?;
+                        let index = parse_page::<_, { #page_const_name as u32 }>(&mut file, (*page_id).into()).await?;
                         #i.push(index);
                     }
                     (toc.pages, #i)
@@ -253,7 +260,7 @@ impl Generator {
     /// `TreeIndex` into `Vec` of `IndexPage`s using `IndexPage::from_nod` function.
     fn gen_get_persisted_index_fn(&self) -> TokenStream {
         let name_generator = WorktableNameGenerator::from_index_ident(&self.struct_def.ident);
-        let const_name = name_generator.get_page_size_const_ident();
+        let const_name = name_generator.get_page_inner_size_const_ident();
 
         let idents = self
             .struct_def
@@ -279,15 +286,27 @@ impl Generator {
                     .field_types
                     .get(i)
                     .expect("should be available as constructed from same values");
-                quote! {
-                    let size = get_index_page_size_from_data_length::<#ty>(#const_name);
-                    let mut pages = vec![];
-                    for node in self.#i.iter_nodes() {
-                        let page = IndexPage::from_node(node.lock_arc().as_ref(), size);
-                        pages.push(page);
+                if is_unsized(&ty.to_string()) {
+                    quote! {
+                        let mut pages = vec![];
+                        for node in self.#i.iter_nodes() {
+                            let page = UnsizedIndexPage::from_node(node.lock_arc().as_ref());
+                            pages.push(page);
+                        }
+                        let (toc, pages) = map_unsized_index_pages_to_toc_and_general::<_, { #const_name as u32 }>(pages);
+                        let #i = (toc.pages, pages);
                     }
-                    let (toc, pages) = map_index_pages_to_toc_and_general::<_, { #const_name as u32 }>(pages);
-                    let #i = (toc.pages, pages);
+                } else {
+                    quote! {
+                        let size = get_index_page_size_from_data_length::<#ty>(#const_name);
+                        let mut pages = vec![];
+                        for node in self.#i.iter_nodes() {
+                            let page = IndexPage::from_node(node.lock_arc().as_ref(), size);
+                            pages.push(page);
+                        }
+                        let (toc, pages) = map_index_pages_to_toc_and_general::<_, { #const_name as u32 }>(pages);
+                        let #i = (toc.pages, pages);
+                    }
                 }
             })
             .collect();
@@ -305,6 +324,9 @@ impl Generator {
     /// Generates `from_persisted` function of `PersistableIndex` trait for persisted index. It maps every page in
     /// persisted page back to `TreeIndex`
     fn gen_from_persisted_fn(&self) -> syn::Result<TokenStream> {
+        let name_generator = WorktableNameGenerator::from_index_ident(&self.struct_def.ident);
+        let const_name = name_generator.get_page_inner_size_const_ident();
+
         let idents = self
             .struct_def
             .fields
@@ -325,6 +347,7 @@ impl Generator {
                     .as_ref()
                     .expect("index fields should always be named fields");
                 let index_type = f.ty.to_token_stream().to_string();
+                let is_unique = !index_type.contains("IndexMultiMap");
                 let mut split = index_type.split("<");
                 let t = Ident::new(
                     split
@@ -333,12 +356,47 @@ impl Generator {
                         .trim(),
                     Span::mixed_site(),
                 );
+                let ty = self
+                    .field_types
+                    .get(i)
+                    .expect("should be available as constructed from same values");
 
-                quote! {
-                    let #i: #t<_, Link> = #t::new();
-                    for page in persisted.#i.1 {
-                        let node = page.inner.get_node();
-                        #i.attach_node(node);
+                if is_unsized(&ty.to_string()) {
+                    let node = if is_unique {
+                        quote! {
+                            let node = UnsizedNode::from_inner(page.inner.get_node(), #const_name);
+                            #i.attach_node(node);
+                        }
+                    } else {
+                        quote! {
+                            let node = UnsizedNode::from_inner(page.inner.get_node().into_iter().map(|p| p.into()).collect(), #const_name);
+                            #i.attach_multi_node(node);
+                        }
+                    };
+                    quote! {
+                        let #i: #t<_, Link, UnsizedNode<_>> = #t::with_maximum_node_size(#const_name);
+                        for page in persisted.#i.1 {
+                            #node
+                        }
+                    }
+                } else {
+                    let node = if is_unique {
+                        quote! {
+                            let node = page.inner.get_node();
+                            #i.attach_node(node);
+                        }
+                    } else {
+                        quote! {
+                            let node = page.inner.get_node();
+                            #i.attach_multi_node(node.into_iter().map(|p| p.into()).collect());
+                        }
+                    };
+                    quote! {
+                        let size = get_index_page_size_from_data_length::<#ty>(#const_name);
+                        let #i: #t<_, Link> = #t::new();
+                        for page in persisted.#i.1 {
+                            #node
+                        }
                     }
                 }
             })

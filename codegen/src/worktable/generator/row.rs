@@ -129,7 +129,7 @@ impl Generator {
             #[derive(rkyv::Archive, Debug, rkyv::Deserialize, Clone, rkyv::Serialize, PartialEq)]
             #[rkyv(derive(Debug))]
             #[repr(C)]
-            enum #enum_name {
+            pub enum #enum_name {
                 #(#rows)*
             }
         }

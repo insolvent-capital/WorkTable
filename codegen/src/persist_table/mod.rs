@@ -12,10 +12,12 @@ pub use generator::WT_INDEX_EXTENSION;
 pub fn expand(input: TokenStream) -> syn::Result<TokenStream> {
     let input_fn = Parser::parse_struct(input)?;
     let pk_ident = Parser::parse_pk_ident(&input_fn);
+    let attributes = Parser::parse_attributes(&input_fn.attrs);
 
     let gen = Generator {
         struct_def: input_fn,
         pk_ident,
+        attributes,
     };
 
     let space_file_def = gen.gen_space_file_def();

@@ -10,9 +10,14 @@ mod size_measurable;
 mod space;
 mod space_file;
 
+pub struct PersistTableAttributes {
+    pub pk_unsized: bool,
+}
+
 pub struct Generator {
     pub struct_def: ItemStruct,
     pub pk_ident: Ident,
+    pub attributes: PersistTableAttributes,
 }
 
 impl WorktableNameGenerator {

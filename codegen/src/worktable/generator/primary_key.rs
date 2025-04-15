@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::name_generator::WorktableNameGenerator;
+use crate::name_generator::{is_unsized_vec, WorktableNameGenerator};
 use crate::worktable::generator::Generator;
 use crate::worktable::model::{GeneratorType, PrimaryKey};
 
@@ -56,6 +56,14 @@ impl Generator {
                     .expect("should exist as got from definition")
             })
             .collect::<Vec<_>>();
+        let unsized_derive =
+            if is_unsized_vec(&types.iter().map(|v| v.to_string()).collect::<Vec<_>>()) {
+                quote! {
+                    VariableSizeMeasure,
+                }
+            } else {
+                quote! {}
+            };
 
         quote! {
             #[derive(
@@ -72,6 +80,7 @@ impl Generator {
                 PartialEq,
                 PartialOrd,
                 Ord,
+                #unsized_derive
             )]
             #[rkyv(derive(PartialEq, Eq, PartialOrd, Ord, Debug))]
             pub struct #ident(#(#types),*);

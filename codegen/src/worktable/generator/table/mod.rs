@@ -1,7 +1,7 @@
 use proc_macro2::{Literal, TokenStream};
 use quote::quote;
 
-use crate::name_generator::WorktableNameGenerator;
+use crate::name_generator::{is_unsized_vec, WorktableNameGenerator};
 use crate::worktable::generator::Generator;
 
 mod impls;
@@ -78,9 +78,40 @@ impl Generator {
             quote! {}
         };
 
+        let pk_types = &self
+            .columns
+            .primary_keys
+            .iter()
+            .map(|i| {
+                self.columns
+                    .columns_map
+                    .get(i)
+                    .expect("should exist as got from definition")
+                    .to_string()
+            })
+            .collect::<Vec<_>>();
+        let pk_types_unsized = is_unsized_vec(pk_types);
+        let node_type = if pk_types_unsized {
+            quote! {
+                UnsizedNode<IndexPair<#primary_key_type, Link>>
+            }
+        } else {
+            quote! {
+                Vec<IndexPair<#primary_key_type, Link>>
+            }
+        };
+        let derive_attrs = if pk_types_unsized {
+            quote! {
+                #[table(pk_unsized)]
+            }
+        } else {
+            quote! {}
+        };
+
         if self.config.as_ref().and_then(|c| c.page_size).is_some() {
             quote! {
                 #derive
+                #derive_attrs
                 pub struct #ident(
                     WorkTable<
                         #row_type,
@@ -89,6 +120,7 @@ impl Generator {
                         #index_type,
                         #lock_ident,
                         <#primary_key_type as TablePrimaryKey>::Generator,
+                        #node_type,
                         #inner_const_name
                     >
                     #persist_type_part
@@ -97,6 +129,7 @@ impl Generator {
         } else {
             quote! {
                 #derive
+                #derive_attrs
                 pub struct #ident(
                     WorkTable<
                         #row_type,
@@ -104,6 +137,8 @@ impl Generator {
                         #avt_type_ident,
                         #index_type,
                         #lock_ident,
+                        <#primary_key_type as TablePrimaryKey>::Generator,
+                        #node_type,
                     >
                     #persist_type_part
                 );

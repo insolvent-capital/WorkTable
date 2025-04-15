@@ -24,6 +24,42 @@ worktable! (
 );
 
 #[tokio::test]
+async fn test_update_string_full_row() {
+    let table = TestWorkTable::default();
+    let row = TestRow {
+        id: table.get_next_pk().into(),
+        test: 1,
+        another: 1,
+        exchange: "test".to_string(),
+    };
+    let pk = table.insert(row.clone()).unwrap();
+    let first_link = table.0.pk_map.get(&pk).unwrap().get().value;
+
+    table
+        .update(TestRow {
+            id: row.id,
+            test: 1,
+            another: 1,
+            exchange: "bigger test to test string update".to_string(),
+        })
+        .await
+        .unwrap();
+
+    let row = table.select_by_test(1).unwrap();
+
+    assert_eq!(
+        row,
+        TestRow {
+            id: 0,
+            test: 1,
+            another: 1,
+            exchange: "bigger test to test string update".to_string(),
+        }
+    );
+    assert_eq!(table.0.data.get_empty_links().first().unwrap(), &first_link)
+}
+
+#[tokio::test]
 async fn test_update_string_by_unique() {
     let table = TestWorkTable::default();
     let row = TestRow {

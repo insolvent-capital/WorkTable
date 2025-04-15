@@ -28,6 +28,15 @@ impl Generator {
         let space_secondary_indexes = name_generator.get_space_secondary_index_ident();
         let space_secondary_indexes_events =
             name_generator.get_space_secondary_index_events_ident();
+        let space_index_type = if self.attributes.pk_unsized {
+            quote! {
+                SpaceIndexUnsized<#primary_key_type, { #inner_const_name as u32 }>,
+            }
+        } else {
+            quote! {
+                SpaceIndex<#primary_key_type, { #inner_const_name as u32 }>,
+            }
+        };
 
         quote! {
             pub type #ident = PersistenceEngine<
@@ -35,7 +44,7 @@ impl Generator {
                     <<#primary_key_type as TablePrimaryKey>::Generator as PrimaryKeyGeneratorState>::State,
                     { #inner_const_name as u32 }
                 >,
-                SpaceIndex<#primary_key_type, { #inner_const_name as u32 }>,
+                #space_index_type
                 #space_secondary_indexes,
                 #primary_key_type,
                 #space_secondary_indexes_events,

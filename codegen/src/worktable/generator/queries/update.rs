@@ -1,7 +1,7 @@
 use proc_macro2::Literal;
 use std::collections::HashMap;
 
-use crate::name_generator::WorktableNameGenerator;
+use crate::name_generator::{is_float, WorktableNameGenerator};
 use crate::worktable::generator::Generator;
 use crate::worktable::model::Operation;
 use convert_case::{Case, Casing};
@@ -61,7 +61,7 @@ impl Generator {
             quote! {}
         } else {
             quote! {
-                if bytes.len() > link.length as usize {
+                if bytes.len() >= link.length as usize {
                     self.delete_without_lock(pk.clone()).await?;
                     self.insert(row)?;
 
@@ -518,10 +518,19 @@ impl Generator {
         let diff_process = self.gen_process_diffs_on_index(idents, idx_idents);
         let persist_call = self.gen_persist_call();
         let persist_op = self.gen_persist_op();
+        let by = if is_float(by_ident.to_string().as_str()) {
+            quote! {
+                &OrderedFloat(by)
+            }
+        } else {
+            quote! {
+                &by
+            }
+        };
 
         quote! {
             pub async fn #method_ident(&self, row: #query_ident, by: #by_ident) -> core::result::Result<(), WorkTableError> {
-                let links: Vec<_> = self.0.indexes.#index.get(&by).map(|(_, l)| *l).collect();
+                let links: Vec<_> = self.0.indexes.#index.get(#by).map(|(_, l)| *l).collect();
 
                 for link in links.iter() {
                     let pk = self.0.data.select(*link)?.get_primary_key();
@@ -618,6 +627,15 @@ impl Generator {
         let diff_process = self.gen_process_diffs_on_index(idents, idx_idents);
         let persist_call = self.gen_persist_call();
         let persist_op = self.gen_persist_op();
+        let by = if is_float(by_ident.to_string().as_str()) {
+            quote! {
+                &OrderedFloat(by)
+            }
+        } else {
+            quote! {
+                &by
+            }
+        };
 
         quote! {
             pub async fn #method_ident(&self, row: #query_ident, by: #by_ident) -> core::result::Result<(), WorkTableError> {
@@ -630,7 +648,7 @@ impl Generator {
                 };
 
                 let link = self.0.indexes.#index
-                    .get(&by)
+                    .get(#by)
                     .map(|kv| kv.get().value)
                     .ok_or(WorkTableError::NotFound)?;
                 let pk = self.0.data.select(link)?.get_primary_key();

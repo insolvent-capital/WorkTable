@@ -5,6 +5,9 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use data_bucket::Link;
+use indexset::core::multipair::MultiPair;
+use indexset::core::node::NodeLike;
+use indexset::core::pair::Pair;
 use ordered_float::OrderedFloat;
 use uuid::Uuid;
 
@@ -44,13 +47,14 @@ impl MemStat for String {
     }
 }
 
-impl<K, V> MemStat for IndexMap<K, V>
+impl<K, V, Node> MemStat for IndexMap<K, V, Node>
 where
     K: Ord + Clone + 'static + MemStat + Send,
     V: Clone + 'static + MemStat + Send,
+    Node: NodeLike<Pair<K, V>> + Send + 'static,
 {
     fn heap_size(&self) -> usize {
-        let slot_size = std::mem::size_of::<indexset::core::pair::Pair<K, V>>();
+        let slot_size = std::mem::size_of::<Pair<K, V>>();
         let base_heap = self.capacity() * slot_size;
 
         let kv_heap: usize = self
@@ -62,7 +66,7 @@ where
     }
 
     fn used_size(&self) -> usize {
-        let pair_size = std::mem::size_of::<indexset::core::pair::Pair<K, V>>();
+        let pair_size = std::mem::size_of::<Pair<K, V>>();
         let base = self.len() * pair_size;
 
         let used: usize = self
@@ -74,13 +78,14 @@ where
     }
 }
 
-impl<K, V> MemStat for IndexMultiMap<K, V>
+impl<K, V, Node> MemStat for IndexMultiMap<K, V, Node>
 where
     K: Ord + Clone + 'static + MemStat + Send,
     V: Ord + Clone + 'static + MemStat + Send,
+    Node: NodeLike<MultiPair<K, V>> + Send + 'static,
 {
     fn heap_size(&self) -> usize {
-        let slot_size = std::mem::size_of::<indexset::core::multipair::MultiPair<K, V>>();
+        let slot_size = std::mem::size_of::<MultiPair<K, V>>();
         let base_heap = self.capacity() * slot_size;
 
         let kv_heap: usize = self
@@ -92,7 +97,7 @@ where
     }
 
     fn used_size(&self) -> usize {
-        let pair_size = std::mem::size_of::<indexset::core::multipair::MultiPair<K, V>>();
+        let pair_size = std::mem::size_of::<MultiPair<K, V>>();
         let base = self.len() * pair_size;
 
         let used: usize = self

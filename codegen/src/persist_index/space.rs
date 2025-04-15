@@ -1,7 +1,7 @@
 use proc_macro2::{Literal, TokenStream};
 use quote::quote;
 
-use crate::name_generator::WorktableNameGenerator;
+use crate::name_generator::{is_unsized, WorktableNameGenerator};
 use crate::persist_index::generator::Generator;
 
 impl Generator {
@@ -26,8 +26,8 @@ impl Generator {
             .iter()
             .map(|(i, t)| {
                 quote! {
-                    #i: Vec<indexset::cdc::change::ChangeEvent<
-                        indexset::core::pair::Pair<#t, Link>
+                    #i: Vec<IndexChangeEvent<
+                        IndexPair<#t, Link>
                     >>,
                 }
             })
@@ -50,8 +50,14 @@ impl Generator {
             .field_types
             .iter()
             .map(|(i, t)| {
-                quote! {
-                    #i: SpaceIndex<#t, { #inner_const_name as u32}>,
+                if is_unsized(&t.to_string()) {
+                    quote! {
+                        #i: SpaceIndexUnsized<#t, { #inner_const_name as u32}>,
+                    }
+                } else {
+                    quote! {
+                        #i: SpaceIndex<#t, { #inner_const_name as u32}>,
+                    }
                 }
             })
             .collect();
@@ -84,11 +90,17 @@ impl Generator {
     fn gen_space_secondary_index_from_table_files_path_fn(&self) -> TokenStream {
         let fields: Vec<_> = self
             .field_types
-            .keys()
-            .map(|i| {
+            .iter()
+            .map(|(i, t)| {
                 let literal_name = Literal::string(i.to_string().as_str());
-                quote! {
-                    #i: SpaceIndex::secondary_from_table_files_path(path, #literal_name).await?,
+                if is_unsized(&t.to_string()) {
+                    quote! {
+                        #i: SpaceIndexUnsized::secondary_from_table_files_path(path, #literal_name).await?,
+                    }
+                } else {
+                    quote! {
+                        #i: SpaceIndex::secondary_from_table_files_path(path, #literal_name).await?,
+                    }
                 }
             })
             .collect();

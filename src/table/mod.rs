@@ -5,6 +5,8 @@ use std::marker::PhantomData;
 
 use data_bucket::{Link, INNER_PAGE_SIZE};
 use derive_more::{Display, Error, From};
+use indexset::core::node::NodeLike;
+use indexset::core::pair::Pair;
 #[cfg(feature = "perf_measurements")]
 use performance_measurement_codegen::performance_measurement;
 use rkyv::api::high::HighDeserializer;
@@ -30,14 +32,16 @@ pub struct WorkTable<
     SecondaryIndexes = (),
     LockType = (),
     PkGen = <PrimaryKey as TablePrimaryKey>::Generator,
+    PkNodeType = Vec<Pair<PrimaryKey, Link>>,
     const DATA_LENGTH: usize = INNER_PAGE_SIZE,
 > where
     PrimaryKey: Clone + Ord + Send + 'static + std::hash::Hash,
     Row: StorableRow,
+    PkNodeType: NodeLike<Pair<PrimaryKey, Link>> + Send + 'static,
 {
     pub data: DataPages<Row, DATA_LENGTH>,
 
-    pub pk_map: IndexMap<PrimaryKey, Link>,
+    pub pk_map: IndexMap<PrimaryKey, Link, PkNodeType>,
 
     pub indexes: SecondaryIndexes,
 
@@ -60,13 +64,24 @@ impl<
         SecondaryIndexes,
         LockType,
         PkGen,
+        PkNodeType,
         const DATA_LENGTH: usize,
     > Default
-    for WorkTable<Row, PrimaryKey, AvailableTypes, SecondaryIndexes, LockType, PkGen, DATA_LENGTH>
+    for WorkTable<
+        Row,
+        PrimaryKey,
+        AvailableTypes,
+        SecondaryIndexes,
+        LockType,
+        PkGen,
+        PkNodeType,
+        DATA_LENGTH,
+    >
 where
     PrimaryKey: Clone + Ord + Send + TablePrimaryKey + std::hash::Hash,
     SecondaryIndexes: Default,
     PkGen: Default,
+    PkNodeType: NodeLike<Pair<PrimaryKey, Link>> + Send + 'static,
     Row: StorableRow,
     <Row as StorableRow>::WrappedRow: RowWrapper<Row>,
 {
@@ -91,11 +106,23 @@ impl<
         SecondaryIndexes,
         LockType,
         PkGen,
+        PkNodeType,
         const DATA_LENGTH: usize,
-    > WorkTable<Row, PrimaryKey, AvailableTypes, SecondaryIndexes, LockType, PkGen, DATA_LENGTH>
+    >
+    WorkTable<
+        Row,
+        PrimaryKey,
+        AvailableTypes,
+        SecondaryIndexes,
+        LockType,
+        PkGen,
+        PkNodeType,
+        DATA_LENGTH,
+    >
 where
     Row: TableRow<PrimaryKey>,
     PrimaryKey: Clone + Ord + Send + TablePrimaryKey + std::hash::Hash,
+    PkNodeType: NodeLike<Pair<PrimaryKey, Link>> + Send + 'static,
     Row: StorableRow,
     <Row as StorableRow>::WrappedRow: RowWrapper<Row>,
 {

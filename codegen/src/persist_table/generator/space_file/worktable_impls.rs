@@ -101,17 +101,30 @@ impl Generator {
         let name_generator = WorktableNameGenerator::from_struct_ident(&self.struct_def.ident);
         let pk_type = name_generator.get_primary_key_type_ident();
         let const_name = name_generator.get_page_inner_size_const_ident();
-
-        quote! {
-            pub fn get_peristed_primary_key_with_toc(&self) -> (Vec<GeneralPage<TableOfContentsPage<#pk_type>>>, Vec<GeneralPage<IndexPage<#pk_type>>>) {
-                let size = get_index_page_size_from_data_length::<#pk_type>(#const_name);
-                let mut pages = vec![];
-                for node in self.0.pk_map.iter_nodes() {
-                    let page = IndexPage::from_node(node.lock_arc().as_ref(), size);
-                    pages.push(page);
+        if self.attributes.pk_unsized {
+            quote! {
+                pub fn get_peristed_primary_key_with_toc(&self) -> (Vec<GeneralPage<TableOfContentsPage<#pk_type>>>, Vec<GeneralPage<UnsizedIndexPage<#pk_type, {#const_name as u32}>>>) {
+                    let mut pages = vec![];
+                    for node in self.0.pk_map.iter_nodes() {
+                        let page = UnsizedIndexPage::from_node(node.lock_arc().as_ref());
+                        pages.push(page);
+                    }
+                    let (toc, pages) = map_unsized_index_pages_to_toc_and_general::<_, { #const_name as u32 }>(pages);
+                    (toc.pages, pages)
                 }
-                let (toc, pages) = map_index_pages_to_toc_and_general::<_, { #const_name as u32 }>(pages);
-                (toc.pages, pages)
+            }
+        } else {
+            quote! {
+                pub fn get_peristed_primary_key_with_toc(&self) -> (Vec<GeneralPage<TableOfContentsPage<#pk_type>>>, Vec<GeneralPage<IndexPage<#pk_type>>>) {
+                    let size = get_index_page_size_from_data_length::<#pk_type>(#const_name);
+                    let mut pages = vec![];
+                    for node in self.0.pk_map.iter_nodes() {
+                        let page = IndexPage::from_node(node.lock_arc().as_ref(), size);
+                        pages.push(page);
+                    }
+                    let (toc, pages) = map_index_pages_to_toc_and_general::<_, { #const_name as u32 }>(pages);
+                    (toc.pages, pages)
+                }
             }
         }
     }

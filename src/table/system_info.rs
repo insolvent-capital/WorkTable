@@ -1,6 +1,8 @@
-use std::fmt::{self, Display, Formatter};
-
+use data_bucket::Link;
+use indexset::core::node::NodeLike;
+use indexset::core::pair::Pair;
 use prettytable::{format::consts::FORMAT_NO_BORDER_LINE_SEPARATOR, row, Table};
+use std::fmt::{self, Display, Formatter};
 
 use crate::in_memory::{RowWrapper, StorableRow};
 use crate::mem_stat::MemStat;
@@ -50,12 +52,24 @@ impl<
         SecondaryIndexes: MemStat + TableSecondaryIndex<Row, AvailableTypes>,
         LockType,
         PkGen,
+        NodeType,
         const DATA_LENGTH: usize,
-    > WorkTable<Row, PrimaryKey, AvailableTypes, SecondaryIndexes, LockType, PkGen, DATA_LENGTH>
+    >
+    WorkTable<
+        Row,
+        PrimaryKey,
+        AvailableTypes,
+        SecondaryIndexes,
+        LockType,
+        PkGen,
+        NodeType,
+        DATA_LENGTH,
+    >
 where
     PrimaryKey: Clone + Ord + Send + 'static + std::hash::Hash,
     Row: StorableRow,
     <Row as StorableRow>::WrappedRow: RowWrapper<Row>,
+    NodeType: NodeLike<Pair<PrimaryKey, Link>> + Send + 'static,
 {
     pub fn system_info(&self) -> SystemInfo {
         let page_count = self.data.get_page_count();

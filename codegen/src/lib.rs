@@ -21,7 +21,7 @@ pub fn persist_index(input: TokenStream) -> TokenStream {
         .into()
 }
 
-#[proc_macro_derive(PersistTable)]
+#[proc_macro_derive(PersistTable, attributes(table))]
 pub fn persist_table(input: TokenStream) -> TokenStream {
     persist_table::expand(input.into())
         .unwrap_or_else(|e| e.to_compile_error())

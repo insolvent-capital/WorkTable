@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
-use crate::name_generator::WorktableNameGenerator;
+use crate::name_generator::{is_float, WorktableNameGenerator};
 use crate::worktable::generator::Generator;
 use crate::worktable::model::Index;
 
@@ -53,10 +53,19 @@ impl Generator {
             .ok_or(syn::Error::new(i.span(), "Row not found"))?;
         let fn_name = Ident::new(format!("select_by_{i}").as_str(), Span::mixed_site());
         let field_ident = &idx.name;
+        let by = if is_float(type_.to_string().as_str()) {
+            quote! {
+                &OrderedFloat(by)
+            }
+        } else {
+            quote! {
+                &by
+            }
+        };
 
         Ok(quote! {
             pub fn #fn_name(&self, by: #type_) -> Option<#row_ident> {
-                let link = self.0.indexes.#field_ident.get(&by).map(|kv| kv.get().value)?;
+                let link = self.0.indexes.#field_ident.get(#by).map(|kv| kv.get().value)?;
                 self.0.data.select(link).ok()
             }
         })
@@ -75,6 +84,15 @@ impl Generator {
             .ok_or(syn::Error::new(i.span(), "Row not found"))?;
         let fn_name = Ident::new(format!("select_by_{i}").as_str(), Span::mixed_site());
         let field_ident = &idx.name;
+        let by = if is_float(type_.to_string().as_str()) {
+            quote! {
+                &OrderedFloat(by)
+            }
+        } else {
+            quote! {
+                &by
+            }
+        };
 
         Ok(quote! {
             pub fn #fn_name(&self, by: #type_) -> SelectQueryBuilder<#row_ident,
@@ -83,7 +101,7 @@ impl Generator {
                                                                      #row_fields_ident>
             {
                 let rows = self.0.indexes.#field_ident
-                    .get(&by)
+                    .get(#by)
                     .into_iter()
                     .filter_map(|(_, link)| self.0.data.select(*link).ok());
 

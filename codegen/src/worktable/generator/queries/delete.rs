@@ -4,7 +4,7 @@ use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
-use crate::name_generator::WorktableNameGenerator;
+use crate::name_generator::{is_float, WorktableNameGenerator};
 use crate::worktable::generator::Generator;
 use crate::worktable::model::Operation;
 
@@ -169,9 +169,18 @@ impl Generator {
     }
 
     fn gen_non_unique_delete(type_: &TokenStream, name: &Ident, index: &Ident) -> TokenStream {
+        let by = if is_float(type_.to_string().as_str()) {
+            quote! {
+                &OrderedFloat(by)
+            }
+        } else {
+            quote! {
+                &by
+            }
+        };
         quote! {
             pub async fn #name(&self, by: #type_) -> core::result::Result<(), WorkTableError> {
-                let rows_to_update = self.0.indexes.#index.get(&by).map(|kv| kv.1).collect::<Vec<_>>();
+                let rows_to_update = self.0.indexes.#index.get(#by).map(|kv| kv.1).collect::<Vec<_>>();
                 for link in rows_to_update {
                     let row = self.0.data.select(*link).map_err(WorkTableError::PagesError)?;
                     self.delete(row.id.into()).await?;
@@ -182,9 +191,18 @@ impl Generator {
     }
 
     fn gen_unique_delete(type_: &TokenStream, name: &Ident, index: &Ident) -> TokenStream {
+        let by = if is_float(type_.to_string().as_str()) {
+            quote! {
+                &OrderedFloat(by)
+            }
+        } else {
+            quote! {
+                &by
+            }
+        };
         quote! {
             pub async fn #name(&self, by: #type_) -> core::result::Result<(), WorkTableError> {
-                let row_to_update = self.0.indexes.#index.get(&by).map(|v| v.get().value);
+                let row_to_update = self.0.indexes.#index.get(#by).map(|v| v.get().value);
                 if let Some(link) = row_to_update {
                     let row = self.0.data.select(link).map_err(WorkTableError::PagesError)?;
                     self.delete(row.id.into()).await?;

@@ -1,4 +1,5 @@
 mod table_of_contents;
+mod unsized_;
 mod util;
 
 use std::fmt::Debug;
@@ -10,7 +11,8 @@ use convert_case::{Case, Casing};
 use data_bucket::page::{IndexValue, PageId};
 use data_bucket::{
     get_index_page_size_from_data_length, parse_page, persist_page, GeneralHeader, GeneralPage,
-    IndexPage, Link, PageType, SizeMeasurable, SpaceId, SpaceInfoPage, GENERAL_HEADER_SIZE,
+    IndexPage, IndexPageUtility, Link, PageType, SizeMeasurable, SpaceId, SpaceInfoPage,
+    GENERAL_HEADER_SIZE,
 };
 use eyre::eyre;
 use indexset::cdc::change::ChangeEvent;
@@ -30,7 +32,8 @@ use crate::persistence::SpaceIndexOps;
 use crate::prelude::WT_INDEX_EXTENSION;
 
 pub use table_of_contents::IndexTableOfContents;
-pub use util::map_index_pages_to_toc_and_general;
+pub use unsized_::SpaceIndexUnsized;
+pub use util::{map_index_pages_to_toc_and_general, map_unsized_index_pages_to_toc_and_general};
 
 #[derive(Debug)]
 pub struct SpaceIndex<T: Ord + Eq, const DATA_LENGTH: u32> {
@@ -53,7 +56,8 @@ where
         + SizeMeasurable
         + for<'a> Serialize<Strategy<Serializer<AlignedVec, ArenaHandle<'a>, Share>, rancor::Error>>
         + Send
-        + Sync,
+        + Sync
+        + 'static,
     <T as Archive>::Archived: Deserialize<T, Strategy<Pool, rancor::Error>> + Ord + Eq,
 {
     pub async fn new<S: AsRef<str>>(index_file_path: S, space_id: SpaceId) -> eyre::Result<Self> {
@@ -78,7 +82,11 @@ where
         let info = parse_page::<_, DATA_LENGTH>(&mut index_file, 0).await?;
 
         let file_length = index_file.metadata().await?.len();
-        let page_id = file_length / (DATA_LENGTH as u64 + GENERAL_HEADER_SIZE as u64) + 1;
+        let page_id = if file_length % (DATA_LENGTH as u64 + GENERAL_HEADER_SIZE as u64) == 0 {
+            file_length / (DATA_LENGTH as u64 + GENERAL_HEADER_SIZE as u64)
+        } else {
+            file_length / (DATA_LENGTH as u64 + GENERAL_HEADER_SIZE as u64) + 1
+        };
         let next_page_id = Arc::new(AtomicU32::new(page_id as u32));
         let table_of_contents =
             IndexTableOfContents::parse_from_file(&mut index_file, space_id, next_page_id.clone())
@@ -96,20 +104,8 @@ where
         &mut self,
         node_id: Pair<T, Link>,
         page_id: PageId,
-    ) -> eyre::Result<()>
-    where
-        T: Archive
-            + Clone
-            + Default
-            + SizeMeasurable
-            + Ord
-            + for<'a> Serialize<
-                Strategy<Serializer<AlignedVec, ArenaHandle<'a>, Share>, rancor::Error>,
-            >,
-    {
+    ) -> eyre::Result<()> {
         let size = get_index_page_size_from_data_length::<T>(DATA_LENGTH as usize);
-        println!("Length {}", DATA_LENGTH);
-        println!("Size {}", size);
         let mut page = IndexPage::new(node_id.key.clone(), size);
         page.current_index = 1;
         page.current_length = 1;
@@ -121,17 +117,7 @@ where
         self.add_index_page(page, page_id).await
     }
 
-    async fn add_index_page(&mut self, node: IndexPage<T>, page_id: PageId) -> eyre::Result<()>
-    where
-        T: Archive
-            + Clone
-            + Default
-            + SizeMeasurable
-            + Ord
-            + for<'a> Serialize<
-                Strategy<Serializer<AlignedVec, ArenaHandle<'a>, Share>, rancor::Error>,
-            >,
-    {
+    async fn add_index_page(&mut self, node: IndexPage<T>, page_id: PageId) -> eyre::Result<()> {
         let header = GeneralHeader::new(page_id, PageType::Index, self.space_id);
         let mut general_page = GeneralPage {
             inner: node,
@@ -147,19 +133,7 @@ where
         node_id: T,
         index: usize,
         value: Pair<T, Link>,
-    ) -> eyre::Result<Option<T>>
-    where
-        T: Archive
-            + Clone
-            + Default
-            + SizeMeasurable
-            + Ord
-            + Eq
-            + for<'a> Serialize<
-                Strategy<Serializer<AlignedVec, ArenaHandle<'a>, Share>, rancor::Error>,
-            >,
-        <T as Archive>::Archived: Deserialize<T, Strategy<Pool, rancor::Error>>,
-    {
+    ) -> eyre::Result<Option<T>> {
         let mut new_node_id = None;
 
         let size = get_index_page_size_from_data_length::<T>(DATA_LENGTH as usize);
@@ -197,19 +171,7 @@ where
         node_id: T,
         index: usize,
         value: Pair<T, Link>,
-    ) -> eyre::Result<Option<T>>
-    where
-        T: Archive
-            + Default
-            + Clone
-            + SizeMeasurable
-            + Ord
-            + Eq
-            + for<'a> Serialize<
-                Strategy<Serializer<AlignedVec, ArenaHandle<'a>, Share>, rancor::Error>,
-            >,
-        <T as Archive>::Archived: Deserialize<T, Strategy<Pool, rancor::Error>>,
-    {
+    ) -> eyre::Result<Option<T>> {
         let mut new_node_id = None;
 
         let size = get_index_page_size_from_data_length::<T>(DATA_LENGTH as usize);
@@ -251,17 +213,7 @@ where
         node_id: T,
         value: Pair<T, Link>,
         index: usize,
-    ) -> eyre::Result<()>
-    where
-        T: Archive
-            + Default
-            + Debug
-            + SizeMeasurable
-            + Ord
-            + for<'a> Serialize<
-                Strategy<Serializer<AlignedVec, ArenaHandle<'a>, Share>, rancor::Error>,
-            >,
-    {
+    ) -> eyre::Result<()> {
         let page_id = self
             .table_of_contents
             .get(&node_id)
@@ -281,17 +233,7 @@ where
         node_id: T,
         value: Pair<T, Link>,
         index: usize,
-    ) -> eyre::Result<()>
-    where
-        T: Archive
-            + Default
-            + Debug
-            + SizeMeasurable
-            + Ord
-            + for<'a> Serialize<
-                Strategy<Serializer<AlignedVec, ArenaHandle<'a>, Share>, rancor::Error>,
-            >,
-    {
+    ) -> eyre::Result<()> {
         let page_id = self
             .table_of_contents
             .get(&node_id)
@@ -305,17 +247,7 @@ where
         }
         Ok(())
     }
-    async fn process_create_node(&mut self, node_id: Pair<T, Link>) -> eyre::Result<()>
-    where
-        T: Archive
-            + Clone
-            + Default
-            + SizeMeasurable
-            + Ord
-            + for<'a> Serialize<
-                Strategy<Serializer<AlignedVec, ArenaHandle<'a>, Share>, rancor::Error>,
-            >,
-    {
+    async fn process_create_node(&mut self, node_id: Pair<T, Link>) -> eyre::Result<()> {
         let page_id = if let Some(id) = self.table_of_contents.pop_empty_page_id() {
             id
         } else {
@@ -328,36 +260,13 @@ where
         Ok(())
     }
 
-    async fn process_remove_node(&mut self, node_id: T) -> eyre::Result<()>
-    where
-        T: Archive
-            + Clone
-            + Default
-            + SizeMeasurable
-            + Ord
-            + for<'a> Serialize<
-                Strategy<Serializer<AlignedVec, ArenaHandle<'a>, Share>, rancor::Error>,
-            >,
-    {
+    async fn process_remove_node(&mut self, node_id: T) -> eyre::Result<()> {
         self.table_of_contents.remove(&node_id);
         self.table_of_contents.persist(&mut self.index_file).await?;
         Ok(())
     }
 
-    async fn process_split_node(&mut self, node_id: T, split_index: usize) -> eyre::Result<()>
-    where
-        T: Archive
-            + Clone
-            + Default
-            + Debug
-            + SizeMeasurable
-            + Ord
-            + Eq
-            + for<'a> Serialize<
-                Strategy<Serializer<AlignedVec, ArenaHandle<'a>, Share>, rancor::Error>,
-            >,
-        <T as Archive>::Archived: Deserialize<T, Strategy<Pool, rancor::Error>>,
-    {
+    async fn process_split_node(&mut self, node_id: T, split_index: usize) -> eyre::Result<()> {
         let page_id = self
             .table_of_contents
             .get(&node_id)
@@ -383,23 +292,9 @@ where
         Ok(())
     }
 
-    pub async fn parse_indexset(&mut self) -> eyre::Result<BTreeMap<T, Link>>
-    where
-        T: Archive
-            + Clone
-            + Default
-            + Debug
-            + SizeMeasurable
-            + Ord
-            + Eq
-            + Send
-            + for<'a> Serialize<
-                Strategy<Serializer<AlignedVec, ArenaHandle<'a>, Share>, rancor::Error>,
-            > + 'static,
-        <T as Archive>::Archived: Deserialize<T, Strategy<Pool, rancor::Error>>,
-    {
+    pub async fn parse_indexset(&mut self) -> eyre::Result<BTreeMap<T, Link>> {
         let size = get_index_page_size_from_data_length::<T>(DATA_LENGTH as usize);
-        let indexset = BTreeMap::with_maximum_node_size(size);
+        let indexset = BTreeMap::<T, Link>::with_maximum_node_size(size);
         for (_, page_id) in self.table_of_contents.iter() {
             let page =
                 parse_page::<IndexPage<T>, DATA_LENGTH>(&mut self.index_file, (*page_id).into())
@@ -423,7 +318,8 @@ where
         + SizeMeasurable
         + for<'a> Serialize<Strategy<Serializer<AlignedVec, ArenaHandle<'a>, Share>, rancor::Error>>
         + Send
-        + Sync,
+        + Sync
+        + 'static,
     <T as Archive>::Archived: Deserialize<T, Strategy<Pool, rancor::Error>> + Ord + Eq,
 {
     async fn primary_from_table_files_path<S: AsRef<str> + Send>(

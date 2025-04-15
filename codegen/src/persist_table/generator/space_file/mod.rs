@@ -30,12 +30,21 @@ impl Generator {
         let inner_const_name = name_generator.get_page_inner_size_const_ident();
         let pk_type = name_generator.get_primary_key_type_ident();
         let space_file_ident = name_generator.get_space_file_ident();
+        let primary_index = if self.attributes.pk_unsized {
+            quote! {
+                pub primary_index: (Vec<GeneralPage<TableOfContentsPage<#pk_type>>>, Vec<GeneralPage<UnsizedIndexPage<#pk_type, {#inner_const_name as u32}>>>),
+            }
+        } else {
+            quote! {
+                pub primary_index: (Vec<GeneralPage<TableOfContentsPage<#pk_type>>>, Vec<GeneralPage<IndexPage<#pk_type>>>),
+            }
+        };
 
         quote! {
             #[derive(Debug)]
             pub struct #space_file_ident {
                 pub path: String,
-                pub primary_index: (Vec<GeneralPage<TableOfContentsPage<#pk_type>>>, Vec<GeneralPage<IndexPage<#pk_type>>>),
+                #primary_index
                 pub indexes: #index_persisted_ident,
                 pub data: Vec<GeneralPage<DataPage<#inner_const_name>>>,
                 pub data_info: GeneralPage<SpaceInfoPage<<<#pk_type as TablePrimaryKey>::Generator as PrimaryKeyGeneratorState>::State>>,
@@ -144,6 +153,26 @@ impl Generator {
         let task_ident = name_generator.get_persistence_task_ident();
         let engine_ident = name_generator.get_persistence_engine_ident();
         let dir_name = name_generator.get_dir_name();
+        let const_name = name_generator.get_page_inner_size_const_ident();
+
+        let pk_map = if self.attributes.pk_unsized {
+            let pk_ident = &self.pk_ident;
+            quote! {
+                let pk_map = IndexMap::<#pk_ident, Link, UnsizedNode<_>>::new();
+                for page in self.primary_index.1 {
+                    let node = page.inner.get_node();
+                    pk_map.attach_node(UnsizedNode::from_inner(node, #const_name));
+                }
+            }
+        } else {
+            quote! {
+                let pk_map = IndexMap::new();
+                for page in self.primary_index.1 {
+                    let node = page.inner.get_node();
+                    pk_map.attach_node(node);
+                }
+            }
+        };
 
         quote! {
             pub async fn into_worktable(self, config: PersistenceConfig) -> #wt_ident {
@@ -160,11 +189,7 @@ impl Generator {
                     .with_empty_links(self.data_info.inner.empty_links_list);
                 let indexes = #index_ident::from_persisted(self.indexes);
 
-                let pk_map = IndexMap::new();
-                for page in self.primary_index.1 {
-                    let node = page.inner.get_node();
-                    pk_map.attach_node(node);
-                }
+                #pk_map
 
                 let table = WorkTable {
                     data,
@@ -199,6 +224,16 @@ impl Generator {
         let index_extension = Literal::string(WT_INDEX_EXTENSION);
         let data_extension = Literal::string(WT_DATA_EXTENSION);
 
+        let parse_pk_page = if self.attributes.pk_unsized {
+            quote! {
+                let index = parse_page::<UnsizedIndexPage<#pk_type, {#inner_const_name as u32}>, { #page_const_name as u32 }>(&mut primary_file, (*page_id).into()).await?;
+            }
+        } else {
+            quote! {
+                let index = parse_page::<IndexPage<#pk_type>, { #page_const_name as u32 }>(&mut primary_file, (*page_id).into()).await?;
+            }
+        };
+
         quote! {
             pub async fn parse_file(path: &str) -> eyre::Result<Self> {
                 let mut primary_index = {
@@ -210,7 +245,7 @@ impl Generator {
                     let next_page_id = std::sync::Arc::new(std::sync::atomic::AtomicU32::new(count as u32));
                     let toc = IndexTableOfContents::<_, { #page_const_name as u32 }>::parse_from_file(&mut primary_file, 0.into(), next_page_id.clone()).await?;
                     for page_id in toc.iter().map(|(_, page_id)| page_id) {
-                        let index = parse_page::<IndexPage<#pk_type>, { #page_const_name as u32 }>(&mut primary_file, (*page_id).into()).await?;
+                        #parse_pk_page
                         primary_index.push(index);
                     }
                     (toc.pages, primary_index)
