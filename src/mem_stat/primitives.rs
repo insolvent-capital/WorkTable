@@ -45,3 +45,22 @@ impl_memstat_zero!(
     std::time::SystemTime,
     std::time::Instant
 );
+
+impl_memstat_zero!(
+    [u8],
+    [i8],
+    [u16],
+    [i16],
+    [u32],
+    [i32],
+    [u64],
+    [i64],
+    [usize],
+    [isize],
+    [f32],
+    [f64],
+    [bool],
+    [char],
+    [u128],
+    [i128]
+);

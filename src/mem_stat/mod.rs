@@ -174,4 +174,4 @@ where
     }
 }
 
-impl_memstat_zero!(Link, Uuid, [u8]);
+impl_memstat_zero!(Link, Uuid);
