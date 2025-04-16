@@ -4,7 +4,7 @@ members = ["codegen", "examples", "performance_measurement", "performance_measur
 [package]
 name = "worktable"
 version = "0.5.4"
-edition = "2021"
+edition = "2024"
 authors = ["Handy-caT"]
 license = "MIT"
 repository = "https://github.com/pathscale/WorkTable"

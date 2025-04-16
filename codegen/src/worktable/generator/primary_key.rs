@@ -112,10 +112,10 @@ impl Generator {
                     .get(i)
                     .expect("primary key column name always exists if in primary keys list");
 
-                let gen = Self::get_generator_from_type(type_, i)?;
+                let generator = Self::get_generator_from_type(type_, i)?;
                 quote! {
                     impl TablePrimaryKey for #ident {
-                        type Generator = #gen;
+                        type Generator = #generator;
                     }
                 }
             }

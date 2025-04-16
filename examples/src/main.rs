@@ -47,7 +47,7 @@ async fn main() {
         attr2: 345,
         test: 1,
         id: 0,
-        attr_float: 100.0.into(),
+        attr_float: 100.0,
         attr_string: "String_attr0".to_string(),
     };
 
@@ -58,7 +58,7 @@ async fn main() {
             attr2: 345 + i as i32,
             test: i as i32,
             id: i as u64,
-            attr_float: (100.0 + i as f64).into(),
+            attr_float: 100.0 + i as f64,
             attr_string: format!("String_attr{}", i),
         };
 
