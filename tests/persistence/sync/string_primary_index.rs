@@ -52,7 +52,7 @@ fn test_space_insert_sync() {
             let row = TestSyncRow {
                 another: 42,
                 non_unique: 0,
-                field: 0.234.into(),
+                field: 0.234,
                 id: "Some string to test".to_string(),
             };
             table.insert(row.clone()).unwrap();
@@ -62,7 +62,6 @@ fn test_space_insert_sync() {
         {
             let table = TestSyncWorkTable::load_from_file(config).await.unwrap();
             assert!(table.select(pk.into()).is_some());
-            assert_eq!(table.0.pk_gen.get_state(), ())
         }
     });
 }
@@ -94,7 +93,7 @@ fn test_space_insert_many_sync() {
                     let row = TestSyncRow {
                         another: i,
                         non_unique: (i % 4) as u32,
-                        field: (i as f64 / 100.0).into(),
+                        field: i as f64 / 100.0,
                         id: format!("Some string to test number {}", i),
                     };
                     table.insert(row.clone()).unwrap();
@@ -110,7 +109,6 @@ fn test_space_insert_many_sync() {
             for pk in pks {
                 assert!(table.select(pk.into()).is_some());
             }
-            assert_eq!(table.0.pk_gen.get_state(), ())
         }
     });
 }
@@ -139,7 +137,7 @@ fn test_space_update_full_sync() {
             let row = TestSyncRow {
                 another: 42,
                 non_unique: 0,
-                field: 0.0.into(),
+                field: 0.0,
                 id: "Some string before".to_string(),
             };
             table.insert(row.clone()).unwrap();
@@ -147,7 +145,7 @@ fn test_space_update_full_sync() {
                 .update(TestSyncRow {
                     another: 13,
                     non_unique: 0,
-                    field: 0.0.into(),
+                    field: 0.0,
                     id: "Some string before".to_string(),
                 })
                 .await
@@ -159,7 +157,6 @@ fn test_space_update_full_sync() {
             let table = TestSyncWorkTable::load_from_file(config).await.unwrap();
             assert!(table.select(pk.clone().into()).is_some());
             assert_eq!(table.select(pk.into()).unwrap().another, 13);
-            assert_eq!(table.0.pk_gen.get_state(), ())
         }
     });
 }
@@ -188,7 +185,7 @@ fn test_space_update_query_pk_sync() {
             let row = TestSyncRow {
                 another: 42,
                 non_unique: 0,
-                field: 0.0.into(),
+                field: 0.0,
                 id: "Some string before".to_string(),
             };
             table.insert(row.clone()).unwrap();
@@ -203,7 +200,6 @@ fn test_space_update_query_pk_sync() {
             let table = TestSyncWorkTable::load_from_file(config).await.unwrap();
             assert!(table.select(pk.clone().into()).is_some());
             assert_eq!(table.select(pk.into()).unwrap().another, 13);
-            assert_eq!(table.0.pk_gen.get_state(), ())
         }
     });
 }
@@ -233,12 +229,12 @@ fn test_space_update_query_unique_sync() {
             let row = TestSyncRow {
                 another: 42,
                 non_unique: 0,
-                field: 0.0.into(),
+                field: 0.0,
                 id: "Some string before".to_string(),
             };
             table.insert(row.clone()).unwrap();
             table
-                .update_field_by_another(FieldByAnotherQuery { field: 1.0.into() }, 42)
+                .update_field_by_another(FieldByAnotherQuery { field: 1.0 }, 42)
                 .await
                 .unwrap();
             table.wait_for_ops().await;
@@ -248,7 +244,6 @@ fn test_space_update_query_unique_sync() {
             let table = TestSyncWorkTable::load_from_file(config).await.unwrap();
             assert!(table.select(pk.clone().into()).is_some());
             assert_eq!(table.select(pk.into()).unwrap().field, 1.0);
-            assert_eq!(table.0.pk_gen.get_state(), ())
         }
     });
 }
@@ -278,7 +273,7 @@ fn test_space_update_query_non_unique_sync() {
             let row = TestSyncRow {
                 another: 42,
                 non_unique: 10,
-                field: 0.0.into(),
+                field: 0.0,
                 id: "Some string before".to_string(),
             };
             table.insert(row.clone()).unwrap();
@@ -293,7 +288,6 @@ fn test_space_update_query_non_unique_sync() {
             let table = TestSyncWorkTable::load_from_file(config).await.unwrap();
             assert!(table.select(pk.clone().into()).is_some());
             assert_eq!(table.select(pk.into()).unwrap().another, 13);
-            assert_eq!(table.0.pk_gen.get_state(), ())
         }
     });
 }
@@ -322,7 +316,7 @@ fn test_space_delete_sync() {
             let row = TestSyncRow {
                 another: 42,
                 non_unique: 0,
-                field: 0.0.into(),
+                field: 0.0,
                 id: "Some string before".to_string(),
             };
             table.insert(row.clone()).unwrap();
@@ -333,7 +327,6 @@ fn test_space_delete_sync() {
         {
             let table = TestSyncWorkTable::load_from_file(config).await.unwrap();
             assert!(table.select(pk.into()).is_none());
-            assert_eq!(table.0.pk_gen.get_state(), ())
         }
     });
 }
@@ -362,7 +355,7 @@ fn test_space_delete_query_sync() {
             let row = TestSyncRow {
                 another: 42,
                 non_unique: 0,
-                field: 0.0.into(),
+                field: 0.0,
                 id: "Some string before".to_string(),
             };
             table.insert(row.clone()).unwrap();
@@ -373,7 +366,6 @@ fn test_space_delete_query_sync() {
         {
             let table = TestSyncWorkTable::load_from_file(config).await.unwrap();
             assert!(table.select(pk.into()).is_none());
-            assert_eq!(table.0.pk_gen.get_state(), ())
         }
     });
 }

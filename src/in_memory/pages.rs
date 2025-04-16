@@ -282,10 +282,11 @@ where
         let page = pages
             .get(page_id_mapper(link.page_id.into()))
             .ok_or(ExecutionError::PageNotFound(link.page_id))?;
-        let gen_row = page
-            .get_mut_row_ref(link)
-            .map_err(ExecutionError::DataPageError)?
-            .unseal_unchecked();
+        let gen_row = unsafe {
+            page.get_mut_row_ref(link)
+                .map_err(ExecutionError::DataPageError)?
+                .unseal_unchecked()
+        };
         let res = op(gen_row);
         Ok(res)
     }
@@ -313,8 +314,10 @@ where
             .get(page_id_mapper(link.page_id.into()))
             .ok_or(ExecutionError::PageNotFound(link.page_id))?;
         let gen_row = <Row as StorableRow>::WrappedRow::from_inner(row);
-        page.save_row_by_link(&gen_row, link)
-            .map_err(ExecutionError::DataPageError)
+        unsafe {
+            page.save_row_by_link(&gen_row, link)
+                .map_err(ExecutionError::DataPageError)
+        }
     }
 
     pub fn delete(&self, link: Link) -> Result<(), ExecutionError> {

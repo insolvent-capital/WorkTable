@@ -14,16 +14,16 @@ pub fn expand(input: TokenStream) -> syn::Result<TokenStream> {
     let pk_ident = Parser::parse_pk_ident(&input_fn);
     let attributes = Parser::parse_attributes(&input_fn.attrs);
 
-    let gen = Generator {
+    let generator = Generator {
         struct_def: input_fn,
         pk_ident,
         attributes,
     };
 
-    let space_file_def = gen.gen_space_file_def();
-    let persistence_engine = gen.get_persistence_engine_type();
-    let persistence_task = gen.get_persistence_task_type();
-    let size_measurable_impl = gen.gen_size_measurable_impl()?;
+    let space_file_def = generator.gen_space_file_def();
+    let persistence_engine = generator.get_persistence_engine_type();
+    let persistence_task = generator.get_persistence_task_type();
+    let size_measurable_impl = generator.gen_size_measurable_impl()?;
 
     Ok(quote! {
         #size_measurable_impl

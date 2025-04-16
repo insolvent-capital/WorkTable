@@ -432,10 +432,11 @@ mod tests {
             }
         };
         let struct_ = Parser::parse_struct(input).unwrap();
-        let gen = Generator::new(struct_);
+        let generator = Generator::new(struct_);
 
         assert_eq!(
-            gen.field_types
+            generator
+                .field_types
                 .get(&Ident::new("test_idx", Span::call_site()))
                 .unwrap()
                 .to_string()
@@ -443,7 +444,8 @@ mod tests {
             "i64"
         );
         assert_eq!(
-            gen.field_types
+            generator
+                .field_types
                 .get(&Ident::new("exchnage_idx", Span::call_site()))
                 .unwrap()
                 .to_string()
