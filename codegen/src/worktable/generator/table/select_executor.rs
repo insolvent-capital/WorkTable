@@ -149,7 +149,22 @@ impl Generator {
                 quote! {
                     #(#variants)*
                 }
-            });
+            }).collect::<Vec<_>>();
+
+        let range = if range_matches.is_empty() {
+            quote! {}
+        } else {
+            quote! {
+                if !self.params.range.is_empty() {
+                for (range, column) in &self.params.range {
+                    iter = match (column, range.clone().into()) {
+                        #(#range_matches)*
+                        _ => unreachable!(),
+                    };
+                }
+            }
+            }
+        };
 
         quote! {
             impl<I> SelectQueryExecutor<#row_type, I, #column_range_type, #row_fields_ident>
@@ -174,14 +189,7 @@ impl Generator {
                 fn execute(self) -> Result<Vec<#row_type>, WorkTableError> {
                     let mut iter: Box<dyn DoubleEndedIterator<Item = #row_type>> = Box::new(self.iter);
 
-                    if !self.params.range.is_empty() {
-                        for (range, column) in &self.params.range {
-                            iter = match (column, range.clone().into()) {
-                                #(#range_matches)*
-                                _ => unreachable!(),
-                            };
-                        }
-                    }
+                    #range
 
                     if !self.params.order.is_empty() {
                         let mut items: Vec<#row_type> = iter.collect();

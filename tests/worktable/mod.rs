@@ -1,5 +1,6 @@
 mod array;
 mod base;
+mod bench;
 mod config;
 mod count;
 mod custom_pk;

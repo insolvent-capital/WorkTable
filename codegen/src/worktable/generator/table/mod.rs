@@ -60,15 +60,6 @@ impl Generator {
         let persistence_task = name_generator.get_persistence_task_ident();
         let lock_ident = name_generator.get_lock_type_ident();
 
-        let derive = if self.is_persist {
-            quote! {
-                 #[derive(Debug, PersistTable)]
-            }
-        } else {
-            quote! {
-                 #[derive(Debug)]
-            }
-        };
         let persist_type_part = if self.is_persist {
             quote! {
                 , PersistenceConfig
@@ -91,6 +82,22 @@ impl Generator {
             })
             .collect::<Vec<_>>();
         let pk_types_unsized = is_unsized_vec(pk_types);
+        let derive = if self.is_persist {
+            if pk_types_unsized {
+                quote! {
+                    #[derive(Debug, PersistTable)]
+                    #[table(pk_unsized)]
+                }
+            } else {
+                quote! {
+                    #[derive(Debug, PersistTable)]
+                }
+            }
+        } else {
+            quote! {
+                 #[derive(Debug)]
+            }
+        };
         let node_type = if pk_types_unsized {
             quote! {
                 UnsizedNode<IndexPair<#primary_key_type, Link>>
@@ -100,18 +107,10 @@ impl Generator {
                 Vec<IndexPair<#primary_key_type, Link>>
             }
         };
-        let derive_attrs = if pk_types_unsized {
-            quote! {
-                #[table(pk_unsized)]
-            }
-        } else {
-            quote! {}
-        };
 
         if self.config.as_ref().and_then(|c| c.page_size).is_some() {
             quote! {
                 #derive
-                #derive_attrs
                 pub struct #ident(
                     WorkTable<
                         #row_type,
@@ -129,7 +128,6 @@ impl Generator {
         } else {
             quote! {
                 #derive
-                #derive_attrs
                 pub struct #ident(
                     WorkTable<
                         #row_type,

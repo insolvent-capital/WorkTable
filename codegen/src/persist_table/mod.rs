@@ -23,10 +23,8 @@ pub fn expand(input: TokenStream) -> syn::Result<TokenStream> {
     let space_file_def = generator.gen_space_file_def();
     let persistence_engine = generator.get_persistence_engine_type();
     let persistence_task = generator.get_persistence_task_type();
-    let size_measurable_impl = generator.gen_size_measurable_impl()?;
 
     Ok(quote! {
-        #size_measurable_impl
         #space_file_def
         #persistence_engine
         #persistence_task

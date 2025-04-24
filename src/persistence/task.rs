@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use std::sync::atomic::{AtomicU16, Ordering};
 use std::sync::Arc;
 
 use tokio::sync::Notify;
@@ -10,6 +11,7 @@ use crate::prelude::Operation;
 pub struct Queue<PrimaryKeyGenState, PrimaryKey, SecondaryKeys> {
     queue: lockfree::queue::Queue<Operation<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>>,
     notify: Notify,
+    len: AtomicU16,
 }
 
 impl<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>
@@ -19,11 +21,13 @@ impl<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>
         Self {
             queue: lockfree::queue::Queue::new(),
             notify: Notify::new(),
+            len: AtomicU16::new(0),
         }
     }
 
     pub fn push(&self, value: Operation<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>) {
         self.queue.push(value);
+        self.len.fetch_add(1, Ordering::Relaxed);
         self.notify.notify_one();
     }
 
@@ -31,6 +35,7 @@ impl<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>
         loop {
             // Drain values
             if let Some(value) = self.queue.pop() {
+                self.len.fetch_sub(1, Ordering::Relaxed);
                 return value;
             }
 
@@ -42,7 +47,16 @@ impl<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>
     pub fn immediate_pop(
         &self,
     ) -> Option<Operation<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>> {
-        self.queue.pop()
+        if let Some(v) = self.queue.pop() {
+            self.len.fetch_sub(1, Ordering::Relaxed);
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.len.load(Ordering::Relaxed) as usize
     }
 }
 
@@ -81,6 +95,7 @@ impl<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>
                     engine_progress_notify.notify_waiters();
                     engine_queue.pop().await
                 };
+                tracing::debug!("Applying operation {:?}", next_op);
                 let res = engine.apply_operation(next_op).await;
                 if let Err(err) = res {
                     tracing::warn!("{}", err);
@@ -96,6 +111,8 @@ impl<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>
     }
 
     pub async fn wait_for_ops(&self) {
+        let count = self.queue.len();
+        tracing::info!("Waiting for {} operations", count);
         self.progress_notify.notified().await
     }
 }

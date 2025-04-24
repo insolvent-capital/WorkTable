@@ -80,6 +80,7 @@ impl Generator {
                 PartialEq,
                 PartialOrd,
                 Ord,
+                SizeMeasure,
                 #unsized_derive
             )]
             #[rkyv(derive(PartialEq, Eq, PartialOrd, Ord, Debug))]

@@ -6,7 +6,6 @@ use crate::name_generator::WorktableNameGenerator;
 
 pub use space_file::WT_INDEX_EXTENSION;
 
-mod size_measurable;
 mod space;
 mod space_file;
 

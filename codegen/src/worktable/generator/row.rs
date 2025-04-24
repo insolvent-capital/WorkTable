@@ -67,33 +67,11 @@ impl Generator {
         let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
         let ident = name_generator.get_row_type_ident();
 
-        let rows: Vec<_> = self
-            .columns
-            .columns_map
-            .iter()
-            .map(|(name, type_)| {
-                if type_.to_string().contains("OrderedFloat") {
-                    let inner_type = type_.to_string();
-                    let mut split = inner_type.split("<");
-                    let _ = split.next();
-                    let inner_type = split
-                        .next()
-                        .expect("OrderedFloat def contains inner type")
-                        .to_uppercase()
-                        .replace(">", "");
-                    let ident = Ident::new(
-                        format!("Ordered{}Def", inner_type.trim()).as_str(),
-                        Span::call_site(),
-                    );
-                    quote! {
-                        #[rkyv(with = #ident)]
-                        pub #name: #type_,
-                    }
-                } else {
-                    quote! {pub #name: #type_,}
-                }
-            })
-            .collect();
+        let mut rows = vec![quote! {}; self.columns.field_positions.len()];
+        for (i, pos) in &self.columns.field_positions {
+            let type_ = self.columns.columns_map.get(i).unwrap();
+            rows[*pos] = quote! {pub #i: #type_,}
+        }
 
         quote! {
             #[derive(rkyv::Archive, Debug, rkyv::Deserialize, Clone, rkyv::Serialize, PartialEq, MemStat)]

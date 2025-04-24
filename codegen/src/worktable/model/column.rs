@@ -14,6 +14,7 @@ fn is_sized(ident: &Ident) -> bool {
 pub struct Columns {
     pub is_sized: bool,
     pub columns_map: HashMap<Ident, TokenStream>,
+    pub field_positions: HashMap<Ident, usize>,
     pub indexes: HashMap<Ident, Index>,
     pub primary_keys: Vec<Ident>,
     pub generator_type: GeneratorType,
@@ -31,11 +32,12 @@ pub struct Row {
 impl Columns {
     pub fn try_from_rows(rows: Vec<Row>, input: &TokenStream) -> syn::Result<Self> {
         let mut columns_map = HashMap::new();
+        let mut field_positions = HashMap::new();
         let mut sized = true;
         let mut pk = vec![];
         let mut gen_type = None;
 
-        for row in rows {
+        for (pos, row) in rows.into_iter().enumerate() {
             let type_ = &row.type_;
             if sized {
                 sized = is_sized(type_)
@@ -46,6 +48,7 @@ impl Columns {
                 quote! { #type_ }
             };
             columns_map.insert(row.name.clone(), type_);
+            field_positions.insert(row.name.clone(), pos);
 
             if row.is_primary_key {
                 if let Some(t) = gen_type {
@@ -69,6 +72,7 @@ impl Columns {
             indexes: Default::default(),
             primary_keys: pk,
             generator_type: gen_type.expect("set"),
+            field_positions,
         })
     }
 }
