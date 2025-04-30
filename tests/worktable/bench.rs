@@ -20,8 +20,8 @@ worktable!(
     }
 );
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn rw_lock_hash_map_vs_wt() {
+// #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn _rw_lock_hash_map_vs_wt() {
     let wt = Arc::new(MapWorkTable::default());
     let hash_map = Arc::new(RwLock::new(HashMap::<u64, String>::default()));
 

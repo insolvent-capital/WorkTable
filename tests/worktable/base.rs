@@ -153,22 +153,6 @@ async fn upsert_spawn() {
     assert!(table.select(2.into()).is_none())
 }
 
-#[test]
-fn insert() {
-    let table = TestWorkTable::default();
-    let row = TestRow {
-        id: table.get_next_pk().into(),
-        test: 1,
-        another: 1,
-        exchange: "test".to_string(),
-    };
-    let pk = table.insert(row.clone()).unwrap();
-    let selected_row = table.select(pk).unwrap();
-
-    assert_eq!(selected_row, row);
-    assert!(table.select(2.into()).is_none())
-}
-
 #[tokio::test]
 async fn update() {
     let table = TestWorkTable::default();

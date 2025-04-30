@@ -13,6 +13,10 @@ worktable!(
         third: String,
         last: String,
     },
+    indexes: {
+        first_idx: first,
+        second_idx: second unique,
+    },
 );
 
 #[test]
@@ -44,7 +48,7 @@ fn test_key() {
                 .unwrap();
             table
                 .insert(StringReReadRow {
-                    first: "first_again".to_string(),
+                    first: "first".to_string(),
                     id: table.get_next_pk().into(),
                     third: "third_again".to_string(),
                     second: "second_again".to_string(),

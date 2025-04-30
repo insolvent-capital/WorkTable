@@ -177,10 +177,23 @@ where
             .data
             .insert(row.clone())
             .map_err(WorkTableError::PagesError)?;
-        self.pk_map
+        if let Err(e) = self
+            .pk_map
             .insert(pk.clone(), link)
-            .map_or(Ok(()), |_| Err(WorkTableError::AlreadyExists))?;
-        self.indexes.save_row(row, link)?;
+            .map_or(Ok(()), |_| Err(WorkTableError::AlreadyExists))
+        {
+            self.data.delete(link).map_err(WorkTableError::PagesError)?;
+            self.pk_map.remove(&pk);
+
+            return Err(e);
+        };
+        if let Err(e) = self.indexes.save_row(row.clone(), link) {
+            self.data.delete(link).map_err(WorkTableError::PagesError)?;
+            self.pk_map.remove(&pk);
+            self.indexes.delete_row(row, link)?;
+
+            return Err(e);
+        }
 
         Ok(pk)
     }
@@ -218,15 +231,25 @@ where
             .map_err(WorkTableError::PagesError)?;
         let (exists, primary_key_events) = self.pk_map.insert_cdc(pk.clone(), link);
         if exists.is_some() {
+            self.data.delete(link).map_err(WorkTableError::PagesError)?;
+            self.pk_map.remove(&pk);
+
             return Err(WorkTableError::AlreadyExists);
         }
-        let secondary_keys_events = self.indexes.save_row_cdc(row, link)?;
+        let indexes_res = self.indexes.save_row_cdc(row.clone(), link);
+        if let Err(e) = indexes_res {
+            self.data.delete(link).map_err(WorkTableError::PagesError)?;
+            self.pk_map.remove(&pk);
+            self.indexes.delete_row(row, link)?;
+
+            return Err(e);
+        }
 
         let op = Operation::Insert(InsertOperation {
             id: Default::default(),
             pk_gen_state: self.pk_gen.get_state(),
             primary_key_events,
-            secondary_keys_events,
+            secondary_keys_events: indexes_res.expect("was checked before"),
             bytes,
             link,
         });
