@@ -368,18 +368,10 @@ impl Generator {
         );
         let query_ident = Ident::new(format!("{name}Query").as_str(), Span::mixed_site());
 
-        let lock_await_ident = Ident::new(
-            format!("lock_await_{snake_case_name}").as_str(),
-            Span::mixed_site(),
-        );
-        let unlock_ident = Ident::new(
-            format!("unlock_{snake_case_name}").as_str(),
-            Span::mixed_site(),
-        );
-        let lock_ident = Ident::new(
-            format!("lock_{snake_case_name}").as_str(),
-            Span::mixed_site(),
-        );
+        let lock_await_ident =
+            WorktableNameGenerator::get_update_query_lock_await_ident(&snake_case_name);
+        let unlock_ident = WorktableNameGenerator::get_update_query_unlock_ident(&snake_case_name);
+        let lock_ident = WorktableNameGenerator::get_update_query_lock_ident(&snake_case_name);
 
         let row_updates = idents
             .iter()
@@ -403,8 +395,8 @@ impl Generator {
                 let lock_id = self.0.lock_map.next_id();
                 let mut lock = #lock_type_ident::new(lock_id.into());   //Creates new LockType with None
                 lock.#lock_ident();
-
-                self.0.lock_map.insert(pk.clone(), std::sync::Arc::new(lock.clone()));
+                let lock = std::sync::Arc::new(lock);
+                self.0.lock_map.insert(pk.clone(), lock.clone());
 
                 let mut bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&row).map_err(|_| WorkTableError::SerializeError)?;
                 let mut archived_row = unsafe { rkyv::access_unchecked_mut::<<#query_ident as rkyv::Archive>::Archived>(&mut bytes[..]).unseal_unchecked() };
@@ -423,7 +415,7 @@ impl Generator {
                 }).map_err(WorkTableError::PagesError)? };
 
                 lock.#unlock_ident();
-                self.0.lock_map.remove(&pk);
+                self.0.lock_map.remove_with_lock_check(&pk, lock);
 
                 #persist_call
 
@@ -452,18 +444,10 @@ impl Generator {
         let query_ident = Ident::new(format!("{name}Query").as_str(), Span::mixed_site());
         let by_ident = Ident::new(format!("{name}By").as_str(), Span::mixed_site());
 
-        let lock_await_ident = Ident::new(
-            format!("lock_await_{snake_case_name}").as_str(),
-            Span::mixed_site(),
-        );
-        let lock_ident = Ident::new(
-            format!("lock_{snake_case_name}").as_str(),
-            Span::mixed_site(),
-        );
-        let unlock_ident = Ident::new(
-            format!("unlock_{snake_case_name}").as_str(),
-            Span::mixed_site(),
-        );
+        let lock_await_ident =
+            WorktableNameGenerator::get_update_query_lock_await_ident(&snake_case_name);
+        let unlock_ident = WorktableNameGenerator::get_update_query_unlock_ident(&snake_case_name);
+        let lock_ident = WorktableNameGenerator::get_update_query_lock_ident(&snake_case_name);
 
         let row_updates = idents
             .iter()
@@ -544,7 +528,7 @@ impl Generator {
                     let lock_id = self.0.lock_map.next_id();
                     let mut lock = #lock_type_ident::new(lock_id.into());
                     lock.#lock_ident();
-                    self.0.lock_map.insert(pk.clone(), std::sync::Arc::new(lock.clone()));
+                    self.0.lock_map.insert(pk.clone(), std::sync::Arc::new(lock));
                 }
 
                 let mut links_to_unlock = vec![];
@@ -574,7 +558,7 @@ impl Generator {
                     let pk = self.0.data.select(*link)?.get_primary_key();
                     if let Some(lock) = self.0.lock_map.get(&pk) {
                         lock.#unlock_ident();
-                        self.0.lock_map.remove(&pk);
+                        self.0.lock_map.remove_with_lock_check(&pk, lock);
                     }
                 }
                 core::result::Result::Ok(())
@@ -602,18 +586,10 @@ impl Generator {
         let query_ident = Ident::new(format!("{name}Query").as_str(), Span::mixed_site());
         let by_ident = Ident::new(format!("{name}By").as_str(), Span::mixed_site());
 
-        let lock_await_ident = Ident::new(
-            format!("lock_await_{snake_case_name}").as_str(),
-            Span::mixed_site(),
-        );
-        let lock_ident = Ident::new(
-            format!("lock_{snake_case_name}").as_str(),
-            Span::mixed_site(),
-        );
-        let unlock_ident = Ident::new(
-            format!("unlock_{snake_case_name}").as_str(),
-            Span::mixed_site(),
-        );
+        let lock_await_ident =
+            WorktableNameGenerator::get_update_query_lock_await_ident(&snake_case_name);
+        let unlock_ident = WorktableNameGenerator::get_update_query_unlock_ident(&snake_case_name);
+        let lock_ident = WorktableNameGenerator::get_update_query_lock_ident(&snake_case_name);
 
         let row_updates = idents
             .iter()
@@ -659,7 +635,8 @@ impl Generator {
                 let lock_id = self.0.lock_map.next_id();
                 let mut lock = #lock_type_ident::new(lock_id.into());
                 lock.#lock_ident();
-                self.0.lock_map.insert(pk.clone(), std::sync::Arc::new(lock.clone()));
+                let lock = std::sync::Arc::new(lock);
+                self.0.lock_map.insert(pk.clone(), lock.clone());
 
                 #size_check
                 #diff_process
@@ -672,7 +649,7 @@ impl Generator {
                 }
 
                 lock.#unlock_ident();
-                self.0.lock_map.remove(&pk);
+                self.0.lock_map.remove_with_lock_check(&pk, lock);
 
                 #persist_call
 

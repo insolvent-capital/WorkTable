@@ -25,12 +25,12 @@ impl Lock {
     }
 
     pub fn unlock(&self) {
-        self.locked.store(false, Ordering::Relaxed);
+        self.locked.store(false, Ordering::Release);
         self.waker.wake()
     }
 
     pub fn lock(&self) {
-        self.locked.store(true, Ordering::Relaxed);
+        self.locked.store(true, Ordering::Release);
         self.waker.wake()
     }
 }
@@ -40,7 +40,7 @@ impl Future for &Lock {
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         self.as_ref().waker.register(cx.waker());
-        if self.locked.load(Ordering::Relaxed) {
+        if self.locked.load(Ordering::Acquire) {
             Poll::Pending
         } else {
             Poll::Ready(())

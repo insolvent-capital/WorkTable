@@ -5,6 +5,7 @@ mod config;
 mod count;
 mod custom_pk;
 mod float;
+mod in_place;
 mod index;
 mod option;
 mod tuple_primary_key;
