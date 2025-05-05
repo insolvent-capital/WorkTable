@@ -61,22 +61,27 @@ as for other queries). It will have two arguments: your `by` field value and clo
 field value itself.
 
 ```rust
-// Table creation
-let table = SomethingWorkTable::default ();
-let row = SomethingRow {
-// Autoincrement primary key generation.
-id: table.get_next_pk().into(),
-name: "SomeName".to_string(),
-amount: 100,
-some_value: 0,
-};
-let pk = table.insert(row) ?;
-// This will lead to `some_value` field update by adding 100 to it value.
-table
-.update_some_value_by_id_in_place( | some_value| * some_value += 100, pk.0)
-.await?;
-let row = table.select(pk) ?;
-assert_eq!(row.some_value, 100);
+#[tokio::main]
+async fn main() -> eyre::Result<()> {
+    // Table creation.
+    let table = SomethingWorkTable::default();
+    let row = SomethingRow {
+        // Autoincrement primary key generation.
+        id: table.get_next_pk().into(),
+        name: "SomeName".to_string(),
+        amount: 100,
+        some_value: 0,
+    };
+    let pk = table.insert(row)?;
+    // This will lead to `some_value` field update by adding 100 to it value.
+    table
+        .update_some_value_by_id_in_place(|some_value| *some_value += 100, pk.0)
+        .await?;
+    let row = table.select(pk)?;
+    assert_eq!(row.some_value, 100);
+
+    Ok(())
+}
 ```
 
 You can find tests that covers `update_in_place` queries [here](../tests/worktable/in_place.rs).
