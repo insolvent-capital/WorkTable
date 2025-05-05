@@ -143,7 +143,7 @@ impl Generator {
         }
     }
 
-    fn gen_rows_unlock_fn(columns: &Vec<Ident>, ident: Ident) -> TokenStream {
+    fn gen_rows_unlock_fn(columns: &[Ident], ident: Ident) -> TokenStream {
         let inner = columns
             .iter()
             .map(|col| {
@@ -163,7 +163,7 @@ impl Generator {
         }
     }
 
-    fn gen_rows_lock_fn(columns: &Vec<Ident>, ident: Ident) -> TokenStream {
+    fn gen_rows_lock_fn(columns: &[Ident], ident: Ident) -> TokenStream {
         let inner = columns
             .iter()
             .map(|col| {
@@ -183,7 +183,7 @@ impl Generator {
         }
     }
 
-    fn gen_rows_lock_await_fn(columns: &Vec<Ident>, ident: Ident) -> TokenStream {
+    fn gen_rows_lock_await_fn(columns: &[Ident], ident: Ident) -> TokenStream {
         let inner = columns
             .iter()
             .map(|col| {

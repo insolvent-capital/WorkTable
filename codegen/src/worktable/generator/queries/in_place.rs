@@ -62,7 +62,7 @@ impl Generator {
         &self,
         snake_case_name: String,
         by_type: &TokenStream,
-        columns: &Vec<Ident>,
+        columns: &[Ident],
     ) -> TokenStream {
         let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
         let lock_type_ident = name_generator.get_lock_type_ident();

@@ -38,7 +38,7 @@ where
     }
 
     pub fn get(&self, key: &PkType) -> Option<Arc<LockType>> {
-        self.set.read().get(key).map(|v| v.clone())
+        self.set.read().get(key).cloned()
     }
 
     pub fn remove(&self, key: &PkType) {
