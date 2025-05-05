@@ -8,4 +8,5 @@ use crate::worktable::model::Operation;
 pub struct Queries {
     pub updates: HashMap<Ident, Operation>,
     pub deletes: HashMap<Ident, Operation>,
+    pub in_place: HashMap<Ident, Operation>,
 }

@@ -1,14 +1,15 @@
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicU16, Ordering};
 use std::sync::Arc;
 
-use lockfree::map::Map;
+use parking_lot::RwLock;
 
 #[derive(Debug)]
 pub struct LockMap<LockType, PkType>
 where
     PkType: std::hash::Hash + Ord,
 {
-    set: Map<PkType, Option<Arc<LockType>>>,
+    set: RwLock<HashMap<PkType, Arc<LockType>>>,
     next_id: AtomicU16,
 }
 
@@ -27,21 +28,33 @@ where
 {
     pub fn new() -> Self {
         Self {
-            set: Map::new(),
+            set: RwLock::new(HashMap::new()),
             next_id: AtomicU16::default(),
         }
     }
 
-    pub fn insert(&self, key: PkType, lock: Arc<LockType>) {
-        self.set.insert(key, Some(lock));
+    pub fn insert(&self, key: PkType, lock: Arc<LockType>) -> Option<Arc<LockType>> {
+        self.set.write().insert(key, lock)
     }
 
     pub fn get(&self, key: &PkType) -> Option<Arc<LockType>> {
-        self.set.get(key).map(|v| v.val().clone())?
+        self.set.read().get(key).map(|v| v.clone())
     }
 
     pub fn remove(&self, key: &PkType) {
-        self.set.remove(key);
+        self.set.write().remove(key);
+    }
+
+    pub fn remove_with_lock_check(&self, key: &PkType, lock: Arc<LockType>)
+    where
+        PkType: Clone,
+    {
+        let mut set = self.set.write();
+        if let Some(l) = set.remove(key) {
+            if !Arc::ptr_eq(&l, &lock) {
+                set.insert(key.clone(), l);
+            }
+        }
     }
 
     pub fn next_id(&self) -> u16 {

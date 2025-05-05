@@ -35,7 +35,7 @@ indexset = { version = "0.12.2", features = ["concurrent", "cdc", "multimap"] }
 # indexset = { git = "https://github.com/Handy-caT/indexset", branch = "multimap-range-fix", version = "0.12.0", features = ["concurrent", "cdc", "multimap"] }
 convert_case = "0.6.0"
 ordered-float = "5.0.0"
-serde = { version = "1.0.215", features = ["derive"] }
+parking_lot = "0.12.3"
 prettytable-rs = "^0.10"
 
 [dev-dependencies]

@@ -1,4 +1,5 @@
 mod delete;
+mod in_place;
 mod operation;
 mod select;
 mod update;
@@ -47,6 +48,10 @@ impl Parser {
                     "delete" => {
                         let deletes = parser.parse_deletes()?;
                         queries.deletes = deletes;
+                    }
+                    "in_place" => {
+                        let in_place = parser.parse_in_place()?;
+                        queries.in_place = in_place;
                     }
                     _ => return Err(syn::Error::new(ident.span(), "Unexpected identifier")),
                 }
