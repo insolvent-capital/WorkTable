@@ -154,11 +154,12 @@ impl Generator {
         let engine_ident = name_generator.get_persistence_engine_ident();
         let dir_name = name_generator.get_dir_name();
         let const_name = name_generator.get_page_inner_size_const_ident();
+        let pk_type = name_generator.get_primary_key_type_ident();
 
         let pk_map = if self.attributes.pk_unsized {
             let pk_ident = &self.pk_ident;
             quote! {
-                let pk_map = IndexMap::<#pk_ident, Link, UnsizedNode<_>>::new();
+                let pk_map = IndexMap::<#pk_ident, Link, UnsizedNode<_>>::with_maximum_node_size(#const_name);
                 for page in self.primary_index.1 {
                     let node = page.inner.get_node();
                     pk_map.attach_node(UnsizedNode::from_inner(node, #const_name));
@@ -166,7 +167,8 @@ impl Generator {
             }
         } else {
             quote! {
-                let pk_map = IndexMap::new();
+                let size = get_index_page_size_from_data_length::<#pk_type>(#const_name);
+                let pk_map = IndexMap::with_maximum_node_size(size);
                 for page in self.primary_index.1 {
                     let node = page.inner.get_node();
                     pk_map.attach_node(node);

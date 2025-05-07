@@ -15,11 +15,13 @@ impl Generator {
         } else {
             quote! {}
         };
+        let default_impl = self.gen_index_default_impl();
 
         quote! {
             #type_def
             #impl_def
             #cdc_impl_def
+            #default_impl
         }
     }
 
@@ -63,11 +65,11 @@ impl Generator {
 
         let derive = if self.is_persist {
             quote! {
-                #[derive(Debug, MemStat, Default, PersistIndex)]
+                #[derive(Debug, MemStat, PersistIndex)]
             }
         } else {
             quote! {
-                #[derive(Debug, MemStat, Default)]
+                #[derive(Debug, MemStat)]
             }
         };
 
@@ -75,6 +77,54 @@ impl Generator {
             #derive
             pub struct #ident {
                 #(#index_rows),*
+            }
+        }
+    }
+
+    fn gen_index_default_impl(&self) -> TokenStream {
+        let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
+        let index_type_ident = name_generator.get_index_type_ident();
+        let const_name = name_generator.get_page_inner_size_const_ident();
+
+        let index_rows = self
+            .columns
+            .indexes
+            .iter()
+            .map(|(i, idx)| {
+                let t = self.columns.columns_map.get(i).unwrap();
+                let t = if is_float(t.to_string().as_str()) {
+                    quote! { OrderedFloat<#t> }
+                } else {
+                    quote! { #t }
+                };
+                let i = &idx.name;
+
+                #[allow(clippy::collapsible_else_if)]
+                if idx.is_unique {
+                    if is_unsized(&t.to_string()) {
+                        quote! {
+                            #i: IndexMap::with_maximum_node_size(#const_name),
+                        }
+                    } else {
+                        quote! {#i: IndexMap::with_maximum_node_size(get_index_page_size_from_data_length::<#t>(#const_name)),}
+                    }
+                } else {
+                    if is_unsized(&t.to_string()) {
+                        quote! {#i: IndexMultiMap::with_maximum_node_size(#const_name), }
+                    } else {
+                        quote! {#i: IndexMultiMap::with_maximum_node_size(get_index_page_size_from_data_length::<#t>(#const_name)),}
+                    }
+                }
+            })
+            .collect::<Vec<_>>();
+
+        quote! {
+            impl Default for #index_type_ident {
+                fn default() -> Self {
+                    Self {
+                        #(#index_rows)*
+                    }
+                }
             }
         }
     }

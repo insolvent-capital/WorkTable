@@ -393,7 +393,7 @@ impl Generator {
                     };
                     quote! {
                         let size = get_index_page_size_from_data_length::<#ty>(#const_name);
-                        let #i: #t<_, Link> = #t::new();
+                        let #i: #t<_, Link> = #t::with_maximum_node_size(size);
                         for page in persisted.#i.1 {
                             #node
                         }

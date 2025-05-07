@@ -43,12 +43,16 @@ impl Generator {
         let engine = name_generator.get_persistence_engine_ident();
         let task = name_generator.get_persistence_task_ident();
         let dir_name = name_generator.get_dir_name();
+        let pk_type = name_generator.get_primary_key_type_ident();
+        let const_name = name_generator.get_page_inner_size_const_ident();
 
         if self.is_persist {
             quote! {
                 pub async fn new(config: PersistenceConfig) -> eyre::Result<Self> {
                     let mut inner = WorkTable::default();
                     inner.table_name = #table_name;
+                    let size = get_index_page_size_from_data_length::<#pk_type>(#const_name);
+                    inner.pk_map = IndexMap::with_maximum_node_size(size);
                     let table_files_path = format!("{}/{}", config.tables_path, #dir_name);
                     let engine: #engine = PersistenceEngine::from_table_files_path(table_files_path).await?;
                     core::result::Result::Ok(Self(
