@@ -57,6 +57,7 @@ impl Generator {
         let index_type = name_generator.get_index_type_ident();
         let inner_const_name = name_generator.get_page_inner_size_const_ident();
         let avt_type_ident = name_generator.get_available_type_ident();
+        let avt_index_ident = name_generator.get_available_indexes_ident();
         let persistence_task = name_generator.get_persistence_task_ident();
         let lock_ident = name_generator.get_lock_type_ident();
 
@@ -116,6 +117,7 @@ impl Generator {
                         #row_type,
                         #primary_key_type,
                         #avt_type_ident,
+                        #avt_index_ident,
                         #index_type,
                         #lock_ident,
                         <#primary_key_type as TablePrimaryKey>::Generator,
@@ -133,6 +135,7 @@ impl Generator {
                         #row_type,
                         #primary_key_type,
                         #avt_type_ident,
+                        #avt_index_ident,
                         #index_type,
                         #lock_ident,
                         <#primary_key_type as TablePrimaryKey>::Generator,

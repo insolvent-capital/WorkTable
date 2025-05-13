@@ -60,7 +60,18 @@ fn insert_when_pk_exists() {
         .get(&next_row.attr1)
         .collect::<Vec<_>>()
         .is_empty());
-    assert!(table.0.indexes.attr2_idx.get(&next_row.attr2).is_none())
+    assert!(table.0.indexes.attr2_idx.get(&next_row.attr2).is_none());
+    assert_eq!(
+        table
+            .0
+            .indexes
+            .attr1_idx
+            .get(&row.attr1)
+            .collect::<Vec<_>>()
+            .len(),
+        1
+    );
+    assert!(table.0.indexes.attr2_idx.get(&row.attr2).is_some())
 }
 
 #[test]
@@ -90,5 +101,15 @@ fn insert_when_secondary_unique_exists() {
         .get(&next_row.attr1)
         .collect::<Vec<_>>()
         .is_empty());
-    assert!(table.0.indexes.attr2_idx.get(&next_row.attr2).is_none());
+    assert_eq!(
+        table
+            .0
+            .indexes
+            .attr1_idx
+            .get(&row.attr1)
+            .collect::<Vec<_>>()
+            .len(),
+        1
+    );
+    assert!(table.0.indexes.attr2_idx.get(&row.attr2).is_some());
 }

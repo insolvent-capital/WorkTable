@@ -55,6 +55,13 @@ impl WorktableNameGenerator {
         )
     }
 
+    pub fn get_available_indexes_ident(&self) -> Ident {
+        Ident::new(
+            format!("{}AvailableIndexes", self.name).as_str(),
+            Span::mixed_site(),
+        )
+    }
+
     pub fn get_column_range_type_ident(&self) -> Ident {
         Ident::new(
             format!("{}ColumnRange", self.name).as_str(),

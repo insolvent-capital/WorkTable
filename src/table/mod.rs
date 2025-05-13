@@ -1,6 +1,7 @@
 pub mod select;
 pub mod system_info;
 
+use std::fmt::Debug;
 use std::marker::PhantomData;
 
 use data_bucket::{Link, INNER_PAGE_SIZE};
@@ -22,13 +23,16 @@ use crate::lock::LockMap;
 use crate::persistence::{InsertOperation, Operation};
 use crate::prelude::PrimaryKeyGeneratorState;
 use crate::primary_key::{PrimaryKeyGenerator, TablePrimaryKey};
-use crate::{in_memory, IndexMap, TableRow, TableSecondaryIndex, TableSecondaryIndexCdc};
+use crate::{
+    in_memory, IndexError, IndexMap, TableRow, TableSecondaryIndex, TableSecondaryIndexCdc,
+};
 
 #[derive(Debug)]
 pub struct WorkTable<
     Row,
     PrimaryKey,
     AvailableTypes = (),
+    AvailableIndexes = (),
     SecondaryIndexes = (),
     LockType = (),
     PkGen = <PrimaryKey as TablePrimaryKey>::Generator,
@@ -51,9 +55,7 @@ pub struct WorkTable<
 
     pub table_name: &'static str,
 
-    pub pk_phantom: PhantomData<PrimaryKey>,
-
-    pub types_phantom: PhantomData<AvailableTypes>,
+    pub pk_phantom: PhantomData<(AvailableTypes, AvailableIndexes)>,
 }
 
 // Manual implementations to avoid unneeded trait bounds.
@@ -61,6 +63,7 @@ impl<
         Row,
         PrimaryKey,
         AvailableTypes,
+        AvailableIndexes,
         SecondaryIndexes,
         LockType,
         PkGen,
@@ -71,6 +74,7 @@ impl<
         Row,
         PrimaryKey,
         AvailableTypes,
+        AvailableIndexes,
         SecondaryIndexes,
         LockType,
         PkGen,
@@ -94,7 +98,6 @@ where
             lock_map: LockMap::new(),
             table_name: "",
             pk_phantom: PhantomData,
-            types_phantom: PhantomData,
         }
     }
 }
@@ -103,6 +106,7 @@ impl<
         Row,
         PrimaryKey,
         AvailableTypes,
+        AvailableIndexes,
         SecondaryIndexes,
         LockType,
         PkGen,
@@ -113,6 +117,7 @@ impl<
         Row,
         PrimaryKey,
         AvailableTypes,
+        AvailableIndexes,
         SecondaryIndexes,
         LockType,
         PkGen,
@@ -169,7 +174,7 @@ where
             >,
         PrimaryKey: Clone,
         AvailableTypes: 'static,
-        SecondaryIndexes: TableSecondaryIndex<Row, AvailableTypes>,
+        SecondaryIndexes: TableSecondaryIndex<Row, AvailableTypes, AvailableIndexes>,
         LockType: 'static,
     {
         let pk = row.get_primary_key().clone();
@@ -177,22 +182,30 @@ where
             .data
             .insert(row.clone())
             .map_err(WorkTableError::PagesError)?;
-        if let Err(e) = self
+        if self
             .pk_map
             .insert(pk.clone(), link)
             .map_or(Ok(()), |_| Err(WorkTableError::AlreadyExists))
+            .is_err()
         {
             self.data.delete(link).map_err(WorkTableError::PagesError)?;
-            self.pk_map.remove(&pk);
-
-            return Err(e);
+            return Err(WorkTableError::AlreadyExists);
         };
         if let Err(e) = self.indexes.save_row(row.clone(), link) {
-            self.data.delete(link).map_err(WorkTableError::PagesError)?;
-            self.pk_map.remove(&pk);
-            self.indexes.delete_row(row, link)?;
+            return match e {
+                IndexError::AlreadyExists {
+                    at: _,
+                    inserted_already,
+                } => {
+                    self.data.delete(link).map_err(WorkTableError::PagesError)?;
+                    self.pk_map.remove(&pk);
+                    self.indexes
+                        .delete_from_indexes(row, link, inserted_already)?;
 
-            return Err(e);
+                    Err(WorkTableError::AlreadyExists)
+                }
+                IndexError::NotFound => Err(WorkTableError::NotFound),
+            };
         }
 
         Ok(pk)
@@ -220,9 +233,10 @@ where
                 Strategy<Serializer<AlignedVec, ArenaHandle<'a>, Share>, rkyv::rancor::Error>,
             >,
         PrimaryKey: Clone,
-        SecondaryIndexes: TableSecondaryIndex<Row, AvailableTypes>
-            + TableSecondaryIndexCdc<Row, AvailableTypes, SecondaryEvents>,
+        SecondaryIndexes: TableSecondaryIndex<Row, AvailableTypes, AvailableIndexes>
+            + TableSecondaryIndexCdc<Row, AvailableTypes, SecondaryEvents, AvailableIndexes>,
         PkGen: PrimaryKeyGeneratorState,
+        AvailableIndexes: Debug,
     {
         let pk = row.get_primary_key().clone();
         let (link, bytes) = self
@@ -232,17 +246,24 @@ where
         let (exists, primary_key_events) = self.pk_map.insert_cdc(pk.clone(), link);
         if exists.is_some() {
             self.data.delete(link).map_err(WorkTableError::PagesError)?;
-            self.pk_map.remove(&pk);
-
             return Err(WorkTableError::AlreadyExists);
         }
         let indexes_res = self.indexes.save_row_cdc(row.clone(), link);
         if let Err(e) = indexes_res {
-            self.data.delete(link).map_err(WorkTableError::PagesError)?;
-            self.pk_map.remove(&pk);
-            self.indexes.delete_row(row, link)?;
+            return match e {
+                IndexError::AlreadyExists {
+                    at: _,
+                    inserted_already,
+                } => {
+                    self.data.delete(link).map_err(WorkTableError::PagesError)?;
+                    self.pk_map.remove(&pk);
+                    self.indexes
+                        .delete_from_indexes(row, link, inserted_already)?;
 
-            return Err(e);
+                    Err(WorkTableError::AlreadyExists)
+                }
+                IndexError::NotFound => Err(WorkTableError::NotFound),
+            };
         }
 
         let op = Operation::Insert(InsertOperation {

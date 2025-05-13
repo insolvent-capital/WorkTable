@@ -201,7 +201,6 @@ impl Generator {
                     lock_map: LockMap::new(),
                     table_name: "",
                     pk_phantom: std::marker::PhantomData,
-                    types_phantom: std::marker::PhantomData,
                 };
 
                 let path = format!("{}/{}", config.tables_path.as_str(), #dir_name);

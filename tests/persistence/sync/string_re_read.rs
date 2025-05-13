@@ -134,6 +134,7 @@ fn test_big_amount_reread() {
                 .await
                 .unwrap();
             assert_eq!(table.select_all().execute().unwrap().len(), 1001);
+            assert!(table.select_by_second("second_last".to_string()).is_some());
         }
     })
 }

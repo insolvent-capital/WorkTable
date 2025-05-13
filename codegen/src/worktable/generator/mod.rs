@@ -1,4 +1,3 @@
-mod index;
 mod locks;
 mod primary_key;
 mod queries;
@@ -6,6 +5,7 @@ mod row;
 mod table;
 //mod table_old;
 //mod table_index;
+mod index;
 mod wrapper;
 
 use proc_macro2::Ident;
