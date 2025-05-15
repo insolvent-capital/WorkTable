@@ -87,12 +87,12 @@ impl Generator {
         let column_types = if types.len() == 1 {
             let t = types[0];
             quote! {
-                &mut <#t as Archive>::Archived
+                &mut <#t as rkyv::Archive>::Archived
             }
         } else {
             let types = types.iter().map(|t| {
                 quote! {
-                    &mut <#t as Archive>::Archived
+                    &mut <#t as rkyv::Archive>::Archived
                 }
             });
             quote! {
