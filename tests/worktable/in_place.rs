@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use rkyv::Archive;
 use worktable::prelude::*;
 use worktable::worktable;
 
