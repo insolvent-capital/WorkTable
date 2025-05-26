@@ -1,5 +1,5 @@
 use std::fmt::Debug;
-use std::sync::atomic::{AtomicU16, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
 use std::sync::Arc;
 
 use tokio::sync::Notify;
@@ -66,6 +66,8 @@ pub struct PersistenceTask<PrimaryKeyGenState, PrimaryKey, SecondaryKeys> {
     engine_task_handle: tokio::task::AbortHandle,
     queue: Arc<Queue<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>>,
     progress_notify: Arc<Notify>,
+    // True if non-empty, false either.
+    wait_state: Arc<AtomicBool>,
 }
 
 impl<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>
@@ -84,16 +86,21 @@ impl<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>
     {
         let queue = Arc::new(Queue::new());
         let progress_notify = Arc::new(Notify::new());
+        let wait_state = Arc::new(AtomicBool::new(false));
 
         let engine_queue = queue.clone();
         let engine_progress_notify = progress_notify.clone();
+        let engine_wait_state = wait_state.clone();
         let task = async move {
             loop {
                 let next_op = if let Some(next_op) = engine_queue.immediate_pop() {
                     next_op
                 } else {
+                    engine_wait_state.store(true, Ordering::Relaxed);
                     engine_progress_notify.notify_waiters();
-                    engine_queue.pop().await
+                    let res = engine_queue.pop().await;
+                    engine_wait_state.store(false, Ordering::Relaxed);
+                    res
                 };
                 tracing::debug!("Applying operation {:?}", next_op);
                 let res = engine.apply_operation(next_op).await;
@@ -107,12 +114,15 @@ impl<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>
             queue,
             engine_task_handle,
             progress_notify,
+            wait_state,
         }
     }
 
     pub async fn wait_for_ops(&self) {
-        let count = self.queue.len();
-        tracing::info!("Waiting for {} operations", count);
-        self.progress_notify.notified().await
+        if !self.wait_state.load(Ordering::Relaxed) {
+            let count = self.queue.len();
+            println!("Waiting for {} operations", count);
+            self.progress_notify.notified().await
+        }
     }
 }

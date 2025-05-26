@@ -1,4 +1,5 @@
 use crate::remove_dir_if_exists;
+use std::time::Duration;
 
 use worktable::prelude::*;
 use worktable::worktable;
@@ -31,6 +32,26 @@ worktable! (
         }
     }
 );
+
+#[test]
+fn test_wait_for_ops_for_empty() {
+    let config = PersistenceConfig::new("tests/data/sync/insert", "tests/data/sync/insert");
+
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .enable_io()
+        .enable_time()
+        .build()
+        .unwrap();
+
+    runtime.block_on(async {
+        let table = TestSyncWorkTable::load_from_file(config.clone())
+            .await
+            .unwrap();
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        table.wait_for_ops().await;
+    });
+}
 
 #[test]
 fn test_space_insert_sync() {
