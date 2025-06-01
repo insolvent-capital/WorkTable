@@ -51,7 +51,7 @@ impl Generator {
 
         if !rows.is_empty() {
             Ok(quote! {
-                #[derive(Clone, Debug, derive_more::Display, From,  PartialEq)]
+                #[derive(Clone, Debug, From,  PartialEq)]
                 #[non_exhaustive]
                 pub enum #avt_type_ident {
                     #(#rows)*

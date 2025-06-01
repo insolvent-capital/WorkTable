@@ -168,7 +168,7 @@ mod run_first {
             .await
             .unwrap();
 
-        for i in (6..911).rev() {
+        for i in (6..909).rev() {
             space_index
                 .process_change_event(ChangeEvent::InsertAt {
                     max_value: Pair {
@@ -529,7 +529,7 @@ async fn test_space_index_process_split_node() {
                 key: 1000,
                 value: Link {
                     page_id: 0.into(),
-                    offset: 0,
+                    offset: 24,
                     length: 24,
                 },
             },

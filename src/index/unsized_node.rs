@@ -6,7 +6,7 @@ use std::collections::Bound;
 use std::ops::Deref;
 use std::slice::Iter;
 
-pub const UNSIZED_HEADER_LENGTH: u32 = 16;
+pub const UNSIZED_HEADER_LENGTH: u32 = 64;
 
 #[derive(Debug)]
 pub struct UnsizedNode<T>
@@ -198,7 +198,7 @@ mod test {
 
     #[test]
     fn test_split_basic() {
-        let mut node = UnsizedNode::<String>::with_capacity(184);
+        let mut node = UnsizedNode::<String>::with_capacity(232);
         for i in 0..10 {
             let s = format!("{}_______", i);
             node.insert(s);
@@ -207,20 +207,20 @@ mod test {
         let split = node.halve();
         assert_eq!(node.inner.len(), split.inner.len());
         assert_eq!(node.length, split.length);
-        assert_eq!(node.length, 104)
+        assert_eq!(node.length, 152)
     }
 
     #[test]
     fn test_split() {
-        let mut node = UnsizedNode::<String>::with_capacity(152);
+        let mut node = UnsizedNode::<String>::with_capacity(200);
         node.insert(String::from_utf8(vec![b'1'; 16]).unwrap());
         node.insert(String::from_utf8(vec![b'2'; 16]).unwrap());
         node.insert(String::from_utf8(vec![b'3'; 24]).unwrap());
         assert_eq!(node.length, node.length_capacity);
         let split = node.halve();
-        assert_eq!(node.length, 104);
+        assert_eq!(node.length, 152);
         assert_eq!(node.inner.len(), 2);
-        assert_eq!(split.length, 88);
+        assert_eq!(split.length, 136);
         assert_eq!(split.inner.len(), 1);
     }
 }

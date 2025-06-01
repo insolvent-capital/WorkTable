@@ -544,7 +544,7 @@ async fn test_space_index_process_split_node() {
                 key: "Something from someone _100".to_string(),
                 value: Link {
                     page_id: 0.into(),
-                    offset: 0,
+                    offset: 24,
                     length: 24,
                 },
             },

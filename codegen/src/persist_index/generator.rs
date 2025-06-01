@@ -98,11 +98,11 @@ impl Generator {
                 if is_unsized(&t.to_string()) {
                     let const_size = name_generator.get_page_inner_size_const_ident();
                     quote! {
-                        #i: (Vec<GeneralPage<TableOfContentsPage<#t>>>, Vec<GeneralPage<UnsizedIndexPage<#t, {#const_size as u32}>>>),
+                        #i: (Vec<GeneralPage<TableOfContentsPage<(#t, Link)>>>, Vec<GeneralPage<UnsizedIndexPage<#t, {#const_size as u32}>>>),
                     }
                 } else {
                     quote! {
-                        #i: (Vec<GeneralPage<TableOfContentsPage<#t>>>, Vec<GeneralPage<IndexPage<#t>>>),
+                        #i: (Vec<GeneralPage<TableOfContentsPage<(#t, Link)>>>, Vec<GeneralPage<IndexPage<#t>>>),
                     }
                 }
             })

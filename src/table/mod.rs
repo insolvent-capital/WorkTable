@@ -4,6 +4,14 @@ pub mod system_info;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
+use crate::in_memory::{DataPages, RowWrapper, StorableRow};
+use crate::lock::LockMap;
+use crate::persistence::{InsertOperation, Operation};
+use crate::prelude::{OperationId, PrimaryKeyGeneratorState};
+use crate::primary_key::{PrimaryKeyGenerator, TablePrimaryKey};
+use crate::{
+    in_memory, IndexError, IndexMap, TableRow, TableSecondaryIndex, TableSecondaryIndexCdc,
+};
 use data_bucket::{Link, INNER_PAGE_SIZE};
 use derive_more::{Display, Error, From};
 use indexset::core::node::NodeLike;
@@ -17,15 +25,7 @@ use rkyv::ser::sharing::Share;
 use rkyv::ser::Serializer;
 use rkyv::util::AlignedVec;
 use rkyv::{Archive, Deserialize, Serialize};
-
-use crate::in_memory::{DataPages, RowWrapper, StorableRow};
-use crate::lock::LockMap;
-use crate::persistence::{InsertOperation, Operation};
-use crate::prelude::PrimaryKeyGeneratorState;
-use crate::primary_key::{PrimaryKeyGenerator, TablePrimaryKey};
-use crate::{
-    in_memory, IndexError, IndexMap, TableRow, TableSecondaryIndex, TableSecondaryIndexCdc,
-};
+use uuid::Uuid;
 
 #[derive(Debug)]
 pub struct WorkTable<
@@ -267,7 +267,7 @@ where
         }
 
         let op = Operation::Insert(InsertOperation {
-            id: Default::default(),
+            id: OperationId::Single(Uuid::now_v7()),
             pk_gen_state: self.pk_gen.get_state(),
             primary_key_events,
             secondary_keys_events: indexes_res.expect("was checked before"),

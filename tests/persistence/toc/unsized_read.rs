@@ -1,7 +1,7 @@
 use std::sync::atomic::AtomicU32;
 use std::sync::Arc;
 
-use data_bucket::INNER_PAGE_SIZE;
+use data_bucket::{Link, INNER_PAGE_SIZE};
 use tokio::fs::OpenOptions;
 use worktable::prelude::IndexTableOfContents;
 
@@ -14,7 +14,7 @@ async fn test_index_table_of_contents_read_from_space_index_unsized() {
         .await
         .unwrap();
     let next_id_gen = Arc::new(AtomicU32::new(2));
-    let toc = IndexTableOfContents::<String, { INNER_PAGE_SIZE as u32 }>::parse_from_file(
+    let toc = IndexTableOfContents::<(String, Link), { INNER_PAGE_SIZE as u32 }>::parse_from_file(
         &mut file,
         0.into(),
         next_id_gen,
@@ -23,7 +23,14 @@ async fn test_index_table_of_contents_read_from_space_index_unsized() {
     .unwrap();
 
     assert_eq!(
-        toc.get(&"Something from someone".to_string()),
+        toc.get(&(
+            "Something from someone".to_string(),
+            Link {
+                page_id: 0.into(),
+                offset: 0,
+                length: 24
+            }
+        )),
         Some(2.into())
     )
 }
@@ -37,7 +44,7 @@ async fn test_index_table_of_contents_read_from_space_index_unsized_with_two_nod
         .await
         .unwrap();
     let next_id_gen = Arc::new(AtomicU32::new(3));
-    let toc = IndexTableOfContents::<String, { INNER_PAGE_SIZE as u32 }>::parse_from_file(
+    let toc = IndexTableOfContents::<(String, Link), { INNER_PAGE_SIZE as u32 }>::parse_from_file(
         &mut file,
         0.into(),
         next_id_gen,
@@ -46,11 +53,25 @@ async fn test_index_table_of_contents_read_from_space_index_unsized_with_two_nod
     .unwrap();
 
     assert_eq!(
-        toc.get(&"Something from someone".to_string()),
+        toc.get(&(
+            "Something from someone".to_string(),
+            Link {
+                page_id: 0.into(),
+                offset: 0,
+                length: 24
+            }
+        )),
         Some(2.into())
     );
     assert_eq!(
-        toc.get(&"Someone from somewhere".to_string()),
+        toc.get(&(
+            "Someone from somewhere".to_string(),
+            Link {
+                page_id: 1.into(),
+                offset: 24,
+                length: 32
+            }
+        )),
         Some(3.into())
     )
 }
@@ -64,7 +85,7 @@ async fn test_index_table_of_contents_read_from_space_index_with_remove_node() {
         .await
         .unwrap();
     let next_id_gen = Arc::new(AtomicU32::new(2));
-    let toc = IndexTableOfContents::<String, { INNER_PAGE_SIZE as u32 }>::parse_from_file(
+    let toc = IndexTableOfContents::<(String, Link), { INNER_PAGE_SIZE as u32 }>::parse_from_file(
         &mut file,
         0.into(),
         next_id_gen,
@@ -72,9 +93,26 @@ async fn test_index_table_of_contents_read_from_space_index_with_remove_node() {
     .await
     .unwrap();
 
-    assert_eq!(toc.get(&"Something from someone".to_string()), None);
     assert_eq!(
-        toc.get(&"Someone from somewhere".to_string()),
+        toc.get(&(
+            "Someone for someone".to_string(),
+            Link {
+                page_id: 1.into(),
+                offset: 24,
+                length: 32
+            }
+        )),
+        None
+    );
+    assert_eq!(
+        toc.get(&(
+            "Someone from somewhere".to_string(),
+            Link {
+                page_id: 1.into(),
+                offset: 24,
+                length: 32
+            }
+        )),
         Some(3.into())
     );
 }
@@ -88,7 +126,7 @@ async fn test_index_table_of_contents_read_from_space_index_unsized_after_insert
         .await
         .unwrap();
     let next_id_gen = Arc::new(AtomicU32::new(2));
-    let toc = IndexTableOfContents::<String, { INNER_PAGE_SIZE as u32 }>::parse_from_file(
+    let toc = IndexTableOfContents::<(String, Link), { INNER_PAGE_SIZE as u32 }>::parse_from_file(
         &mut file,
         0.into(),
         next_id_gen,
@@ -97,7 +135,14 @@ async fn test_index_table_of_contents_read_from_space_index_unsized_after_insert
     .unwrap();
 
     assert_eq!(
-        toc.get(&"Something from someone".to_string()),
+        toc.get(&(
+            "Something from someone".to_string(),
+            Link {
+                page_id: 0.into(),
+                offset: 0,
+                length: 24
+            }
+        )),
         Some(2.into())
     )
 }
@@ -111,7 +156,7 @@ async fn test_index_table_of_contents_read_from_space_index_unsized_after_remove
         .await
         .unwrap();
     let next_id_gen = Arc::new(AtomicU32::new(2));
-    let toc = IndexTableOfContents::<String, { INNER_PAGE_SIZE as u32 }>::parse_from_file(
+    let toc = IndexTableOfContents::<(String, Link), { INNER_PAGE_SIZE as u32 }>::parse_from_file(
         &mut file,
         0.into(),
         next_id_gen,
@@ -120,7 +165,14 @@ async fn test_index_table_of_contents_read_from_space_index_unsized_after_remove
     .unwrap();
 
     assert_eq!(
-        toc.get(&"Something from someone".to_string()),
+        toc.get(&(
+            "Something from someone".to_string(),
+            Link {
+                page_id: 0.into(),
+                offset: 0,
+                length: 24
+            }
+        )),
         Some(2.into())
     )
 }
@@ -134,7 +186,7 @@ async fn test_index_table_of_contents_read_from_space_index_unsized_after_remove
         .await
         .unwrap();
     let next_id_gen = Arc::new(AtomicU32::new(2));
-    let toc = IndexTableOfContents::<String, { INNER_PAGE_SIZE as u32 }>::parse_from_file(
+    let toc = IndexTableOfContents::<(String, Link), { INNER_PAGE_SIZE as u32 }>::parse_from_file(
         &mut file,
         0.into(),
         next_id_gen,
@@ -142,7 +194,17 @@ async fn test_index_table_of_contents_read_from_space_index_unsized_after_remove
     .await
     .unwrap();
 
-    assert_eq!(toc.get(&"Something else".to_string()), Some(2.into()))
+    assert_eq!(
+        toc.get(&(
+            "Something else".to_string(),
+            Link {
+                page_id: 0.into(),
+                offset: 24,
+                length: 48
+            }
+        )),
+        Some(2.into())
+    )
 }
 
 #[tokio::test]
@@ -155,7 +217,7 @@ async fn test_index_table_of_contents_read_from_space_index_unsized_after_create
         .await
         .unwrap();
     let next_id_gen = Arc::new(AtomicU32::new(2));
-    let toc = IndexTableOfContents::<String, { INNER_PAGE_SIZE as u32 }>::parse_from_file(
+    let toc = IndexTableOfContents::<(String, Link), { INNER_PAGE_SIZE as u32 }>::parse_from_file(
         &mut file,
         0.into(),
         next_id_gen,
@@ -164,8 +226,25 @@ async fn test_index_table_of_contents_read_from_space_index_unsized_after_create
     .unwrap();
 
     assert_eq!(
-        toc.get(&"Someone from somewhere".to_string()),
+        toc.get(&(
+            "Someone from somewhere".to_string(),
+            Link {
+                page_id: 1.into(),
+                offset: 24,
+                length: 32
+            }
+        )),
         Some(3.into())
     );
-    assert_eq!(toc.get(&"Something else".to_string()), Some(2.into()));
+    assert_eq!(
+        toc.get(&(
+            "Something else".to_string(),
+            Link {
+                page_id: 0.into(),
+                offset: 0,
+                length: 24
+            }
+        )),
+        Some(2.into())
+    );
 }

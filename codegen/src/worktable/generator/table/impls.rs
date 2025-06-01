@@ -1,7 +1,7 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 
-use crate::name_generator::WorktableNameGenerator;
+use crate::name_generator::{is_unsized_vec, WorktableNameGenerator};
 use crate::worktable::generator::Generator;
 use crate::worktable::model::GeneratorType;
 
@@ -47,11 +47,33 @@ impl Generator {
         let const_name = name_generator.get_page_inner_size_const_ident();
 
         if self.is_persist {
+            let pk_types = &self
+                .columns
+                .primary_keys
+                .iter()
+                .map(|i| {
+                    self.columns
+                        .columns_map
+                        .get(i)
+                        .expect("should exist as got from definition")
+                        .to_string()
+                })
+                .collect::<Vec<_>>();
+            let pk_types_unsized = is_unsized_vec(pk_types);
+            let index_size = if pk_types_unsized {
+                quote! {
+                    let size = #const_name;
+                }
+            } else {
+                quote! {
+                    let size = get_index_page_size_from_data_length::<#pk_type>(#const_name);
+                }
+            };
             quote! {
                 pub async fn new(config: PersistenceConfig) -> eyre::Result<Self> {
                     let mut inner = WorkTable::default();
                     inner.table_name = #table_name;
-                    let size = get_index_page_size_from_data_length::<#pk_type>(#const_name);
+                    #index_size
                     inner.pk_map = IndexMap::with_maximum_node_size(size);
                     let table_files_path = format!("{}/{}", config.tables_path, #dir_name);
                     let engine: #engine = PersistenceEngine::from_table_files_path(table_files_path).await?;
@@ -222,9 +244,9 @@ impl Generator {
 
     fn gen_table_count_fn(&self) -> TokenStream {
         quote! {
-            pub fn count(&self) -> Option<usize> {
+            pub fn count(&self) -> usize {
                 let count = self.0.pk_map.len();
-                (count > 0).then_some(count)
+                count
             }
         }
     }

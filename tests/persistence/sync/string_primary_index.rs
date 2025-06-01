@@ -88,7 +88,7 @@ fn test_space_insert_many_sync() {
             let table = TestSyncWorkTable::load_from_file(config.clone())
                 .await
                 .unwrap();
-            for i in 0..20 {
+            for i in 0..1_000 {
                 let pk = {
                     let row = TestSyncRow {
                         another: i,
@@ -320,9 +320,16 @@ fn test_space_delete_sync() {
                 id: "Some string before".to_string(),
             };
             table.insert(row.clone()).unwrap();
-            table.delete(row.id.clone().into()).await.unwrap();
+            let another_row = TestSyncRow {
+                another: 43,
+                non_unique: 0,
+                field: 0.0,
+                id: "Some string".to_string(),
+            };
+            table.insert(another_row.clone()).unwrap();
+            table.delete(another_row.id.clone().into()).await.unwrap();
             table.wait_for_ops().await;
-            row.id
+            another_row.id
         };
         {
             let table = TestSyncWorkTable::load_from_file(config).await.unwrap();

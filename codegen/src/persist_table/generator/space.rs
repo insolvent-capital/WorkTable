@@ -25,6 +25,7 @@ impl Generator {
         let ident = name_generator.get_persistence_engine_ident();
         let primary_key_type = name_generator.get_primary_key_type_ident();
         let inner_const_name = name_generator.get_page_inner_size_const_ident();
+        let const_name = name_generator.get_page_size_const_ident();
         let space_secondary_indexes = name_generator.get_space_secondary_index_ident();
         let space_secondary_indexes_events =
             name_generator.get_space_secondary_index_events_ident();
@@ -42,7 +43,8 @@ impl Generator {
             pub type #ident = PersistenceEngine<
                 SpaceData<
                     <<#primary_key_type as TablePrimaryKey>::Generator as PrimaryKeyGeneratorState>::State,
-                    { #inner_const_name as u32 }
+                    { #inner_const_name},
+                    { #const_name as u32 }
                 >,
                 #space_index_type
                 #space_secondary_indexes,

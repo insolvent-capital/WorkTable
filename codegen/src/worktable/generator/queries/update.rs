@@ -62,7 +62,7 @@ impl Generator {
         } else {
             quote! {
                 if bytes.len() >= link.length as usize {
-                    self.delete_without_lock(pk.clone()).await?;
+                    self.delete_without_lock(pk.clone())?;
                     self.insert(row)?;
 
                     lock.unlock();  // Releases locks
@@ -94,6 +94,7 @@ impl Generator {
 
                 let mut archived_row = unsafe { rkyv::access_unchecked_mut::<<#row_ident as rkyv::Archive>::Archived>(&mut bytes[..]).unseal_unchecked() };
 
+                let op_id = OperationId::Single(uuid::Uuid::now_v7());
                 #diff_process
                 #persist_op
 
@@ -243,7 +244,7 @@ impl Generator {
                 if need_to_reinsert {
                     let mut row_old = self.select(pk.clone()).unwrap();
                     #(#row_updates)*
-                    self.delete_without_lock(pk.clone()).await?;
+                    self.delete_without_lock(pk.clone())?;
                     self.insert(row_old)?;
 
                     lock.unlock();  // Releases locks
@@ -269,7 +270,7 @@ impl Generator {
                     #primary_key_ident,
                     #secondary_events_ident
                 > = Operation::Update(UpdateOperation {
-                    id: Default::default(),
+                    id: op_id,
                     secondary_keys_events,
                     bytes: updated_bytes,
                     link,
@@ -406,6 +407,7 @@ impl Generator {
                         .map(|v| v.get().value)
                         .ok_or(WorkTableError::NotFound)?;
 
+                let op_id = OperationId::Single(uuid::Uuid::now_v7());
                 #size_check
                 #diff_process
                 #persist_op
@@ -486,7 +488,7 @@ impl Generator {
                 if need_to_reinsert {
                     let mut row_old = self.select(pk.clone()).unwrap();
                     #(#row_updates)*
-                    self.delete_without_lock(pk.clone()).await?;
+                    self.delete_without_lock(pk.clone())?;
                     self.insert(row_old)?;
 
                     let lock = self.0.lock_map.get(&pk).expect("was inserted before and not deleted");
@@ -532,6 +534,7 @@ impl Generator {
                 }
 
                 let mut links_to_unlock = vec![];
+                let op_id = OperationId::Multi(uuid::Uuid::now_v7());
                 for link in links.into_iter() {
                     let pk = self.0.data.select(link)?.get_primary_key().clone();
                     let mut bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&row)
@@ -638,6 +641,7 @@ impl Generator {
                 let lock = std::sync::Arc::new(lock);
                 self.0.lock_map.insert(pk.clone(), lock.clone());
 
+                let op_id = OperationId::Single(uuid::Uuid::now_v7());
                 #size_check
                 #diff_process
                 #persist_op

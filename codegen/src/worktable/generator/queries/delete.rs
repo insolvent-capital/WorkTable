@@ -65,7 +65,7 @@ impl Generator {
         let delete_logic = self.gen_delete_logic();
 
         quote! {
-            pub async fn delete_without_lock(&self, pk: #pk_ident) -> core::result::Result<(), WorkTableError> {
+            pub fn delete_without_lock(&self, pk: #pk_ident) -> core::result::Result<(), WorkTableError> {
                 #delete_logic
                 core::result::Result::Ok(())
             }
@@ -87,9 +87,10 @@ impl Generator {
                     #pk_ident,
                     #secondary_events_ident
                 > = Operation::Delete(DeleteOperation {
-                    id: Default::default(),
+                    id: uuid::Uuid::now_v7().into(),
                     secondary_keys_events,
                     primary_key_events,
+                    link,
                 });
                 self.2.apply_operation(op);
             }

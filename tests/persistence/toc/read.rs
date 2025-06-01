@@ -1,6 +1,7 @@
-use data_bucket::INNER_PAGE_SIZE;
 use std::sync::atomic::AtomicU32;
 use std::sync::Arc;
+
+use data_bucket::{Link, INNER_PAGE_SIZE};
 use tokio::fs::OpenOptions;
 use worktable::prelude::IndexTableOfContents;
 
@@ -33,15 +34,24 @@ async fn test_index_table_of_contents_read_from_space() {
         .await
         .unwrap();
     let next_id_gen = Arc::new(AtomicU32::new(1));
-    let toc = IndexTableOfContents::<u64, { INNER_PAGE_SIZE as u32 }>::parse_from_file(
+    let toc = IndexTableOfContents::<(u64, Link), { INNER_PAGE_SIZE as u32 }>::parse_from_file(
         &mut file,
         0.into(),
         next_id_gen,
     )
     .await
     .unwrap();
-
-    assert_eq!(toc.get(&99), Some(2.into()))
+    assert_eq!(
+        toc.get(&(
+            99,
+            Link {
+                page_id: 1.into(),
+                offset: 2352,
+                length: 24
+            }
+        )),
+        Some(2.into())
+    )
 }
 
 #[tokio::test]
@@ -53,7 +63,7 @@ async fn test_index_table_of_contents_read_from_space_index() {
         .await
         .unwrap();
     let next_id_gen = Arc::new(AtomicU32::new(2));
-    let toc = IndexTableOfContents::<u32, { INNER_PAGE_SIZE as u32 }>::parse_from_file(
+    let toc = IndexTableOfContents::<(u32, Link), { INNER_PAGE_SIZE as u32 }>::parse_from_file(
         &mut file,
         0.into(),
         next_id_gen,
@@ -61,7 +71,17 @@ async fn test_index_table_of_contents_read_from_space_index() {
     .await
     .unwrap();
 
-    assert_eq!(toc.get(&5), Some(2.into()))
+    assert_eq!(
+        toc.get(&(
+            5,
+            Link {
+                page_id: 0.into(),
+                offset: 0,
+                length: 24
+            }
+        )),
+        Some(2.into())
+    )
 }
 
 #[tokio::test]
@@ -73,7 +93,7 @@ async fn test_index_table_of_contents_read_from_space_index_after_insert() {
         .await
         .unwrap();
     let next_id_gen = Arc::new(AtomicU32::new(2));
-    let toc = IndexTableOfContents::<u32, { INNER_PAGE_SIZE as u32 }>::parse_from_file(
+    let toc = IndexTableOfContents::<(u32, Link), { INNER_PAGE_SIZE as u32 }>::parse_from_file(
         &mut file,
         0.into(),
         next_id_gen,
@@ -81,7 +101,17 @@ async fn test_index_table_of_contents_read_from_space_index_after_insert() {
     .await
     .unwrap();
 
-    assert_eq!(toc.get(&5), Some(2.into()))
+    assert_eq!(
+        toc.get(&(
+            5,
+            Link {
+                page_id: 0.into(),
+                offset: 0,
+                length: 24
+            }
+        )),
+        Some(2.into())
+    )
 }
 
 #[tokio::test]
@@ -93,7 +123,7 @@ async fn test_index_table_of_contents_read_from_space_index_with_updated_node_id
         .await
         .unwrap();
     let next_id_gen = Arc::new(AtomicU32::new(2));
-    let toc = IndexTableOfContents::<u32, { INNER_PAGE_SIZE as u32 }>::parse_from_file(
+    let toc = IndexTableOfContents::<(u32, Link), { INNER_PAGE_SIZE as u32 }>::parse_from_file(
         &mut file,
         0.into(),
         next_id_gen,
@@ -101,7 +131,17 @@ async fn test_index_table_of_contents_read_from_space_index_with_updated_node_id
     .await
     .unwrap();
 
-    assert_eq!(toc.get(&7), Some(2.into()))
+    assert_eq!(
+        toc.get(&(
+            7,
+            Link {
+                page_id: 0.into(),
+                offset: 24,
+                length: 48
+            }
+        )),
+        Some(2.into())
+    )
 }
 
 #[tokio::test]
@@ -113,7 +153,7 @@ async fn test_index_table_of_contents_read_from_space_index_with_remove_at_node_
         .await
         .unwrap();
     let next_id_gen = Arc::new(AtomicU32::new(2));
-    let toc = IndexTableOfContents::<u32, { INNER_PAGE_SIZE as u32 }>::parse_from_file(
+    let toc = IndexTableOfContents::<(u32, Link), { INNER_PAGE_SIZE as u32 }>::parse_from_file(
         &mut file,
         0.into(),
         next_id_gen,
@@ -121,7 +161,17 @@ async fn test_index_table_of_contents_read_from_space_index_with_remove_at_node_
     .await
     .unwrap();
 
-    assert_eq!(toc.get(&3), Some(2.into()));
+    assert_eq!(
+        toc.get(&(
+            3,
+            Link {
+                page_id: 0.into(),
+                offset: 24,
+                length: 48
+            }
+        )),
+        Some(2.into())
+    );
 }
 
 #[tokio::test]
@@ -133,7 +183,7 @@ async fn test_index_table_of_contents_read_from_space_index_with_remove_node() {
         .await
         .unwrap();
     let next_id_gen = Arc::new(AtomicU32::new(2));
-    let toc = IndexTableOfContents::<u32, { INNER_PAGE_SIZE as u32 }>::parse_from_file(
+    let toc = IndexTableOfContents::<(u32, Link), { INNER_PAGE_SIZE as u32 }>::parse_from_file(
         &mut file,
         0.into(),
         next_id_gen,
@@ -141,8 +191,28 @@ async fn test_index_table_of_contents_read_from_space_index_with_remove_node() {
     .await
     .unwrap();
 
-    assert_eq!(toc.get(&5), None);
-    assert_eq!(toc.get(&15), Some(3.into()));
+    assert_eq!(
+        toc.get(&(
+            5,
+            Link {
+                page_id: 1.into(),
+                offset: 0,
+                length: 24
+            }
+        )),
+        None
+    );
+    assert_eq!(
+        toc.get(&(
+            15,
+            Link {
+                page_id: 1.into(),
+                offset: 0,
+                length: 24
+            }
+        )),
+        Some(3.into())
+    );
 }
 
 #[tokio::test]
@@ -154,7 +224,7 @@ async fn test_index_table_of_contents_read_from_space_index_with_create_node_aft
         .await
         .unwrap();
     let next_id_gen = Arc::new(AtomicU32::new(2));
-    let toc = IndexTableOfContents::<u32, { INNER_PAGE_SIZE as u32 }>::parse_from_file(
+    let toc = IndexTableOfContents::<(u32, Link), { INNER_PAGE_SIZE as u32 }>::parse_from_file(
         &mut file,
         0.into(),
         next_id_gen,
@@ -162,8 +232,28 @@ async fn test_index_table_of_contents_read_from_space_index_with_create_node_aft
     .await
     .unwrap();
 
-    assert_eq!(toc.get(&10), Some(2.into()));
-    assert_eq!(toc.get(&15), Some(3.into()));
+    assert_eq!(
+        toc.get(&(
+            10,
+            Link {
+                page_id: 0.into(),
+                offset: 0,
+                length: 24
+            }
+        )),
+        Some(2.into())
+    );
+    assert_eq!(
+        toc.get(&(
+            15,
+            Link {
+                page_id: 1.into(),
+                offset: 0,
+                length: 24
+            }
+        )),
+        Some(3.into())
+    );
 }
 
 #[tokio::test]
@@ -175,7 +265,7 @@ async fn test_index_table_of_contents_read_from_space_index_after_split_node() {
         .await
         .unwrap();
     let next_id_gen = Arc::new(AtomicU32::new(2));
-    let toc = IndexTableOfContents::<u32, { INNER_PAGE_SIZE as u32 }>::parse_from_file(
+    let toc = IndexTableOfContents::<(u32, Link), { INNER_PAGE_SIZE as u32 }>::parse_from_file(
         &mut file,
         0.into(),
         next_id_gen,
@@ -183,6 +273,26 @@ async fn test_index_table_of_contents_read_from_space_index_after_split_node() {
     .await
     .unwrap();
 
-    assert_eq!(toc.get(&1000), Some(3.into()));
-    assert_eq!(toc.get(&457), Some(2.into()));
+    assert_eq!(
+        toc.get(&(
+            1000,
+            Link {
+                page_id: 0.into(),
+                offset: 24,
+                length: 24
+            }
+        )),
+        Some(3.into())
+    );
+    assert_eq!(
+        toc.get(&(
+            457,
+            Link {
+                page_id: 0.into(),
+                offset: 10968,
+                length: 24
+            }
+        )),
+        Some(2.into())
+    );
 }

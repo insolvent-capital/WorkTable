@@ -9,9 +9,11 @@ impl Generator {
         let secondary_index = self.gen_space_secondary_index_type();
         let secondary_impl = self.gen_space_secondary_index_impl_space_index();
         let secondary_index_events = self.gen_space_secondary_index_events_type();
+        let secondary_index_events_impl = self.gen_space_secondary_index_events_impl();
 
         quote! {
             #secondary_index_events
+            #secondary_index_events_impl
             #secondary_index
             #secondary_impl
         }
@@ -34,9 +36,32 @@ impl Generator {
             .collect();
 
         quote! {
-            #[derive(Debug, Default)]
+            #[derive(Clone, Debug, Default)]
             pub struct #ident {
                 #(#fields)*
+            }
+        }
+    }
+
+    fn gen_space_secondary_index_events_impl(&self) -> TokenStream {
+        let name_generator = WorktableNameGenerator::from_index_ident(&self.struct_def.ident);
+        let ident = name_generator.get_space_secondary_index_events_ident();
+
+        let fields: Vec<_> = self
+            .field_types
+            .keys()
+            .map(|i| {
+                quote! {
+                    self.#i.extend(another.#i);
+                }
+            })
+            .collect();
+
+        quote! {
+            impl TableSecondaryIndexEventsOps for #ident {
+                fn extend(&mut self, another: #ident) {
+                    #(#fields)*
+                }
             }
         }
     }
@@ -78,11 +103,14 @@ impl Generator {
         let from_table_files_path_fn = self.gen_space_secondary_index_from_table_files_path_fn();
         let index_process_change_events_fn =
             self.gen_space_secondary_index_process_change_events_fn();
+        let index_process_change_event_batch_fn =
+            self.gen_space_secondary_index_process_change_event_batch_fn();
 
         quote! {
             impl SpaceSecondaryIndexOps<#events_ident> for #ident {
                 #from_table_files_path_fn
                 #index_process_change_events_fn
+                #index_process_change_event_batch_fn
             }
         }
     }
@@ -133,6 +161,28 @@ impl Generator {
 
         quote! {
             async fn process_change_events(&mut self, events: #events_ident) -> eyre::Result<()> {
+                #(#process)*
+                core::result::Result::Ok(())
+            }
+        }
+    }
+
+    fn gen_space_secondary_index_process_change_event_batch_fn(&self) -> TokenStream {
+        let name_generator = WorktableNameGenerator::from_index_ident(&self.struct_def.ident);
+        let events_ident = name_generator.get_space_secondary_index_events_ident();
+
+        let process: Vec<_> = self
+            .field_types
+            .keys()
+            .map(|i| {
+                quote! {
+                    self.#i.process_change_event_batch(events.#i).await?;
+                }
+            })
+            .collect();
+
+        quote! {
+            async fn process_change_event_batch(&mut self, events: #events_ident) -> eyre::Result<()> {
                 #(#process)*
                 core::result::Result::Ok(())
             }

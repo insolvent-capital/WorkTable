@@ -103,7 +103,7 @@ impl Generator {
         let const_name = name_generator.get_page_inner_size_const_ident();
         if self.attributes.pk_unsized {
             quote! {
-                pub fn get_peristed_primary_key_with_toc(&self) -> (Vec<GeneralPage<TableOfContentsPage<#pk_type>>>, Vec<GeneralPage<UnsizedIndexPage<#pk_type, {#const_name as u32}>>>) {
+                pub fn get_peristed_primary_key_with_toc(&self) -> (Vec<GeneralPage<TableOfContentsPage<(#pk_type, Link)>>>, Vec<GeneralPage<UnsizedIndexPage<#pk_type, {#const_name as u32}>>>) {
                     let mut pages = vec![];
                     for node in self.0.pk_map.iter_nodes() {
                         let page = UnsizedIndexPage::from_node(node.lock_arc().as_ref());
@@ -115,7 +115,7 @@ impl Generator {
             }
         } else {
             quote! {
-                pub fn get_peristed_primary_key_with_toc(&self) -> (Vec<GeneralPage<TableOfContentsPage<#pk_type>>>, Vec<GeneralPage<IndexPage<#pk_type>>>) {
+                pub fn get_peristed_primary_key_with_toc(&self) -> (Vec<GeneralPage<TableOfContentsPage<(#pk_type, Link)>>>, Vec<GeneralPage<IndexPage<#pk_type>>>) {
                     let size = get_index_page_size_from_data_length::<#pk_type>(#const_name);
                     let mut pages = vec![];
                     for node in self.0.pk_map.iter_nodes() {

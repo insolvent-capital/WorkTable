@@ -125,7 +125,7 @@ impl Generator {
             let index_field_name = &idx.name;
             let diff_key = Literal::string(i.to_string().as_str());
 
-            let match_arm = if let Some(t) = self.columns.columns_map.get(&idx.field) {
+            if let Some(t) = self.columns.columns_map.get(&idx.field) {
                 let type_str = t.to_string();
                 let variant_ident = Ident::new(&map_to_uppercase(&type_str), Span::mixed_site());
 
@@ -156,9 +156,7 @@ impl Generator {
                 }
             } else {
                 quote! {}
-            };
-
-            match_arm
+            }
         });
         let idents = self
             .columns

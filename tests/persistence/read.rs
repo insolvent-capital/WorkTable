@@ -45,7 +45,7 @@ async fn test_primary_index_parse() {
     assert_eq!(index.header.previous_id, 0.into());
     assert_eq!(index.header.next_id, 0.into());
     assert_eq!(index.header.page_type, PageType::Index);
-    assert_eq!(index.header.data_length, 16334);
+    assert_eq!(index.header.data_length, 16350);
 
     let mut key = 1;
     let length = 24;
@@ -82,7 +82,7 @@ async fn test_another_idx_index_parse() {
     assert_eq!(index.header.previous_id, 0.into());
     assert_eq!(index.header.next_id, 0.into());
     assert_eq!(index.header.page_type, PageType::Index);
-    assert_eq!(index.header.data_length, 16334);
+    assert_eq!(index.header.data_length, 16350);
 
     let mut key = 1;
     let length = 24;
@@ -110,10 +110,11 @@ async fn test_data_parse() {
     let mut file = File::open("tests/data/expected/test_persist/.wt.data")
         .await
         .unwrap();
-    let data =
-        parse_data_page::<{ TEST_PERSIST_PAGE_SIZE }, { TEST_PERSIST_INNER_SIZE }>(&mut file, 1)
-            .await
-            .unwrap();
+    let data = parse_data_page::<{ TEST_PERSIST_PAGE_SIZE as u32 }, { TEST_PERSIST_INNER_SIZE }>(
+        &mut file, 1,
+    )
+    .await
+    .unwrap();
 
     assert_eq!(data.header.space_id, 0.into());
     assert_eq!(data.header.page_id, 1.into());

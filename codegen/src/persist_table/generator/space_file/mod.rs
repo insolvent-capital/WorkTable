@@ -32,11 +32,11 @@ impl Generator {
         let space_file_ident = name_generator.get_space_file_ident();
         let primary_index = if self.attributes.pk_unsized {
             quote! {
-                pub primary_index: (Vec<GeneralPage<TableOfContentsPage<#pk_type>>>, Vec<GeneralPage<UnsizedIndexPage<#pk_type, {#inner_const_name as u32}>>>),
+                pub primary_index: (Vec<GeneralPage<TableOfContentsPage<(#pk_type, Link)>>>, Vec<GeneralPage<UnsizedIndexPage<#pk_type, {#inner_const_name as u32}>>>),
             }
         } else {
             quote! {
-                pub primary_index: (Vec<GeneralPage<TableOfContentsPage<#pk_type>>>, Vec<GeneralPage<IndexPage<#pk_type>>>),
+                pub primary_index: (Vec<GeneralPage<TableOfContentsPage<(#pk_type, Link)>>>, Vec<GeneralPage<IndexPage<#pk_type>>>),
             }
         };
 
@@ -260,7 +260,7 @@ impl Generator {
                     let file_length = data_file.metadata().await?.len();
                     let count = file_length / (#inner_const_name as u64 + GENERAL_HEADER_SIZE as u64);
                     for page_id in 1..=count {
-                        let index = parse_data_page::<{ #page_const_name }, { #inner_const_name }>(&mut data_file, page_id as u32).await?;
+                        let index = parse_data_page::<{ #page_const_name as u32}, { #inner_const_name as usize }>(&mut data_file, page_id as u32).await?;
                         data.push(index);
                     }
                     (data, info)

@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
 
+use data_bucket::page::PageId;
 use data_bucket::Link;
 use indexset::core::multipair::MultiPair;
 use indexset::core::node::NodeLike;
@@ -11,6 +12,8 @@ use indexset::core::pair::Pair;
 use ordered_float::OrderedFloat;
 use uuid::Uuid;
 
+use crate::persistence::OperationType;
+use crate::prelude::OperationId;
 use crate::IndexMultiMap;
 use crate::{impl_memstat_zero, IndexMap};
 
@@ -174,4 +177,4 @@ where
     }
 }
 
-impl_memstat_zero!(Link, Uuid);
+impl_memstat_zero!(Link, PageId, Uuid, OperationId, OperationType);
