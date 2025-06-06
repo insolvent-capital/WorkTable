@@ -1,10 +1,8 @@
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::hash::{Hash, Hasher};
 
-use crate::persistence::space::{BatchChangeEvent, BatchData};
-use crate::persistence::task::QueueInnerRow;
-use crate::prelude::*;
-use crate::prelude::{From, Order, SelectQueryExecutor};
 use data_bucket::page::PageId;
 use data_bucket::{Link, SizeMeasurable};
 use derive_more::Display;
@@ -14,27 +12,53 @@ use rkyv::{Archive, Deserialize, Serialize};
 use uuid::Uuid;
 use worktable_codegen::{worktable, MemStat};
 
+use crate::persistence::space::{BatchChangeEvent, BatchData};
+use crate::persistence::task::QueueInnerRow;
+use crate::prelude::*;
+use crate::prelude::{From, Order, SelectQueryExecutor};
+
 /// Represents page's identifier. Is unique within the table bounds
-#[derive(
-    Archive,
-    Copy,
-    Clone,
-    Deserialize,
-    Debug,
-    Display,
-    Eq,
-    From,
-    Hash,
-    Ord,
-    PartialEq,
-    PartialOrd,
-    Serialize,
-)]
+#[derive(Archive, Copy, Clone, Deserialize, Debug, Display, From, Serialize)]
 #[rkyv(derive(Debug, PartialOrd, PartialEq, Eq, Ord))]
 pub enum OperationId {
     #[from]
     Single(Uuid),
     Multi(Uuid),
+}
+
+impl OperationId {
+    fn get_id(&self) -> Uuid {
+        match self {
+            OperationId::Single(id) => *id,
+            OperationId::Multi(id) => *id,
+        }
+    }
+}
+
+impl Hash for OperationId {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        Hash::hash(&self.get_id(), state)
+    }
+}
+
+impl PartialEq for OperationId {
+    fn eq(&self, other: &Self) -> bool {
+        self.get_id().eq(&other.get_id())
+    }
+}
+
+impl Eq for OperationId {}
+
+impl PartialOrd for OperationId {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for OperationId {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.get_id().cmp(&other.get_id())
+    }
 }
 
 impl SizeMeasurable for OperationId {

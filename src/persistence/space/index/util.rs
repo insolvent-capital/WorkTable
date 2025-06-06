@@ -3,6 +3,7 @@ use data_bucket::{
     GeneralHeader, GeneralPage, IndexPage, Link, PageType, SizeMeasurable, UnsizedIndexPage,
     VariableSizeMeasurable,
 };
+use std::fmt::Debug;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 
@@ -14,7 +15,7 @@ pub fn map_index_pages_to_toc_and_general<T, const DATA_LENGTH: u32>(
     Vec<GeneralPage<IndexPage<T>>>,
 )
 where
-    T: Clone + Default + Ord + Eq + SizeMeasurable,
+    T: Debug + Clone + Default + Ord + Eq + SizeMeasurable,
 {
     let mut general_index_pages = vec![];
     let next_page_id = Arc::new(AtomicU32::new(1));
@@ -44,7 +45,7 @@ pub fn map_unsized_index_pages_to_toc_and_general<T, const DATA_LENGTH: u32>(
     Vec<GeneralPage<UnsizedIndexPage<T, DATA_LENGTH>>>,
 )
 where
-    T: Clone + Default + Ord + Eq + SizeMeasurable + VariableSizeMeasurable,
+    T: Clone + Debug + Default + Ord + Eq + SizeMeasurable + VariableSizeMeasurable,
 {
     let mut general_index_pages = vec![];
     let next_page_id = Arc::new(AtomicU32::new(1));

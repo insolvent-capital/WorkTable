@@ -438,6 +438,7 @@ where
                     let page_to_update = if let Some(page) = page {
                         page
                     } else {
+                        //println!("Trying to parse page {}", page_index);
                         let page = parse_page::<IndexPage<T>, INNER_PAGE_SIZE>(
                             &mut self.index_file,
                             page_index.into(),

@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 
@@ -24,7 +25,7 @@ pub struct IndexTableOfContents<T: Ord + Eq, const DATA_LENGTH: u32> {
 
 impl<T, const DATA_LENGTH: u32> IndexTableOfContents<T, DATA_LENGTH>
 where
-    T: SizeMeasurable + Ord + Eq,
+    T: Debug + SizeMeasurable + Ord + Eq,
 {
     pub fn new(space_id: SpaceId, next_page_id: Arc<AtomicU32>) -> Self {
         let page_id = next_page_id.fetch_add(1, Ordering::Relaxed);
@@ -114,9 +115,19 @@ where
         self.pages.iter().flat_map(|v| v.inner.iter())
     }
 
-    pub fn update_key(&mut self, old_key: &T, new_key: T) {
+    pub fn update_key(&mut self, old_key: &T, new_key: T)
+    where
+        T: Clone + Debug,
+    {
         let page = self.get_current_page_mut();
-        page.inner.update_key(old_key, new_key);
+        if page.inner.update_key(old_key, new_key.clone()).is_none() {
+            for page in self.pages.iter_mut() {
+                if page.inner.update_key(old_key, new_key.clone()).is_some() {
+                    return;
+                }
+            }
+            panic!("Page with key {:?} not found", old_key);
+        }
     }
 
     pub fn pop_empty_page_id(&mut self) -> Option<PageId> {
@@ -166,15 +177,15 @@ where
                 })
             } else {
                 let mut table_of_contents_pages = vec![page];
-                let mut index = 2;
+                let mut index = table_of_contents_pages[0].header.next_id.into();
                 let mut ind = false;
 
                 while !ind {
                     let page =
                         parse_page::<TableOfContentsPage<T>, DATA_LENGTH>(file, index).await?;
                     ind = page.header.next_id.is_empty();
+                    index = page.header.next_id.into();
                     table_of_contents_pages.push(page);
-                    index += 1;
                 }
 
                 Ok(Self {

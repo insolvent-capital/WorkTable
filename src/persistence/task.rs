@@ -30,6 +30,8 @@ worktable! (
     },
 );
 
+const MAX_PAGE_AMOUNT: usize = 16;
+
 pub struct QueueAnalyzer<PrimaryKeyGenState, PrimaryKey, SecondaryKeys> {
     operations: OptimizedVec<Operation<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>>,
     queue_inner_wt: QueueInnerWorkTable,
@@ -96,54 +98,87 @@ where
         PrimaryKey: Clone,
         SecondaryKeys: Clone,
     {
-        let ops_rows = self
-            .queue_inner_wt
-            .select_by_operation_id(op_id)
-            .execute()?;
-
         let mut ops_set = HashSet::new();
+        let mut used_page_ids = HashSet::new();
 
-        let used_page_ids = ops_rows.iter().map(|r| r.page_id).collect::<HashSet<_>>();
-        // We collect all ops available for pages that are used in our current op_id
-        for page_id in used_page_ids.iter() {
-            let page_ops = self.queue_inner_wt.select_by_page_id(*page_id).execute()?;
-            ops_set.extend(page_ops.into_iter().map(|r| r.operation_id));
-        }
-        // After we need to find out if multi ops are using same pages, and if not,
-        // we need to find the first multi op that blocks batch update by using
-        // another page.
-        let mut block_op_id = None;
-        for op_id in ops_set.iter().filter(|op_id| match op_id {
-            OperationId::Single(_) => false,
-            OperationId::Multi(_) => true,
-        }) {
-            let rows = self
+        let mut next_op_id = op_id;
+        let mut no_more_ops = false;
+        while used_page_ids.len() < MAX_PAGE_AMOUNT && !no_more_ops {
+            let ops_rows = self
                 .queue_inner_wt
-                .select_by_operation_id(*op_id)
+                .select_by_operation_id(next_op_id)
                 .execute()?;
-            let pages = rows.iter().map(|r| r.page_id).collect::<HashSet<_>>();
-            // if pages used by multi op are not available is used_page_ids set, it's blocker op.
-            for page in pages.iter() {
-                if !used_page_ids.contains(page) {
-                    if let Some(block_op_id) = block_op_id.as_mut() {
-                        if *block_op_id > *op_id {
-                            *block_op_id = *op_id
+            match next_op_id {
+                OperationId::Single(_) => {
+                    let page_id = ops_rows
+                        .first()
+                        .expect("at least one row should be available as operation exists")
+                        .page_id;
+                    used_page_ids.insert(page_id);
+                    let page_ops = self.queue_inner_wt.select_by_page_id(page_id).execute()?;
+                    let max_op_id = &mut next_op_id;
+                    ops_set.extend(page_ops.into_iter().map(move |r| {
+                        if r.operation_id > *max_op_id {
+                            *max_op_id = r.operation_id
                         }
-                    } else {
-                        block_op_id = Some(*op_id)
-                    }
+                        r.operation_id
+                    }));
                 }
+                OperationId::Multi(_) => {
+                    let mut ops_set_to_extend = HashSet::new();
+                    used_page_ids.extend(ops_rows.iter().map(|r| r.page_id));
+                    for page_id in ops_rows.iter().map(|r| r.page_id) {
+                        let page_ops = self.queue_inner_wt.select_by_page_id(page_id).execute()?;
+                        ops_set_to_extend.extend(page_ops.into_iter().map(|r| r.operation_id));
+                    }
+                    let mut block_op_id = None;
+                    for op_id in ops_set_to_extend.iter().filter(|op_id| match op_id {
+                        OperationId::Single(_) => false,
+                        OperationId::Multi(_) => true,
+                    }) {
+                        let rows = self
+                            .queue_inner_wt
+                            .select_by_operation_id(*op_id)
+                            .execute()?;
+                        let pages = rows.iter().map(|r| r.page_id).collect::<HashSet<_>>();
+                        // if pages used by multi op are not available is used_page_ids set, it's blocker op
+                        for page in pages.iter() {
+                            if !used_page_ids.contains(page) {
+                                if let Some(block_op_id) = block_op_id.as_mut() {
+                                    if *block_op_id > *op_id {
+                                        *block_op_id = *op_id
+                                    }
+                                } else {
+                                    block_op_id = Some(*op_id)
+                                }
+                            }
+                        }
+                    }
+                    // And if we found some blocker, we need to remove all ops after blocking op.
+                    let ops_set_to_extend = if let Some(block_op_id) = block_op_id {
+                        ops_set_to_extend
+                            .into_iter()
+                            .filter(|op_id| *op_id >= block_op_id)
+                            .collect()
+                    } else {
+                        ops_set_to_extend
+                    };
+                    ops_set.extend(ops_set_to_extend);
+                    no_more_ops = true;
+                }
+            };
+            let mut range = self
+                .queue_inner_wt
+                .0
+                .indexes
+                .operation_id_idx
+                .range(next_op_id..);
+            if let Some((id, _)) = range.nth(1) {
+                next_op_id = *id;
+            } else {
+                no_more_ops = true
             }
         }
-        // And if we found some blocker, we need to remove all ops after blocking op.
-        let ops_set = if let Some(block_op_id) = block_op_id {
-            ops_set
-                .into_iter()
-                .filter(|op_id| *op_id >= block_op_id)
-                .collect()
-        } else {
-            ops_set
-        };
         // After this point, we have ops set ready for batch generation.
         let mut ops_pos_set = HashSet::new();
         for op_id in ops_set {
@@ -307,11 +342,11 @@ impl<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>
                         tracing::warn!("Error collecting batch operation: {}", e);
                     } else {
                         let batch_op = batch_op.unwrap();
-                        // println!(
-                        //     "Batch len is {}, queue len is {}",
-                        //     batch_op.ops.len(),
-                        //     analyzer.len()
-                        // );
+                        println!(
+                            "Batch len is {}, queue len is {}",
+                            batch_op.ops.len(),
+                            analyzer.len()
+                        );
                         let res = engine.apply_batch_operation(batch_op).await;
                         if let Err(e) = res {
                             tracing::warn!(
