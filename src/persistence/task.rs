@@ -342,11 +342,11 @@ impl<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>
                         tracing::warn!("Error collecting batch operation: {}", e);
                     } else {
                         let batch_op = batch_op.unwrap();
-                        println!(
-                            "Batch len is {}, queue len is {}",
-                            batch_op.ops.len(),
-                            analyzer.len()
-                        );
+                        // println!(
+                        //     "Batch len is {}, queue len is {}",
+                        //     batch_op.ops.len(),
+                        //     analyzer.len()
+                        // );
                         let res = engine.apply_batch_operation(batch_op).await;
                         if let Err(e) = res {
                             tracing::warn!(
