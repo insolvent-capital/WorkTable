@@ -7,6 +7,7 @@ use worktable::worktable;
 mod string_primary_index;
 mod string_re_read;
 mod string_secondary_index;
+mod uuid_;
 
 worktable! (
     name: TestSync,
@@ -35,7 +36,7 @@ worktable! (
 
 #[test]
 fn test_wait_for_ops_for_empty() {
-    let config = PersistenceConfig::new("tests/data/sync/insert", "tests/data/sync/insert");
+    let config = PersistenceConfig::new("tests/data/sync/wait", "tests/data/sync/wait");
 
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2)
@@ -45,6 +46,8 @@ fn test_wait_for_ops_for_empty() {
         .unwrap();
 
     runtime.block_on(async {
+        remove_dir_if_exists("tests/data/sync/wait".to_string()).await;
+
         let table = TestSyncWorkTable::load_from_file(config.clone())
             .await
             .unwrap();
