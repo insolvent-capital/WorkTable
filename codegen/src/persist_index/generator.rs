@@ -369,7 +369,23 @@ impl Generator {
                         }
                     } else {
                         quote! {
-                            let node = UnsizedNode::from_inner(page.inner.get_node().into_iter().map(|p| p.into()).collect(), #const_name);
+                            let inner = page.inner.get_node();
+                            let mut last_key = inner.first().expect("Node should be not empty").key.clone();
+                            let mut discriminator = 0;
+                            let mut inner = inner.into_iter().map(move |p| {
+                                if p.key == last_key {
+                                    let multi = p.with_last_discriminator(discriminator) ;
+                                    discriminator = multi.discriminator;
+                                    multi
+                                } else {
+                                    last_key = p.key.clone();
+                                    let multi: IndexMultiPair<_, _> = p.into();
+                                    discriminator = multi.discriminator;
+                                    multi
+                                }
+                            }).collect::<Vec<_>>();
+                            inner.sort();
+                            let node = UnsizedNode::from_inner(inner, #const_name);
                             #i.attach_multi_node(node);
                         }
                     };
@@ -387,8 +403,23 @@ impl Generator {
                         }
                     } else {
                         quote! {
-                            let node = page.inner.get_node();
-                            #i.attach_multi_node(node.into_iter().map(|p| p.into()).collect());
+                            let inner = page.inner.get_node();
+                            let mut last_key = inner.first().expect("Node should be not empty").key.clone();
+                            let mut discriminator = 0;
+                            let mut inner = inner.into_iter().map(move |p| {
+                                if p.key == last_key {
+                                    let multi = p.with_last_discriminator(discriminator) ;
+                                    discriminator = multi.discriminator;
+                                    multi
+                                } else {
+                                    last_key = p.key.clone();
+                                    let multi: IndexMultiPair<_, _> = p.into();
+                                    discriminator = multi.discriminator;
+                                    multi
+                                }
+                            }).collect::<Vec<_>>();
+                            inner.sort();
+                            #i.attach_multi_node(inner);
                         }
                     };
                     quote! {

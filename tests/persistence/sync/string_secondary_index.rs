@@ -406,3 +406,51 @@ fn test_space_delete_query_sync() {
         }
     });
 }
+
+#[test]
+fn test_space_all_data_is_available() {
+    let config = PersistenceConfig::new(
+        "tests/data/unsized_secondary_sync/data_is_available",
+        "tests/data/unsized_secondary_sync/data_is_available",
+    );
+
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .enable_io()
+        .enable_time()
+        .build()
+        .unwrap();
+
+    runtime.block_on(async {
+        remove_dir_if_exists("tests/data/unsized_secondary_sync/data_is_available".to_string())
+            .await;
+
+        {
+            let table = TestSyncWorkTable::load_from_file(config.clone())
+                .await
+                .unwrap();
+            for i in 0..2000 {
+                let row = TestSyncRow {
+                    another: format!("ValueNumber{}", i),
+                    non_unique: i % 200,
+                    field: 0.0,
+                    id: table.get_next_pk().0,
+                };
+                table.insert(row.clone()).unwrap();
+            }
+
+            table.wait_for_ops().await;
+        };
+        {
+            let table = TestSyncWorkTable::load_from_file(config).await.unwrap();
+            for i in 0..2000 {
+                assert!(table
+                    .select_by_another(format!("ValueNumber{}", i))
+                    .is_some());
+            }
+            for i in 0..200 {
+                assert_eq!(table.select_by_non_unique(i).execute().unwrap().len(), 10,);
+            }
+        }
+    });
+}

@@ -3,12 +3,13 @@ use indexset::core::node::NodeLike;
 
 use std::borrow::Borrow;
 use std::collections::Bound;
+use std::fmt::Debug;
 use std::ops::Deref;
 use std::slice::Iter;
 
 pub const UNSIZED_HEADER_LENGTH: u32 = 64;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct UnsizedNode<T>
 where
     T: SizeMeasurable,
@@ -49,7 +50,7 @@ where
 
 impl<T> NodeLike<T> for UnsizedNode<T>
 where
-    T: SizeMeasurable + Ord + Default + VariableSizeMeasurable,
+    T: SizeMeasurable + Ord + Default + Debug + VariableSizeMeasurable,
 {
     fn with_capacity(capacity: usize) -> Self {
         Self {
@@ -75,7 +76,7 @@ where
         let mut middle_idx = 0;
         let mut iter = self.inner.iter();
         while !ind {
-            let val = iter.next().expect("we stop before node's end");
+            let val = iter.next().expect("we should stop before node's end");
             current_length += val.aligned_size();
             current_length += UnsizedIndexPageUtility::<T>::slots_value_size();
             let current_middle_variance =
@@ -192,9 +193,11 @@ where
 
 #[cfg(test)]
 mod test {
-    use indexset::core::node::NodeLike;
-
     use crate::index::unsized_node::UnsizedNode;
+    use data_bucket::Link;
+    use indexset::concurrent::multimap::BTreeMultiMap;
+    use indexset::core::multipair::MultiPair;
+    use indexset::core::node::NodeLike;
 
     #[test]
     fn test_split_basic() {
@@ -222,5 +225,27 @@ mod test {
         assert_eq!(node.inner.len(), 2);
         assert_eq!(split.length, 136);
         assert_eq!(split.inner.len(), 1);
+    }
+
+    #[test]
+    fn test_get_works_as_expected_at_big_amounts() {
+        let maximum_node_size = 1000;
+        let map = BTreeMultiMap::<String, Link, UnsizedNode<MultiPair<String, Link>>>::with_maximum_node_size(maximum_node_size);
+
+        for i in 1..2000 {
+            map.insert(
+                format!("ValueNum{}", i % 200),
+                Link {
+                    page_id: Default::default(),
+                    offset: i,
+                    length: i,
+                },
+            );
+        }
+
+        for i in 1..200 {
+            let range = map.get(&format!("ValueNum{}", i)).collect::<Vec<_>>();
+            assert_eq!(range.len(), 10)
+        }
     }
 }

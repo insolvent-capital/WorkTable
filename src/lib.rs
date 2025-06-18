@@ -36,9 +36,9 @@ pub mod prelude {
     pub use crate::table::system_info::{IndexInfo, IndexKind, SystemInfo};
     pub use crate::util::{OrderedF32Def, OrderedF64Def};
     pub use crate::{
-        lock::Lock, Difference, IndexError, IndexMap, IndexMultiMap, TableIndex, TableIndexCdc,
-        TableRow, TableSecondaryIndex, TableSecondaryIndexCdc, TableSecondaryIndexEventsOps,
-        UnsizedNode, WorkTable, WorkTableError,
+        lock::Lock, Difference, IndexError, IndexMap, IndexMultiMap, MultiPairRecreate, TableIndex,
+        TableIndexCdc, TableRow, TableSecondaryIndex, TableSecondaryIndexCdc,
+        TableSecondaryIndexEventsOps, UnsizedNode, WorkTable, WorkTableError,
     };
     pub use data_bucket::{
         align, get_index_page_size_from_data_length, map_data_pages_to_general, parse_data_page,

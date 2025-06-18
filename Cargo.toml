@@ -23,6 +23,7 @@ tracing = "0.1"
 rkyv = { version = "0.8.9", features = ["uuid-1"] }
 lockfree = { version = "0.5.1" }
 worktable_codegen = { path = "codegen", version = "0.6.0" }
+fastrand = "2.3.0"
 futures = "0.3.30"
 uuid = { version = "1.10.0", features = ["v4", "v7"] }
 data_bucket = "0.2.6"
