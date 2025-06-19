@@ -73,8 +73,18 @@ impl Generator {
             rows[*pos] = quote! {pub #i: #type_,}
         }
 
+        let custom_derives =
+            if let Some(custom_derives) = &self.config.as_ref().map(|c| &c.row_derives) {
+                quote! {
+                    #[derive(#(#custom_derives),*)]
+                }
+            } else {
+                quote! {}
+            };
+
         quote! {
             #[derive(rkyv::Archive, Debug, rkyv::Deserialize, Clone, rkyv::Serialize, PartialEq, MemStat)]
+            #custom_derives
             #[rkyv(derive(Debug))]
             #[repr(C)]
             pub struct #ident {

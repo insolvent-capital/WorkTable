@@ -57,35 +57,73 @@ impl Parser {
     }
 
     pub fn parse_config(&mut self, config: &mut Config) -> syn::Result<Option<()>> {
-        let Some(_) = self.input_iter.peek() else {
-            return Ok(None);
-        };
-        let ident = self.input_iter.next().unwrap();
-        let name = if let TokenTree::Ident(ident) = ident {
-            ident
-        } else {
-            return Err(syn::Error::new(ident.span(), "Expected identifier."));
-        };
+        while self.peek_next().is_some() {
+            let Some(_) = self.input_iter.peek() else {
+                return Ok(None);
+            };
+            let ident = self.input_iter.next().unwrap();
+            let name = if let TokenTree::Ident(ident) = ident {
+                ident
+            } else {
+                return Err(syn::Error::new(ident.span(), "Expected identifier."));
+            };
 
-        self.parse_colon()?;
+            self.parse_colon()?;
 
-        match name.to_string().as_str() {
-            "page_size" => {
-                let value = self.input_iter.next().ok_or(syn::Error::new(
-                    self.input.span(),
-                    "Expected page size value in declaration",
-                ))?;
-                let value = if let TokenTree::Literal(value) = value {
-                    value
-                } else {
-                    return Err(syn::Error::new(value.span(), "Expected identifier."));
-                };
-                let value = value.to_string();
-                let value = value.replace("_", "");
+            match name.to_string().as_str() {
+                "page_size" => {
+                    let value = self.input_iter.next().ok_or(syn::Error::new(
+                        self.input.span(),
+                        "Expected page size value in declaration",
+                    ))?;
+                    let value = if let TokenTree::Literal(value) = value {
+                        value
+                    } else {
+                        return Err(syn::Error::new(value.span(), "Expected identifier."));
+                    };
 
-                config.page_size = Some(u32::from_str(value.as_str()).unwrap())
+                    self.try_parse_comma()?;
+
+                    let value = value.to_string();
+                    let value = value.replace("_", "");
+
+                    config.page_size = Some(u32::from_str(value.as_str()).unwrap())
+                }
+                "row_derives" => {
+                    const CONFIG_VARIANTS: [&str; 2] = ["page_size", "row_derives"];
+
+                    let mut derives = vec![];
+
+                    while let Some(ident) = self.peek_next() {
+                        if CONFIG_VARIANTS.contains(&ident.to_string().as_str()) {
+                            if derives.is_empty() {
+                                return Err(syn::Error::new(
+                                    ident.span(),
+                                    "Expected at least one derive in declaration.",
+                                ));
+                            }
+                            break;
+                        }
+
+                        let derive = self.input_iter.next().ok_or(syn::Error::new(
+                            self.input.span(),
+                            "Expected at least one derive in declaration",
+                        ))?;
+                        let derive = if let TokenTree::Ident(derive) = derive {
+                            derive
+                        } else {
+                            return Err(syn::Error::new(derive.span(), "Expected identifier."));
+                        };
+
+                        self.try_parse_comma()?;
+
+                        derives.push(derive)
+                    }
+
+                    config.row_derives = derives;
+                }
+                _ => return Err(syn::Error::new(name.span(), "Unexpected identifier")),
             }
-            _ => return Err(syn::Error::new(name.span(), "Unexpected identifier")),
         }
 
         Ok(Some(()))
