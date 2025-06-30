@@ -224,7 +224,7 @@ mod run_first {
                         },
                     },
                     value: Pair {
-                        key: format!("Something from someone {}", i),
+                        key: format!("Something from someone {i}"),
                         value: Link {
                             page_id: 0.into(),
                             offset: i * 24,

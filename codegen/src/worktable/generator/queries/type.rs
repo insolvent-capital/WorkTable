@@ -70,7 +70,7 @@ impl Generator {
                 .updates
                 .keys()
                 .map(|v| {
-                    let ident = Ident::new(format!("{}Query", v).as_str(), Span::mixed_site());
+                    let ident = Ident::new(format!("{v}Query").as_str(), Span::mixed_site());
                     let rows = queries
                         .updates
                         .get(v)

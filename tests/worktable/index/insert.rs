@@ -111,5 +111,17 @@ fn insert_when_secondary_unique_exists() {
             .len(),
         1
     );
-    assert!(table.0.indexes.attr2_idx.get(&row.attr2).is_some());
+    assert_eq!(
+        table
+            .0
+            .indexes
+            .attr2_idx
+            .get(&row.attr2)
+            .map(|r| r.get().value),
+        table
+            .0
+            .pk_map
+            .get(&TestPrimaryKey(row.id))
+            .map(|r| r.get().value)
+    );
 }

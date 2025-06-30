@@ -126,7 +126,7 @@ where
                     return;
                 }
             }
-            panic!("Page with key {:?} not found", old_key);
+            panic!("Page with key {old_key:?} not found");
         }
     }
 
@@ -259,7 +259,7 @@ mod tests {
             }
         }
 
-        assert!(keys.is_empty(), "Some keys was not inserted: {:?}", keys)
+        assert!(keys.is_empty(), "Some keys was not inserted: {keys:?}")
     }
 
     #[test]

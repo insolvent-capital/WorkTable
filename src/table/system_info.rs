@@ -116,8 +116,7 @@ impl Display for SystemInfo {
         )?;
         writeln!(
             f,
-            "Allocated Memory: {} (data) + {} (indexes) = {} total\n",
-            mem_fmt, idx_fmt, total_fmt
+            "Allocated Memory: {mem_fmt} (data) + {idx_fmt} (indexes) = {total_fmt} total\n"
         )?;
 
         let mut table = Table::new();
@@ -167,12 +166,12 @@ fn fmt_bytes(bytes: usize) -> String {
     } else if b >= KB {
         (b / KB, "KB")
     } else {
-        return format!("{} B", bytes);
+        return format!("{bytes} B");
     };
 
     if (value.fract() * 100.0).round() == 0.0 {
-        format!("{:.0} {}", value, unit)
+        format!("{value:.0} {unit}")
     } else {
-        format!("{:.2} {}", value, unit)
+        format!("{value:.2} {unit}")
     }
 }

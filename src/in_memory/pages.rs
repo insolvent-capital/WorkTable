@@ -491,7 +491,7 @@ mod tests {
 
         let elapsed = now.elapsed();
 
-        println!("wt2 {:?}", elapsed)
+        println!("wt2 {elapsed:?}")
     }
 
     #[test]
@@ -522,7 +522,7 @@ mod tests {
 
         let elapsed = now.elapsed();
 
-        println!("set {:?}", elapsed)
+        println!("set {elapsed:?}")
     }
 
     #[test]
@@ -553,6 +553,6 @@ mod tests {
 
         let elapsed = now.elapsed();
 
-        println!("vec {:?}", elapsed)
+        println!("vec {elapsed:?}")
     }
 }

@@ -220,8 +220,7 @@ impl Generator {
             let fields_check: Vec<_> = f
                 .iter()
                 .map(|f| {
-                    let fn_ident =
-                        Ident::new(format!("get_{}_size", f).as_str(), Span::call_site());
+                    let fn_ident = Ident::new(format!("get_{f}_size").as_str(), Span::call_site());
                     quote! {
                         if !need_to_reinsert {
                             need_to_reinsert = archived_row.#fn_ident() > self.#fn_ident(link)?
@@ -464,8 +463,7 @@ impl Generator {
             let fields_check: Vec<_> = f
                 .iter()
                 .map(|f| {
-                    let fn_ident =
-                        Ident::new(format!("get_{}_size", f).as_str(), Span::call_site());
+                    let fn_ident = Ident::new(format!("get_{f}_size").as_str(), Span::call_site());
                     quote! {
                         if !need_to_reinsert {
                             need_to_reinsert = archived_row.#fn_ident() > self.#fn_ident(link)?

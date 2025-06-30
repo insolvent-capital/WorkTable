@@ -68,11 +68,13 @@ impl Generator {
                     }
                 };
                 quote! {
-                    self.#index_field_name.insert(#row, link)
-                        .map_or(Ok(()), |_| Err(IndexError::AlreadyExists {
+                    if let Some(link) = self.#index_field_name.insert(#row.clone(), link) {
+                        self.#index_field_name.insert(#row, link);
+                        return Err(IndexError::AlreadyExists {
                             at: #available_index_ident::#index_variant,
                             inserted_already: inserted_indexes.clone(),
-                    }))?;
+                        })
+                    }
                     inserted_indexes.push(#available_index_ident::#index_variant);
                 }
             })

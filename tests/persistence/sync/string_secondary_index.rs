@@ -92,7 +92,7 @@ fn test_space_insert_many_sync() {
             for i in 0..20 {
                 let pk = {
                     let row = TestSyncRow {
-                        another: format!("Some string to test number {}", i),
+                        another: format!("Some string to test number {i}"),
                         non_unique: (i % 4) as u32,
                         field: i as f64 / 100.0,
                         id: table.get_next_pk().0,
@@ -431,7 +431,7 @@ fn test_space_all_data_is_available() {
                 .unwrap();
             for i in 0..2000 {
                 let row = TestSyncRow {
-                    another: format!("ValueNumber{}", i),
+                    another: format!("ValueNumber{i}"),
                     non_unique: i % 200,
                     field: 0.0,
                     id: table.get_next_pk().0,
@@ -444,9 +444,7 @@ fn test_space_all_data_is_available() {
         {
             let table = TestSyncWorkTable::load_from_file(config).await.unwrap();
             for i in 0..2000 {
-                assert!(table
-                    .select_by_another(format!("ValueNumber{}", i))
-                    .is_some());
+                assert!(table.select_by_another(format!("ValueNumber{i}")).is_some());
             }
             for i in 0..200 {
                 assert_eq!(table.select_by_non_unique(i).execute().unwrap().len(), 10,);

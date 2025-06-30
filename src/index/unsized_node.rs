@@ -203,7 +203,7 @@ mod test {
     fn test_split_basic() {
         let mut node = UnsizedNode::<String>::with_capacity(232);
         for i in 0..10 {
-            let s = format!("{}_______", i);
+            let s = format!("{i}_______");
             node.insert(s);
         }
         assert_eq!(node.length, node.length_capacity);
@@ -244,7 +244,7 @@ mod test {
         }
 
         for i in 1..200 {
-            let range = map.get(&format!("ValueNum{}", i)).collect::<Vec<_>>();
+            let range = map.get(&format!("ValueNum{i}")).collect::<Vec<_>>();
             assert_eq!(range.len(), 10)
         }
     }

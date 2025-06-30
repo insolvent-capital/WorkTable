@@ -108,7 +108,7 @@ impl Generator {
             .columns_map
             .keys()
             .map(|col| {
-                let col = Ident::new(format!("{}_lock", col).as_str(), Span::mixed_site());
+                let col = Ident::new(format!("{col}_lock").as_str(), Span::mixed_site());
                 quote! {
                    if let Some(lock) = &self.#col {
                         futures.push(lock.as_ref());
@@ -135,7 +135,7 @@ impl Generator {
             .columns_map
             .keys()
             .map(|col| {
-                let col = Ident::new(format!("{}_lock", col).as_str(), Span::mixed_site());
+                let col = Ident::new(format!("{col}_lock").as_str(), Span::mixed_site());
                 quote! {
                      if let Some(#col) = &self.#col {
                         #col.unlock();

@@ -66,7 +66,7 @@ fn gen_mem_fn_body(
                     }
                     Fields::Unnamed(fields) => {
                         let bindings: Vec<_> = (0..fields.unnamed.len())
-                            .map(|i| syn::Ident::new(&format!("f{}", i), variant.ident.span()))
+                            .map(|i| syn::Ident::new(&format!("f{i}"), variant.ident.span()))
                             .collect();
 
                         let calls = bindings

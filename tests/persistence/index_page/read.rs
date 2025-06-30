@@ -108,6 +108,27 @@ async fn test_index_page_read_after_remove_at_node_id_in_space_index() {
 }
 
 #[tokio::test]
+async fn test_index_page_read_after_remove_at_in_space_index() {
+    let mut file = OpenOptions::new()
+        .write(true)
+        .read(true)
+        .open("tests/data/expected/space_index/process_remove_at.wt.idx")
+        .await
+        .unwrap();
+
+    let page = parse_page::<IndexPage<u32>, { INNER_PAGE_SIZE as u32 }>(&mut file, 2)
+        .await
+        .unwrap();
+    assert_eq!(page.inner.node_id.key, 5);
+    assert_eq!(page.inner.current_index, 1);
+    assert_eq!(page.inner.current_length, 1);
+    assert_eq!(page.inner.slots.first().unwrap(), &0);
+    assert_eq!(page.inner.index_values.first().unwrap().key, 5);
+    assert_eq!(page.inner.index_values.first().unwrap().link.length, 24);
+    assert_eq!(page.inner.index_values.first().unwrap().link.offset, 0);
+}
+
+#[tokio::test]
 async fn test_index_page_read_after_insert_at_removed_place_in_space_index() {
     let mut file = OpenOptions::new()
         .write(true)

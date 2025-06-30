@@ -47,8 +47,9 @@ impl Generator {
                 let index_variant: TokenStream = camel_case_name.parse().unwrap();
 
                 quote! {
-                    let (exists, events) = self.#index_field_name.insert_cdc(row.#i, link);
-                    if exists.is_some() {
+                    let (exists, events) = self.#index_field_name.insert_cdc(row.#i.clone(), link);
+                    if let Some(link) = exists {
+                        self.#index_field_name.insert_cdc(row.#i, link);
                         return Err(IndexError::AlreadyExists {
                             at: #available_index_ident::#index_variant,
                             inserted_already: inserted_indexes.clone(),

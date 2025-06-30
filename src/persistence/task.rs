@@ -243,8 +243,8 @@ impl<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>
     }
 
     pub fn push(&self, value: Operation<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>) {
+        self.len.fetch_add(1, Ordering::Release);
         self.queue.push(value);
-        self.len.fetch_add(1, Ordering::Relaxed);
         self.notify.notify_one();
     }
 
@@ -252,7 +252,7 @@ impl<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>
         loop {
             // Drain values
             if let Some(value) = self.queue.pop() {
-                self.len.fetch_sub(1, Ordering::Relaxed);
+                self.len.fetch_sub(1, Ordering::Release);
                 return value;
             }
 
@@ -265,7 +265,7 @@ impl<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>
         &self,
     ) -> Option<Operation<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>> {
         if let Some(v) = self.queue.pop() {
-            self.len.fetch_sub(1, Ordering::Relaxed);
+            self.len.fetch_sub(1, Ordering::Release);
             Some(v)
         } else {
             None
@@ -277,12 +277,12 @@ impl<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>
     ) -> impl Iterator<Item = Operation<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>> {
         let iter_count = self.len.clone();
         self.queue.pop_iter().inspect(move |_| {
-            iter_count.fetch_sub(1, Ordering::Relaxed);
+            iter_count.fetch_sub(1, Ordering::Release);
         })
     }
 
     pub fn len(&self) -> usize {
-        self.len.load(Ordering::Relaxed) as usize
+        self.len.load(Ordering::Acquire) as usize
     }
 }
 

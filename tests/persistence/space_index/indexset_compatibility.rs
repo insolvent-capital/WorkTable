@@ -233,7 +233,7 @@ mod unsized_ {
 
         for i in 0..512 {
             let (_, cdc) = indexset.insert_cdc(
-                format!("Value number {}", i),
+                format!("Value number {i}"),
                 Link {
                     page_id: 0.into(),
                     offset: i * 24,

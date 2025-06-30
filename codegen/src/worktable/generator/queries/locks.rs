@@ -147,7 +147,7 @@ impl Generator {
         let inner = columns
             .iter()
             .map(|col| {
-                let col = Ident::new(format!("{}_lock", col).as_str(), Span::mixed_site());
+                let col = Ident::new(format!("{col}_lock").as_str(), Span::mixed_site());
                 quote! {
                     if let Some(#col) = &self.#col {
                         #col.unlock();
@@ -167,7 +167,7 @@ impl Generator {
         let inner = columns
             .iter()
             .map(|col| {
-                let col = Ident::new(format!("{}_lock", col).as_str(), Span::mixed_site());
+                let col = Ident::new(format!("{col}_lock").as_str(), Span::mixed_site());
                 quote! {
                     if self.#col.is_none() {
                         self.#col = Some(std::sync::Arc::new(Lock::new()));
@@ -187,7 +187,7 @@ impl Generator {
         let inner = columns
             .iter()
             .map(|col| {
-                let col = Ident::new(format!("{}_lock", col).as_str(), Span::mixed_site());
+                let col = Ident::new(format!("{col}_lock").as_str(), Span::mixed_site());
                 quote! {
                     if let Some(lock) = &self.#col {
                         futures.push(lock.as_ref());

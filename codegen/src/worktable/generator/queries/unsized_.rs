@@ -34,7 +34,7 @@ impl Generator {
                 }
             })
             .map(|f| {
-                let fn_ident = Ident::new(format!("get_{}_size", f).as_str(), Span::call_site());
+                let fn_ident = Ident::new(format!("get_{f}_size").as_str(), Span::call_site());
                 quote! {
                     fn #fn_ident(&self, link: Link) -> core::result::Result<usize, WorkTableError> {
                         self.0.data
@@ -64,7 +64,7 @@ impl Generator {
                 })
                 .map(|(i, op)| {
                     let archived_ident =
-                        Ident::new(format!("Archived{}Query", i).as_str(), Span::call_site());
+                        Ident::new(format!("Archived{i}Query").as_str(), Span::call_site());
                     let unsized_fields: Vec<_> = op
                         .columns
                         .iter()
@@ -73,7 +73,7 @@ impl Generator {
                         })
                         .map(|c| {
                             let fn_ident =
-                                Ident::new(format!("get_{}_size", c).as_str(), Span::call_site());
+                                Ident::new(format!("get_{c}_size").as_str(), Span::call_site());
                             quote! {
                                 pub fn #fn_ident(&self) -> usize {
                                     self.#c.len()

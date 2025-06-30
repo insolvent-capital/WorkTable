@@ -94,7 +94,7 @@ fn test_space_insert_many_sync() {
                         another: i,
                         non_unique: (i % 4) as u32,
                         field: i as f64 / 100.0,
-                        id: format!("Some string to test number {}", i),
+                        id: format!("Some string to test number {i}"),
                     };
                     table.insert(row.clone()).unwrap();
                     row.id

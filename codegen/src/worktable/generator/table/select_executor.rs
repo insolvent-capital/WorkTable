@@ -46,12 +46,12 @@ impl Generator {
             let ty_ident = Ident::new(&type_name.to_string(), Span::call_site());
             let variants: Vec<_> = RANGE_VARIANTS
                 .iter()
-                .map(|v| {
+                .map(|variant| {
                     let variant_ident = Ident::new(
-                        &format!("{}{}", type_name.to_string().to_case(Case::Pascal), v),
+                        &format!("{}{}", type_name.to_string().to_case(Case::Pascal), variant),
                         Span::call_site(),
                     );
-                    let range_ident = Ident::new(&format!("Range{}", v), Span::call_site());
+                    let range_ident = Ident::new(&format!("Range{variant}"), Span::call_site());
                     quote! {
                         #variant_ident(std::ops::#range_ident<#ty_ident>),
                     }
@@ -67,12 +67,12 @@ impl Generator {
             let ty_ident = Ident::new(&type_name.to_string(), Span::call_site());
             let variants: Vec<_> = RANGE_VARIANTS
                 .iter()
-                .map(|v| {
+                .map(|variant| {
                     let variant_ident = Ident::new(
-                        &format!("{}{}", type_name.to_string().to_case(Case::Pascal), v),
+                        &format!("{}{}", type_name.to_string().to_case(Case::Pascal), variant),
                         Span::call_site(),
                     );
-                    let range_ident = Ident::new(&format!("Range{}", v), Span::call_site());
+                    let range_ident = Ident::new(&format!("Range{variant}"), Span::call_site());
                     quote! {
                         impl From<std::ops::#range_ident<#ty_ident>> for #column_range_type {
                             fn from(range: std::ops::#range_ident<#ty_ident>) -> Self {

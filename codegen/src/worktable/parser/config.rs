@@ -12,14 +12,14 @@ impl Parser {
     pub fn parse_configs(&mut self) -> syn::Result<Config> {
         let ident = self.input_iter.next().ok_or(syn::Error::new(
             self.input.span(),
-            format!("Expected `{}` field in declaration", CONFIG_FIELD_NAME),
+            format!("Expected `{CONFIG_FIELD_NAME}` field in declaration"),
         ))?;
 
         if let TokenTree::Ident(ident) = ident {
             if ident.to_string().as_str() != CONFIG_FIELD_NAME {
                 return Err(syn::Error::new(
                     ident.span(),
-                    format!("Expected `{}` field in declaration", CONFIG_FIELD_NAME),
+                    format!("Expected `{CONFIG_FIELD_NAME}` field in declaration"),
                 ));
             }
         } else {
@@ -34,7 +34,7 @@ impl Parser {
         let tt = {
             let group = self.input_iter.next().ok_or(syn::Error::new(
                 self.input.span(),
-                format!("Expected `{}` declarations", CONFIG_FIELD_NAME),
+                format!("Expected `{CONFIG_FIELD_NAME}` declarations"),
             ))?;
             if let TokenTree::Group(group) = group {
                 if group.delimiter() != Delimiter::Brace {
@@ -44,7 +44,7 @@ impl Parser {
             } else {
                 return Err(syn::Error::new(
                     group.span(),
-                    format!("Expected `{}` declarations", CONFIG_FIELD_NAME),
+                    format!("Expected `{CONFIG_FIELD_NAME}` declarations"),
                 ));
             }
         };

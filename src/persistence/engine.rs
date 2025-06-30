@@ -141,13 +141,6 @@ where
         let batch_data_op = batch_op.get_batch_data_op()?;
 
         let (pk_evs, secondary_evs) = batch_op.get_indexes_evs()?;
-        // self.data.save_batch_data(batch_data_op).await?;
-        // self.primary_index
-        //     .process_change_event_batch(pk_evs)
-        //     .await?;
-        // self.secondary_indexes
-        //     .process_change_event_batch(secondary_evs)
-        //     .await?;
         {
             let mut futs = FuturesUnordered::new();
             futs.push(Either::Left(Either::Right(
