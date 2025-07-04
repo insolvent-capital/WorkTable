@@ -195,6 +195,13 @@ fn test_key_delete_scenario() {
     })
 }
 
+// #[test]
+// fn test_key_delete_scenario_multiple() {
+//     for _ in 0..100 {
+//         test_key_delete_by_unique()
+//     }
+// }
+
 #[test]
 fn test_key_delete() {
     let config = PersistenceConfig::new("tests/data/key/delete", "tests/data/key/delete");
@@ -259,6 +266,169 @@ fn test_key_delete() {
                 1
             );
             assert!(table.select_by_second("second_again".to_string()).is_none())
+        }
+    })
+}
+
+#[test]
+fn test_key_delete_all() {
+    let config = PersistenceConfig::new("tests/data/key/delete_all", "tests/data/key/delete_all");
+
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .enable_io()
+        .enable_time()
+        .build()
+        .unwrap();
+
+    runtime.block_on(async {
+        remove_dir_if_exists("tests/data/key/delete_all".to_string()).await;
+
+        let (pk0, pk1) = {
+            let table = StringReReadWorkTable::load_from_file(config.clone())
+                .await
+                .unwrap();
+            let pk0 = table
+                .insert(StringReReadRow {
+                    first: "first".to_string(),
+                    id: table.get_next_pk().into(),
+                    third: "third".to_string(),
+                    second: "second".to_string(),
+                    last: "_________________________last_____________________".to_string(),
+                })
+                .unwrap();
+            let pk1 = table
+                .insert(StringReReadRow {
+                    first: "first".to_string(),
+                    id: table.get_next_pk().into(),
+                    third: "third_again".to_string(),
+                    second: "second_again".to_string(),
+                    last: "_________________________last_____________________".to_string(),
+                })
+                .unwrap();
+
+            table.wait_for_ops().await;
+            (pk0, pk1)
+        };
+        {
+            let table = StringReReadWorkTable::load_from_file(config.clone())
+                .await
+                .unwrap();
+            table.delete(pk0.clone()).await.unwrap();
+            table.delete(pk1.clone()).await.unwrap();
+
+            table.wait_for_ops().await
+        }
+        {
+            let table = StringReReadWorkTable::load_from_file(config.clone())
+                .await
+                .unwrap();
+            assert_eq!(table.select_all().execute().unwrap().len(), 0);
+
+            assert!(table.select(pk0).is_none());
+            assert!(table.select(pk1).is_none());
+            assert_eq!(
+                table
+                    .select_by_first("first".to_string())
+                    .execute()
+                    .unwrap()
+                    .len(),
+                0
+            );
+            assert!(table.select_by_second("second_again".to_string()).is_none());
+            assert!(table.select_by_second("second".to_string()).is_none())
+        }
+    })
+}
+
+#[test]
+fn test_key_delete_all_and_insert() {
+    let config = PersistenceConfig::new(
+        "tests/data/key/delete_all_and_insert",
+        "tests/data/key/delete_all_and_insert",
+    );
+
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .enable_io()
+        .enable_time()
+        .build()
+        .unwrap();
+
+    runtime.block_on(async {
+        remove_dir_if_exists("tests/data/key/delete_all_and_insert".to_string()).await;
+
+        let (pk0, pk1) = {
+            let table = StringReReadWorkTable::load_from_file(config.clone())
+                .await
+                .unwrap();
+            let pk0 = table
+                .insert(StringReReadRow {
+                    first: "first".to_string(),
+                    id: table.get_next_pk().into(),
+                    third: "third".to_string(),
+                    second: "second".to_string(),
+                    last: "_________________________last_____________________".to_string(),
+                })
+                .unwrap();
+            let pk1 = table
+                .insert(StringReReadRow {
+                    first: "first".to_string(),
+                    id: table.get_next_pk().into(),
+                    third: "third_again".to_string(),
+                    second: "second_again".to_string(),
+                    last: "_________________________last_____________________".to_string(),
+                })
+                .unwrap();
+
+            table.wait_for_ops().await;
+            (pk0, pk1)
+        };
+        {
+            let table = StringReReadWorkTable::load_from_file(config.clone())
+                .await
+                .unwrap();
+            table.delete(pk0.clone()).await.unwrap();
+            table.delete(pk1.clone()).await.unwrap();
+
+            table.wait_for_ops().await
+        }
+        let pk = {
+            let table = StringReReadWorkTable::load_from_file(config.clone())
+                .await
+                .unwrap();
+            assert_eq!(table.select_all().execute().unwrap().len(), 0);
+
+            let pk = table
+                .insert(StringReReadRow {
+                    first: "first".to_string(),
+                    id: table.get_next_pk().into(),
+                    third: "third_again".to_string(),
+                    second: "second".to_string(),
+                    last: "_________________________last_____________________".to_string(),
+                })
+                .unwrap();
+
+            table.wait_for_ops().await;
+            pk
+        };
+        {
+            let table = StringReReadWorkTable::load_from_file(config.clone())
+                .await
+                .unwrap();
+
+            assert_eq!(table.select_all().execute().unwrap().len(), 1);
+
+            assert!(table.select(pk).is_some());
+            assert_eq!(
+                table
+                    .select_by_first("first".to_string())
+                    .execute()
+                    .unwrap()
+                    .len(),
+                1
+            );
+            assert!(table.select_by_second("second".to_string()).is_some())
         }
     })
 }

@@ -1,18 +1,18 @@
+use data_bucket::page::PageId;
+use std::collections::HashSet;
+use std::fmt::Debug;
+use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
+use std::sync::Arc;
+use std::time::Duration;
+use tokio::sync::Notify;
+use worktable_codegen::worktable;
+
 use crate::persistence::operation::{
     BatchInnerRow, BatchInnerWorkTable, BatchOperation, OperationId, PosByOpIdQuery,
 };
 use crate::persistence::PersistenceEngineOps;
 use crate::prelude::*;
 use crate::util::OptimizedVec;
-
-use std::collections::HashSet;
-use std::fmt::Debug;
-use std::sync::atomic::{AtomicU16, Ordering};
-use std::sync::Arc;
-
-use data_bucket::page::PageId;
-use tokio::sync::Notify;
-use worktable_codegen::worktable;
 
 worktable! (
     name: QueueInner,
@@ -34,7 +34,7 @@ const MAX_PAGE_AMOUNT: usize = 16;
 
 pub struct QueueAnalyzer<PrimaryKeyGenState, PrimaryKey, SecondaryKeys> {
     operations: OptimizedVec<Operation<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>>,
-    queue_inner_wt: QueueInnerWorkTable,
+    queue_inner_wt: Arc<QueueInnerWorkTable>,
 }
 
 impl<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>
@@ -44,10 +44,10 @@ where
     PrimaryKey: Debug,
     SecondaryKeys: Debug,
 {
-    pub fn new() -> Self {
+    pub fn new(queue_inner_wt: Arc<QueueInnerWorkTable>) -> Self {
         Self {
             operations: OptimizedVec::with_capacity(256),
-            queue_inner_wt: QueueInnerWorkTable::default(),
+            queue_inner_wt,
         }
     }
 
@@ -291,6 +291,8 @@ pub struct PersistenceTask<PrimaryKeyGenState, PrimaryKey, SecondaryKeys> {
     #[allow(dead_code)]
     engine_task_handle: tokio::task::AbortHandle,
     queue: Arc<Queue<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>>,
+    analyzer_inner_wt: Arc<QueueInnerWorkTable>,
+    analyzer_in_progress: Arc<AtomicBool>,
     progress_notify: Arc<Notify>,
 }
 
@@ -313,19 +315,23 @@ impl<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>
 
         let engine_queue = queue.clone();
         let engine_progress_notify = progress_notify.clone();
+        let analyzer_inner_wt: Arc<QueueInnerWorkTable> = Default::default();
+        let mut analyzer = QueueAnalyzer::new(analyzer_inner_wt.clone());
+        let analyzer_in_progress = Arc::new(AtomicBool::new(true));
+        let task_analyzer_in_progress = analyzer_in_progress.clone();
+
         let task = async move {
-            let mut analyzer = QueueAnalyzer::new();
             loop {
                 let op = if let Some(next_op) = engine_queue.immediate_pop() {
                     Some(next_op)
+                } else if analyzer.len() == 0 {
+                    engine_progress_notify.notify_waiters();
+                    task_analyzer_in_progress.store(false, Ordering::Release);
+                    let res = Some(engine_queue.pop().await);
+                    task_analyzer_in_progress.store(true, Ordering::Release);
+                    res
                 } else {
-                    // println!("Queue is {:?}", analyzer.len());
-                    if analyzer.len() == 0 {
-                        engine_progress_notify.notify_waiters();
-                        Some(engine_queue.pop().await)
-                    } else {
-                        None
-                    }
+                    None
                 };
                 if let Some(op) = op {
                     if let Err(err) = analyzer.push(op) {
@@ -342,11 +348,6 @@ impl<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>
                         tracing::warn!("Error collecting batch operation: {}", e);
                     } else {
                         let batch_op = batch_op.unwrap();
-                        // println!(
-                        //     "Batch len is {}, queue len is {}",
-                        //     batch_op.ops.len(),
-                        //     analyzer.len()
-                        // );
                         let res = engine.apply_batch_operation(batch_op).await;
                         if let Err(e) = res {
                             tracing::warn!(
@@ -362,15 +363,40 @@ impl<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>
         Self {
             queue,
             engine_task_handle,
+            analyzer_inner_wt,
+            analyzer_in_progress,
             progress_notify,
         }
     }
 
+    fn check_wait_triggers(&self) -> bool {
+        if self.queue.len() != 0 {
+            return false;
+        }
+        if self.analyzer_inner_wt.count() != 0 {
+            return false;
+        }
+        if self.analyzer_in_progress.load(Ordering::Acquire) {
+            return false;
+        }
+        true
+    }
+
     pub async fn wait_for_ops(&self) {
-        let count = self.queue.len();
-        if count != 0 {
-            tracing::info!("Waiting for {} operations", count);
-            self.progress_notify.notified().await
+        while !self.check_wait_triggers() {
+            let queue_count = self.queue.len();
+            let analyzer_count = self.analyzer_inner_wt.count();
+            let count = queue_count + analyzer_count;
+            if count == 0 {
+                tracing::info!("Waiting for last operation");
+            } else {
+                tracing::info!("Waiting for {} operations", count);
+            }
+
+            tokio::select! {
+                _ = self.progress_notify.notified() => {},
+                _ = tokio::time::sleep(Duration::from_secs(1)) => {}
+            }
         }
     }
 }
