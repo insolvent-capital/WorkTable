@@ -2,11 +2,11 @@ use data_bucket::Link;
 use indexset::core::node::NodeLike;
 use indexset::core::pair::Pair;
 use prettytable::{format::consts::FORMAT_NO_BORDER_LINE_SEPARATOR, row, Table};
-use std::fmt::{self, Display, Formatter};
+use std::fmt::{self, Debug, Display, Formatter};
 
 use crate::in_memory::{RowWrapper, StorableRow};
 use crate::mem_stat::MemStat;
-use crate::{TableSecondaryIndex, WorkTable};
+use crate::{TableSecondaryIndexInfo, WorkTable};
 
 #[derive(Debug)]
 pub struct SystemInfo {
@@ -50,7 +50,7 @@ impl<
         PrimaryKey,
         AvailableTypes,
         AvailableIndexes,
-        SecondaryIndexes: MemStat + TableSecondaryIndex<Row, AvailableTypes, AvailableIndexes>,
+        SecondaryIndexes,
         LockType,
         PkGen,
         NodeType,
@@ -68,10 +68,11 @@ impl<
         DATA_LENGTH,
     >
 where
-    PrimaryKey: Clone + Ord + Send + 'static + std::hash::Hash,
+    PrimaryKey: Debug + Clone + Ord + Send + 'static + std::hash::Hash,
     Row: StorableRow,
     <Row as StorableRow>::WrappedRow: RowWrapper<Row>,
     NodeType: NodeLike<Pair<PrimaryKey, Link>> + Send + 'static,
+    SecondaryIndexes: MemStat + TableSecondaryIndexInfo,
 {
     pub fn system_info(&self) -> SystemInfo {
         let page_count = self.data.get_page_count();

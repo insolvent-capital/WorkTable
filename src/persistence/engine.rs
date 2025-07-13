@@ -9,6 +9,7 @@ use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use std::fmt::Debug;
 use std::fs;
+use std::hash::Hash;
 use std::marker::PhantomData;
 use std::path::Path;
 
@@ -19,6 +20,7 @@ pub struct PersistenceEngine<
     SpaceSecondaryIndexes,
     PrimaryKey,
     SecondaryIndexEvents,
+    AvailableIndexes,
     PrimaryKeyGenState = <<PrimaryKey as TablePrimaryKey>::Generator as PrimaryKeyGeneratorState>::State,
 >
 where
@@ -28,7 +30,7 @@ where
     pub data: SpaceData,
     pub primary_index: SpacePrimaryIndex,
     pub secondary_indexes: SpaceSecondaryIndexes,
-    phantom_data: PhantomData<(PrimaryKey, SecondaryIndexEvents, PrimaryKeyGenState)>,
+    phantom_data: PhantomData<(PrimaryKey, SecondaryIndexEvents, PrimaryKeyGenState, AvailableIndexes)>,
 }
 
 impl<
@@ -37,6 +39,7 @@ impl<
         SpaceSecondaryIndexes,
         PrimaryKey,
         SecondaryIndexEvents,
+        AvailableIndexes,
         PrimaryKeyGenState,
     >
     PersistenceEngine<
@@ -45,6 +48,7 @@ impl<
         SpaceSecondaryIndexes,
         PrimaryKey,
         SecondaryIndexEvents,
+        AvailableIndexes,
         PrimaryKeyGenState,
     >
 where
@@ -77,14 +81,16 @@ impl<
         SpaceSecondaryIndexes,
         PrimaryKey,
         SecondaryIndexEvents,
+        AvailableIndexes,
         PrimaryKeyGenState,
-    > PersistenceEngineOps<PrimaryKeyGenState, PrimaryKey, SecondaryIndexEvents>
+    > PersistenceEngineOps<PrimaryKeyGenState, PrimaryKey, SecondaryIndexEvents, AvailableIndexes>
     for PersistenceEngine<
         SpaceData,
         SpacePrimaryIndex,
         SpaceSecondaryIndexes,
         PrimaryKey,
         SecondaryIndexEvents,
+        AvailableIndexes,
         PrimaryKeyGenState,
     >
 where
@@ -93,8 +99,10 @@ where
     SpaceData: SpaceDataOps<PrimaryKeyGenState> + Send,
     SpacePrimaryIndex: SpaceIndexOps<PrimaryKey> + Send,
     SpaceSecondaryIndexes: SpaceSecondaryIndexOps<SecondaryIndexEvents> + Send,
-    SecondaryIndexEvents: Clone + Debug + Default + TableSecondaryIndexEventsOps + Send,
+    SecondaryIndexEvents:
+        Clone + Debug + Default + TableSecondaryIndexEventsOps<AvailableIndexes> + Send,
     PrimaryKeyGenState: Clone + Debug + Send,
+    AvailableIndexes: Clone + Copy + Debug + Eq + Hash + Send,
 {
     async fn apply_operation(
         &mut self,
@@ -136,7 +144,12 @@ where
 
     async fn apply_batch_operation(
         &mut self,
-        batch_op: BatchOperation<PrimaryKeyGenState, PrimaryKey, SecondaryIndexEvents>,
+        batch_op: BatchOperation<
+            PrimaryKeyGenState,
+            PrimaryKey,
+            SecondaryIndexEvents,
+            AvailableIndexes,
+        >,
     ) -> eyre::Result<()> {
         let batch_data_op = batch_op.get_batch_data_op()?;
 

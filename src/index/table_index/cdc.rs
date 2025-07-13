@@ -1,11 +1,13 @@
+use std::fmt::Debug;
 use std::hash::Hash;
 
-use crate::{IndexMap, IndexMultiMap};
 use data_bucket::Link;
 use indexset::cdc::change::ChangeEvent;
 use indexset::core::multipair::MultiPair;
 use indexset::core::node::NodeLike;
 use indexset::core::pair::Pair;
+
+use crate::{IndexMap, IndexMultiMap};
 
 pub trait TableIndexCdc<T> {
     fn insert_cdc(&self, value: T, link: Link) -> (Option<Link>, Vec<ChangeEvent<Pair<T, Link>>>);
@@ -19,7 +21,7 @@ pub trait TableIndexCdc<T> {
 
 impl<T, Node> TableIndexCdc<T> for IndexMultiMap<T, Link, Node>
 where
-    T: Eq + Hash + Clone + Send + Ord,
+    T: Debug + Eq + Hash + Clone + Send + Ord,
     Node: NodeLike<MultiPair<T, Link>> + Send + 'static,
 {
     fn insert_cdc(&self, value: T, link: Link) -> (Option<Link>, Vec<ChangeEvent<Pair<T, Link>>>) {
@@ -39,7 +41,7 @@ where
 
 impl<T, Node> TableIndexCdc<T> for IndexMap<T, Link, Node>
 where
-    T: Eq + Hash + Clone + Send + Ord,
+    T: Debug + Eq + Hash + Clone + Send + Ord,
     Node: NodeLike<Pair<T, Link>> + Send + 'static,
 {
     fn insert_cdc(&self, value: T, link: Link) -> (Option<Link>, Vec<ChangeEvent<Pair<T, Link>>>) {

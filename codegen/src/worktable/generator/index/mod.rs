@@ -1,4 +1,5 @@
 mod cdc;
+mod info;
 mod usual;
 
 use crate::name_generator::{is_float, is_unsized, WorktableNameGenerator};
@@ -12,6 +13,7 @@ impl Generator {
     pub fn gen_index_def(&mut self) -> TokenStream {
         let type_def = self.gen_type_def();
         let impl_def = self.gen_secondary_index_impl_def();
+        let info_def = self.gen_secondary_index_info_impl_def();
         let cdc_impl_def = if self.is_persist {
             self.gen_secondary_index_cdc_impl_def()
         } else {
@@ -23,6 +25,7 @@ impl Generator {
         quote! {
             #type_def
             #impl_def
+            #info_def
             #cdc_impl_def
             #default_impl
             #available_indexes
@@ -155,7 +158,7 @@ impl Generator {
             }
         } else {
             quote! {
-                #[derive(Debug, Clone)]
+                #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Hash, Eq)]
                 pub enum #avt_type_ident {
                     #(#indexes)*
                 }

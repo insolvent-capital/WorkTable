@@ -1,6 +1,6 @@
 mod engine;
 mod manager;
-mod operation;
+pub mod operation;
 mod space;
 mod task;
 
@@ -8,7 +8,8 @@ use crate::persistence::operation::BatchOperation;
 pub use engine::PersistenceEngine;
 pub use manager::PersistenceConfig;
 pub use operation::{
-    DeleteOperation, InsertOperation, Operation, OperationId, OperationType, UpdateOperation,
+    validate_events, DeleteOperation, InsertOperation, Operation, OperationId, OperationType,
+    UpdateOperation,
 };
 pub use space::{
     map_index_pages_to_toc_and_general, map_unsized_index_pages_to_toc_and_general,
@@ -18,7 +19,13 @@ pub use space::{
 use std::future::Future;
 pub use task::PersistenceTask;
 
-pub trait PersistenceEngineOps<PrimaryKeyGenState, PrimaryKey, SecondaryIndexEvents> {
+pub trait PersistenceEngineOps<
+    PrimaryKeyGenState,
+    PrimaryKey,
+    SecondaryIndexEvents,
+    AvailableIndexes,
+>
+{
     fn apply_operation(
         &mut self,
         op: Operation<PrimaryKeyGenState, PrimaryKey, SecondaryIndexEvents>,
@@ -26,6 +33,11 @@ pub trait PersistenceEngineOps<PrimaryKeyGenState, PrimaryKey, SecondaryIndexEve
 
     fn apply_batch_operation(
         &mut self,
-        batch_op: BatchOperation<PrimaryKeyGenState, PrimaryKey, SecondaryIndexEvents>,
+        batch_op: BatchOperation<
+            PrimaryKeyGenState,
+            PrimaryKey,
+            SecondaryIndexEvents,
+            AvailableIndexes,
+        >,
     ) -> impl Future<Output = eyre::Result<()>> + Send;
 }

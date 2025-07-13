@@ -1,6 +1,7 @@
 use worktable::prelude::*;
 use worktable::worktable;
 
+mod concurrent;
 mod index_page;
 mod read;
 mod space_index;

@@ -356,22 +356,27 @@ where
     ) -> eyre::Result<()> {
         match event {
             ChangeEvent::InsertAt {
+                event_id: _,
                 max_value: node_id,
                 value,
                 index,
             } => self.process_insert_at(node_id, value, index).await,
             ChangeEvent::RemoveAt {
+                event_id: _,
                 max_value: node_id,
                 value,
                 index,
             } => self.process_remove_at(node_id, value, index).await,
-            ChangeEvent::CreateNode { max_value: node_id } => {
-                self.process_create_node(node_id).await
-            }
-            ChangeEvent::RemoveNode { max_value: node_id } => {
-                self.process_remove_node(node_id).await
-            }
+            ChangeEvent::CreateNode {
+                event_id: _,
+                max_value: node_id,
+            } => self.process_create_node(node_id).await,
+            ChangeEvent::RemoveNode {
+                event_id: _,
+                max_value: node_id,
+            } => self.process_remove_node(node_id).await,
             ChangeEvent::SplitNode {
+                event_id: _,
                 max_value: node_id,
                 split_index,
             } => self.process_split_node(node_id, split_index).await,
@@ -424,7 +429,10 @@ where
                         );
                     }
                 }
-                ChangeEvent::CreateNode { max_value } => {
+                ChangeEvent::CreateNode {
+                    event_id: _,
+                    max_value,
+                } => {
                     let page_id = if let Some(id) = self.table_of_contents.pop_empty_page_id() {
                         id
                     } else {
@@ -444,11 +452,15 @@ where
                     self.table_of_contents
                         .insert((max_value.key.clone(), max_value.value), page_id)
                 }
-                ChangeEvent::RemoveNode { max_value } => {
+                ChangeEvent::RemoveNode {
+                    event_id: _,
+                    max_value,
+                } => {
                     self.table_of_contents
                         .remove(&(max_value.key.clone(), max_value.value));
                 }
                 ChangeEvent::SplitNode {
+                    event_id: _,
                     max_value,
                     split_index,
                 } => {

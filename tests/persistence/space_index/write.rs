@@ -24,6 +24,7 @@ mod run_first {
 
         space_index
             .process_change_event(ChangeEvent::CreateNode {
+                event_id: 0.into(),
                 max_value: Pair {
                     key: 5,
                     value: Link {
@@ -63,6 +64,7 @@ mod run_first {
 
         space_index
             .process_change_event(ChangeEvent::CreateNode {
+                event_id: 0.into(),
                 max_value: Pair {
                     key: 15,
                     value: Link {
@@ -99,6 +101,7 @@ mod run_first {
 
         space_index
             .process_change_event(ChangeEvent::InsertAt {
+                event_id: 0.into(),
                 max_value: Pair {
                     key: 5,
                     value: Link {
@@ -147,6 +150,7 @@ mod run_first {
 
         space_index
             .process_change_event(ChangeEvent::InsertAt {
+                event_id: 0.into(),
                 max_value: Pair {
                     key: 5,
                     value: Link {
@@ -171,6 +175,7 @@ mod run_first {
         for i in (6..909).rev() {
             space_index
                 .process_change_event(ChangeEvent::InsertAt {
+                    event_id: 0.into(),
                     max_value: Pair {
                         key: 1000,
                         value: Link {
@@ -218,6 +223,7 @@ mod run_first {
 
         space_index
             .process_change_event(ChangeEvent::RemoveNode {
+                event_id: 0.into(),
                 max_value: Pair {
                     key: 5,
                     value: Link {
@@ -258,6 +264,7 @@ async fn test_space_index_process_insert_at_with_node_id_update() {
 
     space_index
         .process_change_event(ChangeEvent::InsertAt {
+            event_id: 0.into(),
             max_value: Pair {
                 key: 5,
                 value: Link {
@@ -303,6 +310,7 @@ async fn test_space_index_process_remove_at() {
 
     space_index
         .process_change_event(ChangeEvent::RemoveAt {
+            event_id: 0.into(),
             max_value: Pair {
                 key: 5,
                 value: Link {
@@ -349,6 +357,7 @@ async fn test_space_index_process_remove_at_node_id() {
 
     space_index
         .process_change_event(ChangeEvent::RemoveAt {
+            event_id: 0.into(),
             max_value: Pair {
                 key: 5,
                 value: Link {
@@ -397,6 +406,7 @@ async fn test_space_index_process_insert_at_removed_place() {
 
     space_index
         .process_change_event(ChangeEvent::InsertAt {
+            event_id: 0.into(),
             max_value: Pair {
                 key: 5,
                 value: Link {
@@ -419,6 +429,7 @@ async fn test_space_index_process_insert_at_removed_place() {
         .unwrap();
     space_index
         .process_change_event(ChangeEvent::RemoveAt {
+            event_id: 0.into(),
             max_value: Pair {
                 key: 7,
                 value: Link {
@@ -441,6 +452,7 @@ async fn test_space_index_process_insert_at_removed_place() {
         .unwrap();
     space_index
         .process_change_event(ChangeEvent::InsertAt {
+            event_id: 0.into(),
             max_value: Pair {
                 key: 7,
                 value: Link {
@@ -489,6 +501,7 @@ async fn test_space_index_process_create_node_after_remove() {
 
     space_index
         .process_change_event(ChangeEvent::CreateNode {
+            event_id: 0.into(),
             max_value: Pair {
                 key: 10,
                 value: Link {
@@ -525,6 +538,7 @@ async fn test_space_index_process_split_node() {
 
     space_index
         .process_change_event(ChangeEvent::SplitNode {
+            event_id: 0.into(),
             max_value: Pair {
                 key: 1000,
                 value: Link {

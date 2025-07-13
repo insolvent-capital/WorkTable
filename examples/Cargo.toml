@@ -4,9 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-
+eyre = "0.6.12"
+worktable = { path = "..", version = "0.6.8" }
 #worktable = { path = "..", version = "0.5.3", features = ["perf_measurements"] }
-#rkyv = { version = "0.8.9", features = ["uuid-1"] }
+rkyv = { version = "0.8.9", features = ["uuid-1"] }
 #lockfree = "0.5.1"
 #derive_more = { version = "1.0.0", features = ["full"] }
 #eyre = "0.6.12"
@@ -16,4 +17,14 @@ edition = "2021"
 #ordered-float = "5.0.0"
 #indexset = { version = "0.12.0", features = ["concurrent", "cdc", "multimap"] }
 #tokio = { version = "1", features = ["full"] }
-
+tokio = { version = "1", features = ["full"] }
+rand = "0.8"
+chrono = { version = "0.4", features = ["std"] }
+futures = "0.3.30"
+uuid = { version = "1.10.0", features = ["v4", "v7"] }
+derive_more = { version = "1.0.0", features = [
+    "from",
+    "error",
+    "display",
+    "into",
+] }

@@ -10,12 +10,14 @@ impl Generator {
         let primary_key_type = name_generator.get_primary_key_type_ident();
         let space_secondary_indexes_events =
             name_generator.get_space_secondary_index_events_ident();
+        let avt_index_ident = name_generator.get_available_indexes_ident();
 
         quote! {
             pub type #ident = PersistenceTask<
                 <<#primary_key_type as TablePrimaryKey>::Generator as PrimaryKeyGeneratorState>::State,
                 #primary_key_type,
                 #space_secondary_indexes_events,
+                #avt_index_ident,
             >;
         }
     }
@@ -29,6 +31,7 @@ impl Generator {
         let space_secondary_indexes = name_generator.get_space_secondary_index_ident();
         let space_secondary_indexes_events =
             name_generator.get_space_secondary_index_events_ident();
+        let avt_index_ident = name_generator.get_available_indexes_ident();
         let space_index_type = if self.attributes.pk_unsized {
             quote! {
                 SpaceIndexUnsized<#primary_key_type, { #inner_const_name as u32 }>,
@@ -50,6 +53,7 @@ impl Generator {
                 #space_secondary_indexes,
                 #primary_key_type,
                 #space_secondary_indexes_events,
+                #avt_index_ident,
             >;
         }
     }

@@ -1,9 +1,12 @@
-use data_bucket::page::PageId;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
+use std::hash::Hash;
+use std::marker::PhantomData;
 use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
+
+use data_bucket::page::PageId;
 use tokio::sync::Notify;
 use worktable_codegen::worktable;
 
@@ -32,22 +35,65 @@ worktable! (
 
 const MAX_PAGE_AMOUNT: usize = 16;
 
-pub struct QueueAnalyzer<PrimaryKeyGenState, PrimaryKey, SecondaryKeys> {
+pub struct QueueAnalyzer<PrimaryKeyGenState, PrimaryKey, SecondaryKeys, AvailableIndexes> {
     operations: OptimizedVec<Operation<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>>,
     queue_inner_wt: Arc<QueueInnerWorkTable>,
+    last_events_ids: LastEventIds<AvailableIndexes>,
+    last_invalid_batch_size: usize,
+    page_limit: usize,
+    attempts: usize,
 }
 
-impl<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>
-    QueueAnalyzer<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>
+#[derive(Debug)]
+pub struct LastEventIds<AvailableIndexes> {
+    pub primary_id: IndexChangeEventId,
+    pub secondary_ids: HashMap<AvailableIndexes, IndexChangeEventId>,
+}
+
+impl<AvailableIndexes> Default for LastEventIds<AvailableIndexes>
+where
+    AvailableIndexes: Eq + Hash,
+{
+    fn default() -> Self {
+        Self {
+            primary_id: Default::default(),
+            secondary_ids: HashMap::new(),
+        }
+    }
+}
+
+impl<AvailableIndexes> LastEventIds<AvailableIndexes>
+where
+    AvailableIndexes: Debug + Hash + Eq,
+{
+    pub fn merge(&mut self, another: Self) {
+        if another.primary_id != IndexChangeEventId::default() {
+            self.primary_id = another.primary_id
+        }
+        for (index, id) in another.secondary_ids {
+            if id != IndexChangeEventId::default() {
+                self.secondary_ids.insert(index, id);
+            }
+        }
+    }
+}
+
+impl<PrimaryKeyGenState, PrimaryKey, SecondaryKeys, AvailableIndexes>
+    QueueAnalyzer<PrimaryKeyGenState, PrimaryKey, SecondaryKeys, AvailableIndexes>
 where
     PrimaryKeyGenState: Debug,
     PrimaryKey: Debug,
     SecondaryKeys: Debug,
+    AvailableIndexes: Debug + Copy + Clone + Hash + Eq,
 {
     pub fn new(queue_inner_wt: Arc<QueueInnerWorkTable>) -> Self {
         Self {
             operations: OptimizedVec::with_capacity(256),
             queue_inner_wt,
+            last_events_ids: Default::default(),
+            last_invalid_batch_size: 0,
+            page_limit: MAX_PAGE_AMOUNT,
+            attempts: 0,
         }
     }
 
@@ -92,18 +138,20 @@ where
     pub async fn collect_batch_from_op_id(
         &mut self,
         op_id: OperationId,
-    ) -> eyre::Result<BatchOperation<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>>
+    ) -> eyre::Result<
+        Option<BatchOperation<PrimaryKeyGenState, PrimaryKey, SecondaryKeys, AvailableIndexes>>,
+    >
     where
         PrimaryKeyGenState: Clone,
         PrimaryKey: Clone,
-        SecondaryKeys: Clone,
+        SecondaryKeys: Clone + Default + TableSecondaryIndexEventsOps<AvailableIndexes>,
     {
         let mut ops_set = HashSet::new();
         let mut used_page_ids = HashSet::new();
 
         let mut next_op_id = op_id;
         let mut no_more_ops = false;
-        while used_page_ids.len() < MAX_PAGE_AMOUNT && !no_more_ops {
+        while used_page_ids.len() < self.page_limit && !no_more_ops {
             let ops_rows = self
                 .queue_inner_wt
                 .select_by_operation_id(next_op_id)
@@ -216,7 +264,29 @@ where
             info_wt.update_pos_by_op_id(q, op_id).await?;
         }
 
-        Ok(BatchOperation { ops, info_wt })
+        let mut op = BatchOperation::new(ops, info_wt);
+        let invalid_for_this_batch_ops = op.validate(&self.last_events_ids, self.attempts).await?;
+        if let Some(invalid_for_this_batch_ops) = invalid_for_this_batch_ops {
+            self.extend_from_iter(invalid_for_this_batch_ops.into_iter())?;
+            let last_ids = op.get_last_event_ids();
+            self.last_events_ids.merge(last_ids);
+            self.last_invalid_batch_size = 0;
+            self.page_limit = MAX_PAGE_AMOUNT;
+            self.attempts = 0;
+
+            Ok(Some(op))
+        } else {
+            // can't collect batch for now
+            let ops = op.ops();
+            self.attempts += 1;
+            if self.last_invalid_batch_size == ops.len() {
+                self.page_limit += 8;
+            } else {
+                self.last_invalid_batch_size = ops.len();
+            }
+            self.extend_from_iter(ops.into_iter())?;
+            Ok(None)
+        }
     }
 
     pub fn len(&self) -> usize {
@@ -287,17 +357,18 @@ impl<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>
 }
 
 #[derive(Debug)]
-pub struct PersistenceTask<PrimaryKeyGenState, PrimaryKey, SecondaryKeys> {
+pub struct PersistenceTask<PrimaryKeyGenState, PrimaryKey, SecondaryKeys, AvailableIndexes> {
     #[allow(dead_code)]
     engine_task_handle: tokio::task::AbortHandle,
     queue: Arc<Queue<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>>,
     analyzer_inner_wt: Arc<QueueInnerWorkTable>,
     analyzer_in_progress: Arc<AtomicBool>,
     progress_notify: Arc<Notify>,
+    phantom_data: PhantomData<AvailableIndexes>,
 }
 
-impl<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>
-    PersistenceTask<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>
+impl<PrimaryKeyGenState, PrimaryKey, SecondaryKeys, AvailableIndexes>
+    PersistenceTask<PrimaryKeyGenState, PrimaryKey, SecondaryKeys, AvailableIndexes>
 {
     pub fn apply_operation(&self, op: Operation<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>) {
         self.queue.push(op);
@@ -305,10 +376,19 @@ impl<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>
 
     pub fn run_engine<E>(mut engine: E) -> Self
     where
-        E: PersistenceEngineOps<PrimaryKeyGenState, PrimaryKey, SecondaryKeys> + Send + 'static,
-        SecondaryKeys: Clone + Debug + Send + Sync + 'static,
+        E: PersistenceEngineOps<PrimaryKeyGenState, PrimaryKey, SecondaryKeys, AvailableIndexes>
+            + Send
+            + 'static,
+        SecondaryKeys: Clone
+            + Debug
+            + Default
+            + TableSecondaryIndexEventsOps<AvailableIndexes>
+            + Send
+            + Sync
+            + 'static,
         PrimaryKeyGenState: Clone + Debug + Send + Sync + 'static,
         PrimaryKey: Clone + Debug + Send + Sync + 'static,
+        AvailableIndexes: Copy + Clone + Debug + Hash + Eq + Send + Sync + 'static,
     {
         let queue = Arc::new(Queue::new());
         let progress_notify = Arc::new(Notify::new());
@@ -346,8 +426,7 @@ impl<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>
                     let batch_op = analyzer.collect_batch_from_op_id(op_id).await;
                     if let Err(e) = batch_op {
                         tracing::warn!("Error collecting batch operation: {}", e);
-                    } else {
-                        let batch_op = batch_op.unwrap();
+                    } else if let Some(batch_op) = batch_op.unwrap() {
                         let res = engine.apply_batch_operation(batch_op).await;
                         if let Err(e) = res {
                             tracing::warn!(
@@ -355,6 +434,8 @@ impl<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>
                                 e
                             );
                         }
+                    } else {
+                        tokio::time::sleep(Duration::from_millis(500)).await;
                     }
                 }
             }
@@ -366,6 +447,7 @@ impl<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>
             analyzer_inner_wt,
             analyzer_in_progress,
             progress_notify,
+            phantom_data: PhantomData,
         }
     }
 

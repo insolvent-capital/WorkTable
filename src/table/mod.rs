@@ -126,7 +126,7 @@ impl<
     >
 where
     Row: TableRow<PrimaryKey>,
-    PrimaryKey: Clone + Ord + Send + TablePrimaryKey + std::hash::Hash,
+    PrimaryKey: Debug + Clone + Ord + Send + TablePrimaryKey + std::hash::Hash,
     PkNodeType: NodeLike<Pair<PrimaryKey, Link>> + Send + 'static,
     Row: StorableRow,
     <Row as StorableRow>::WrappedRow: RowWrapper<Row>,

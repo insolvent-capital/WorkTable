@@ -26,6 +26,7 @@ mod run_first {
 
         space_index
             .process_change_event(ChangeEvent::CreateNode {
+                event_id: 0.into(),
                 max_value: Pair {
                     key: "Something from someone".to_string(),
                     value: Link {
@@ -65,6 +66,7 @@ mod run_first {
 
         space_index
             .process_change_event(ChangeEvent::CreateNode {
+                event_id: 0.into(),
                 max_value: Pair {
                     key: "Someone from somewhere".to_string(),
                     value: Link {
@@ -104,6 +106,7 @@ mod run_first {
 
         space_index
             .process_change_event(ChangeEvent::RemoveNode {
+                event_id: 0.into(),
                 max_value: Pair {
                     key: "Something from someone".to_string(),
                     value: Link {
@@ -143,6 +146,7 @@ mod run_first {
 
         space_index
             .process_change_event(ChangeEvent::InsertAt {
+                event_id: 0.into(),
                 max_value: Pair {
                     key: "Something from someone".to_string(),
                     value: Link {
@@ -191,6 +195,7 @@ mod run_first {
 
         space_index
             .process_change_event(ChangeEvent::InsertAt {
+                event_id: 0.into(),
                 max_value: Pair {
                     key: "Something from someone".to_string(),
                     value: Link {
@@ -215,6 +220,7 @@ mod run_first {
         for i in (1..100).rev() {
             space_index
                 .process_change_event(ChangeEvent::InsertAt {
+                    event_id: 0.into(),
                     max_value: Pair {
                         key: "Something from someone _100".to_string(),
                         value: Link {
@@ -264,6 +270,7 @@ async fn test_space_index_process_remove_at() {
 
     space_index
         .process_change_event(ChangeEvent::RemoveAt {
+            event_id: 0.into(),
             max_value: Pair {
                 key: "Something from someone".to_string(),
                 value: Link {
@@ -312,6 +319,7 @@ async fn test_space_index_process_remove_at_node_id() {
 
     space_index
         .process_change_event(ChangeEvent::RemoveAt {
+            event_id: 0.into(),
             max_value: Pair {
                 key: "Something from someone".to_string(),
                 value: Link {
@@ -360,6 +368,7 @@ async fn test_space_index_process_insert_at_with_node_id_update() {
 
     space_index
         .process_change_event(ChangeEvent::InsertAt {
+            event_id: 0.into(),
             max_value: Pair {
                 key: "Something from someone".to_string(),
                 value: Link {
@@ -409,6 +418,7 @@ async fn test_space_index_process_insert_at_removed_place() {
 
     space_index
         .process_change_event(ChangeEvent::InsertAt {
+            event_id: 0.into(),
             max_value: Pair {
                 key: "Something from someone".to_string(),
                 value: Link {
@@ -431,6 +441,7 @@ async fn test_space_index_process_insert_at_removed_place() {
         .unwrap();
     space_index
         .process_change_event(ChangeEvent::RemoveAt {
+            event_id: 0.into(),
             max_value: Pair {
                 key: "Something from someone 1".to_string(),
                 value: Link {
@@ -453,6 +464,7 @@ async fn test_space_index_process_insert_at_removed_place() {
         .unwrap();
     space_index
         .process_change_event(ChangeEvent::InsertAt {
+            event_id: 0.into(),
             max_value: Pair {
                 key: "Something from someone 1".to_string(),
                 value: Link {
@@ -502,6 +514,7 @@ async fn test_space_index_process_create_node_after_remove() {
 
     space_index
         .process_change_event(ChangeEvent::CreateNode {
+            event_id: 0.into(),
             max_value: Pair {
                 key: "Something else".to_string(),
                 value: Link {
@@ -540,6 +553,7 @@ async fn test_space_index_process_split_node() {
 
     space_index
         .process_change_event(ChangeEvent::SplitNode {
+            event_id: 0.into(),
             max_value: Pair {
                 key: "Something from someone _100".to_string(),
                 value: Link {

@@ -396,22 +396,27 @@ where
     ) -> eyre::Result<()> {
         match event {
             ChangeEvent::InsertAt {
+                event_id: _,
                 max_value: node_id,
                 value,
                 index,
             } => self.process_insert_at(node_id, value, index).await,
             ChangeEvent::RemoveAt {
+                event_id: _,
                 max_value: node_id,
                 value,
                 index,
             } => self.process_remove_at(node_id, value, index).await,
-            ChangeEvent::CreateNode { max_value: node_id } => {
-                self.process_create_node(node_id).await
-            }
-            ChangeEvent::RemoveNode { max_value: node_id } => {
-                self.process_remove_node(node_id).await
-            }
+            ChangeEvent::CreateNode {
+                event_id: _,
+                max_value: node_id,
+            } => self.process_create_node(node_id).await,
+            ChangeEvent::RemoveNode {
+                event_id: _,
+                max_value: node_id,
+            } => self.process_remove_node(node_id).await,
             ChangeEvent::SplitNode {
+                event_id: _,
                 max_value: node_id,
                 split_index,
             } => self.process_split_node(node_id, split_index).await,
@@ -423,17 +428,14 @@ where
         events: BatchChangeEvent<T>,
     ) -> eyre::Result<()> {
         let mut pages: HashMap<PageId, _> = HashMap::new();
-        for ev in events {
+        for ev in &events {
             match &ev {
                 ChangeEvent::InsertAt { max_value, .. }
                 | ChangeEvent::RemoveAt { max_value, .. } => {
                     let page_id = &(max_value.key.clone(), max_value.value);
-                    // println!("{:?}", page_id);
-                    // println!("{:?}", self.table_of_contents.iter().collect::<Vec<_>>());
-                    let page_index = self
-                        .table_of_contents
-                        .get(page_id)
-                        .expect("page should be available in table of contents");
+                    let Some(page_index) = self.table_of_contents.get(page_id) else {
+                        panic!("page should be available in table of contents")
+                    };
                     let page = pages.get_mut(&page_index);
                     let page_to_update = if let Some(page) = page {
                         page
@@ -464,7 +466,10 @@ where
                         );
                     }
                 }
-                ChangeEvent::CreateNode { max_value } => {
+                ChangeEvent::CreateNode {
+                    event_id: _,
+                    max_value,
+                } => {
                     let page_id = if let Some(id) = self.table_of_contents.pop_empty_page_id() {
                         id
                     } else {
@@ -476,6 +481,7 @@ where
                     let size = get_index_page_size_from_data_length::<T>(INNER_PAGE_SIZE as usize);
                     let mut page = IndexPage::new(max_value.clone().into(), size);
                     let ev = ChangeEvent::InsertAt {
+                        event_id: 0.into(),
                         max_value: max_value.clone(),
                         value: max_value.clone(),
                         index: 0,
@@ -490,19 +496,22 @@ where
                     self.table_of_contents
                         .insert((max_value.key.clone(), max_value.value), page_id)
                 }
-                ChangeEvent::RemoveNode { max_value } => {
+                ChangeEvent::RemoveNode {
+                    event_id: _,
+                    max_value,
+                } => {
                     self.table_of_contents
                         .remove(&(max_value.key.clone(), max_value.value));
                 }
                 ChangeEvent::SplitNode {
+                    event_id: _,
                     max_value,
                     split_index,
                 } => {
                     let page_id = &(max_value.key.clone(), max_value.value);
-                    let page_index = self
-                        .table_of_contents
-                        .get(page_id)
-                        .expect("page should be available in table of contents");
+                    let Some(page_index) = self.table_of_contents.get(page_id) else {
+                        panic!("page should be available in table of contents")
+                    };
                     let page = pages.get_mut(&page_index);
                     let page_to_update = if let Some(page) = page {
                         page

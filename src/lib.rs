@@ -26,10 +26,10 @@ pub mod prelude {
     pub use crate::mem_stat::MemStat;
     pub use crate::persistence::{
         map_index_pages_to_toc_and_general, map_unsized_index_pages_to_toc_and_general,
-        DeleteOperation, IndexTableOfContents, InsertOperation, Operation, OperationId,
-        PersistenceConfig, PersistenceEngine, PersistenceEngineOps, PersistenceTask, SpaceData,
-        SpaceDataOps, SpaceIndex, SpaceIndexOps, SpaceIndexUnsized, SpaceSecondaryIndexOps,
-        UpdateOperation,
+        validate_events, DeleteOperation, IndexTableOfContents, InsertOperation, Operation,
+        OperationId, PersistenceConfig, PersistenceEngine, PersistenceEngineOps, PersistenceTask,
+        SpaceData, SpaceDataOps, SpaceIndex, SpaceIndexOps, SpaceIndexUnsized,
+        SpaceSecondaryIndexOps, UpdateOperation,
     };
     pub use crate::primary_key::{PrimaryKeyGenerator, PrimaryKeyGeneratorState, TablePrimaryKey};
     pub use crate::table::select::{Order, QueryParams, SelectQueryBuilder, SelectQueryExecutor};
@@ -38,7 +38,8 @@ pub mod prelude {
     pub use crate::{
         lock::Lock, Difference, IndexError, IndexMap, IndexMultiMap, MultiPairRecreate, TableIndex,
         TableIndexCdc, TableRow, TableSecondaryIndex, TableSecondaryIndexCdc,
-        TableSecondaryIndexEventsOps, UnsizedNode, WorkTable, WorkTableError,
+        TableSecondaryIndexEventsOps, TableSecondaryIndexInfo, UnsizedNode, WorkTable,
+        WorkTableError,
     };
     pub use data_bucket::{
         align, get_index_page_size_from_data_length, map_data_pages_to_general, parse_data_page,
@@ -50,7 +51,7 @@ pub mod prelude {
     };
     pub use derive_more::{From, Into};
     pub use indexset::{
-        cdc::change::ChangeEvent as IndexChangeEvent,
+        cdc::change::{ChangeEvent as IndexChangeEvent, Id as IndexChangeEventId},
         core::{multipair::MultiPair as IndexMultiPair, pair::Pair as IndexPair},
     };
     pub use ordered_float::OrderedFloat;

@@ -1,6 +1,7 @@
 mod primitives;
 
 use std::collections::HashMap;
+use std::fmt::Debug;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -52,8 +53,8 @@ impl MemStat for String {
 
 impl<K, V, Node> MemStat for IndexMap<K, V, Node>
 where
-    K: Ord + Clone + 'static + MemStat + Send,
-    V: Clone + 'static + MemStat + Send,
+    K: Debug + Ord + Clone + 'static + MemStat + Send,
+    V: Debug + Clone + 'static + MemStat + Send,
     Node: NodeLike<Pair<K, V>> + Send + 'static,
 {
     fn heap_size(&self) -> usize {
@@ -83,8 +84,8 @@ where
 
 impl<K, V, Node> MemStat for IndexMultiMap<K, V, Node>
 where
-    K: Ord + Clone + 'static + MemStat + Send,
-    V: Ord + Clone + 'static + MemStat + Send,
+    K: Debug + Ord + Clone + 'static + MemStat + Send,
+    V: Debug + Ord + Clone + 'static + MemStat + Send,
     Node: NodeLike<MultiPair<K, V>> + Send + 'static,
 {
     fn heap_size(&self) -> usize {
