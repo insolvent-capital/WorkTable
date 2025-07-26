@@ -76,7 +76,7 @@ impl Generator {
                                 Ident::new(format!("get_{c}_size").as_str(), Span::call_site());
                             quote! {
                                 pub fn #fn_ident(&self) -> usize {
-                                    self.#c.len()
+                                    self.#c.as_str().to_string().aligned_size()
                                 }
                             }
                         })

@@ -1,6 +1,8 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
+use parking_lot::Mutex;
 use worktable::prelude::*;
 use worktable::worktable;
 
@@ -204,7 +206,8 @@ async fn update_string() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn update_parallel() {
     let table = Arc::new(TestWorkTable::default());
-    for i in 1..100 {
+    let i_state = Arc::new(Mutex::new(HashMap::new()));
+    for i in 0..100 {
         let row = TestRow {
             id: table.get_next_pk().into(),
             test: i + 1,
@@ -214,24 +217,48 @@ async fn update_parallel() {
         let _ = table.insert(row.clone()).unwrap();
     }
     let shared = table.clone();
+    let shared_i_state = i_state.clone();
     let h = tokio::spawn(async move {
-        for i in 1..99 {
+        for _ in 0..1000 {
+            let val = fastrand::u64(..);
+            let id_to_update = fastrand::i64(1..=100);
             shared
-                .update_another_by_test(AnotherByTestQuery { another: i }, (i + 1) as i64)
+                .update_another_by_test(AnotherByTestQuery { another: val }, id_to_update)
                 .await
                 .unwrap();
+            {
+                let mut guard = shared_i_state.lock();
+                guard
+                    .entry(id_to_update)
+                    .and_modify(|v| *v = val)
+                    .or_insert(val);
+            }
             tokio::time::sleep(Duration::from_micros(5)).await;
         }
     });
     tokio::time::sleep(Duration::from_micros(20)).await;
-    for i in 1..99 {
+    for _ in 0..1000 {
+        let val = fastrand::u64(..);
+        let id_to_update = fastrand::u64(0..=99);
         table
-            .update_another_by_id(AnotherByIdQuery { another: i }, i.into())
+            .update_another_by_id(AnotherByIdQuery { another: val }, id_to_update.into())
             .await
             .unwrap();
+        {
+            let mut guard = i_state.lock();
+            guard
+                .entry(id_to_update as i64 + 1)
+                .and_modify(|v| *v = val)
+                .or_insert(val);
+        }
         tokio::time::sleep(Duration::from_micros(5)).await;
     }
     h.await.unwrap();
+
+    for (test, val) in i_state.lock_arc().iter() {
+        let row = table.select_by_test(*test).unwrap();
+        assert_eq!(row.another, *val)
+    }
 }
 
 #[tokio::test]

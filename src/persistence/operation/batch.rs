@@ -205,6 +205,16 @@ where
         self.prepared_index_evs = Some(self.prepare_indexes_evs()?);
         let mut ops_to_remove = vec![];
 
+        {
+            let prepared_evs = self
+                .prepared_index_evs
+                .as_mut()
+                .expect("should be set before 0 iteration");
+            if prepared_evs.primary_evs.is_empty() && prepared_evs.secondary_evs.is_empty() {
+                return Ok(Some(vec![]));
+            }
+        }
+
         while !valid {
             let prepared_evs = self
                 .prepared_index_evs

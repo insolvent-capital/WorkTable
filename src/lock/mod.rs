@@ -1,6 +1,8 @@
-mod set;
+mod map;
+mod row_lock;
 
 use std::future::Future;
+use std::hash::{Hash, Hasher};
 use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::task::{Context, Poll};
@@ -8,17 +10,34 @@ use std::task::{Context, Poll};
 use derive_more::From;
 use futures::task::AtomicWaker;
 
-pub use set::LockMap;
+pub use map::LockMap;
+pub use row_lock::RowLock;
 
 #[derive(Debug)]
 pub struct Lock {
+    id: u16,
     locked: AtomicBool,
     waker: AtomicWaker,
 }
 
+impl PartialEq for Lock {
+    fn eq(&self, other: &Self) -> bool {
+        self.id.eq(&other.id)
+    }
+}
+
+impl Eq for Lock {}
+
+impl Hash for Lock {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        Hash::hash(&self.id, state)
+    }
+}
+
 impl Lock {
-    pub fn new() -> Self {
+    pub fn new(id: u16) -> Self {
         Self {
+            id,
             locked: AtomicBool::from(true),
             waker: AtomicWaker::new(),
         }
@@ -33,6 +52,10 @@ impl Lock {
         self.locked.store(true, Ordering::Release);
         self.waker.wake()
     }
+
+    pub fn is_locked(&self) -> bool {
+        self.locked.load(Ordering::Acquire)
+    }
 }
 
 impl Future for &Lock {
@@ -45,11 +68,5 @@ impl Future for &Lock {
         } else {
             Poll::Ready(())
         }
-    }
-}
-
-impl Default for Lock {
-    fn default() -> Self {
-        Self::new()
     }
 }

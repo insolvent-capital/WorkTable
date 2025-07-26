@@ -82,7 +82,7 @@ impl<
         DATA_LENGTH,
     >
 where
-    PrimaryKey: Clone + Ord + Send + TablePrimaryKey + std::hash::Hash,
+    PrimaryKey: Debug + Clone + Ord + Send + TablePrimaryKey + std::hash::Hash,
     SecondaryIndexes: Default,
     PkGen: Default,
     PkNodeType: NodeLike<Pair<PrimaryKey, Link>> + Send + 'static,
@@ -95,7 +95,7 @@ where
             pk_map: IndexMap::default(),
             indexes: SecondaryIndexes::default(),
             pk_gen: Default::default(),
-            lock_map: LockMap::new(),
+            lock_map: LockMap::default(),
             table_name: "",
             pk_phantom: PhantomData,
         }
@@ -277,6 +277,112 @@ where
 
         Ok((pk, op))
     }
+
+    /// Reinserts provided row with updating indexes and saving it's data in new
+    /// place. Is used to not delete and insert because this situation causes
+    /// a possible gap when row doesn't exist.
+    ///
+    /// For reinsert it's ok that part of indexes will lead to old row and other
+    /// part is for new row. Goal is to make `PrimaryKey` of the row always
+    /// acceptable. As for reinsert `PrimaryKey` will be same for both old and
+    /// new [`Link`]'s, goal will be achieved.
+    pub fn reinsert(&self, row_old: Row, row_new: Row) -> Result<PrimaryKey, WorkTableError>
+    where
+        Row: Archive
+            + Clone
+            + for<'a> Serialize<
+                Strategy<Serializer<AlignedVec, ArenaHandle<'a>, Share>, rkyv::rancor::Error>,
+            >,
+        <Row as StorableRow>::WrappedRow: Archive
+            + for<'a> Serialize<
+                Strategy<Serializer<AlignedVec, ArenaHandle<'a>, Share>, rkyv::rancor::Error>,
+            >,
+        PrimaryKey: Clone,
+        AvailableTypes: 'static,
+        SecondaryIndexes: TableSecondaryIndex<Row, AvailableTypes, AvailableIndexes>,
+        LockType: 'static,
+    {
+        let pk = row_new.get_primary_key().clone();
+        let old_link = self
+            .pk_map
+            .get(&pk)
+            .map(|v| v.get().value)
+            .ok_or(WorkTableError::NotFound)?;
+        let new_link = self
+            .data
+            .insert(row_new.clone())
+            .map_err(WorkTableError::PagesError)?;
+        // we can not check for existence here.
+        self.pk_map.insert(pk.clone(), new_link);
+        self.indexes
+            .reinsert_row(row_old, old_link, row_new, new_link)
+            .map_err(|_| WorkTableError::SecondaryIndexError)?;
+        self.data
+            .delete(old_link)
+            .map_err(WorkTableError::PagesError)?;
+
+        Ok(pk)
+    }
+
+    #[allow(clippy::type_complexity)]
+    pub fn reinsert_cdc<SecondaryEvents>(
+        &self,
+        row_old: Row,
+        row_new: Row,
+    ) -> Result<
+        (
+            PrimaryKey,
+            Operation<<PkGen as PrimaryKeyGeneratorState>::State, PrimaryKey, SecondaryEvents>,
+        ),
+        WorkTableError,
+    >
+    where
+        Row: Archive
+            + Clone
+            + for<'a> Serialize<
+                Strategy<Serializer<AlignedVec, ArenaHandle<'a>, Share>, rkyv::rancor::Error>,
+            >,
+        <Row as StorableRow>::WrappedRow: Archive
+            + for<'a> Serialize<
+                Strategy<Serializer<AlignedVec, ArenaHandle<'a>, Share>, rkyv::rancor::Error>,
+            >,
+        PrimaryKey: Clone,
+        SecondaryIndexes: TableSecondaryIndex<Row, AvailableTypes, AvailableIndexes>
+            + TableSecondaryIndexCdc<Row, AvailableTypes, SecondaryEvents, AvailableIndexes>,
+        PkGen: PrimaryKeyGeneratorState,
+        AvailableIndexes: Debug,
+    {
+        let pk = row_new.get_primary_key().clone();
+        let old_link = self
+            .pk_map
+            .get(&pk)
+            .map(|v| v.get().value)
+            .ok_or(WorkTableError::NotFound)?;
+        let (new_link, bytes) = self
+            .data
+            .insert_cdc(row_new.clone())
+            .map_err(WorkTableError::PagesError)?;
+        // we can not check for existence here.
+        let (_, primary_key_events) = self.pk_map.insert_cdc(pk.clone(), new_link);
+        let secondary_keys_events = self
+            .indexes
+            .reinsert_row_cdc(row_old, old_link, row_new, new_link)
+            .map_err(|_| WorkTableError::SecondaryIndexError)?;
+        self.data
+            .delete(old_link)
+            .map_err(WorkTableError::PagesError)?;
+
+        let op = Operation::Insert(InsertOperation {
+            id: OperationId::Single(Uuid::now_v7()),
+            pk_gen_state: self.pk_gen.get_state(),
+            primary_key_events,
+            secondary_keys_events,
+            bytes,
+            link: new_link,
+        });
+
+        Ok((pk, op))
+    }
 }
 
 #[derive(Debug, Display, Error, From)]
@@ -284,37 +390,6 @@ pub enum WorkTableError {
     NotFound,
     AlreadyExists,
     SerializeError,
+    SecondaryIndexError,
     PagesError(in_memory::PagesExecutionError),
-}
-
-#[cfg(test)]
-mod tests {
-    // mod eyre {
-    //     use eyre::*;
-    //     use worktable_codegen::worktable;
-    //
-    //     use crate::prelude::*;
-    //
-    //     worktable! (
-    //         name: Test,
-    //         columns: {
-    //             id: u64 primary_key,
-    //             test: u64
-    //         }
-    //     );
-    //
-    //     #[test]
-    //     fn test() {
-    //         let table = TestWorkTable::default();
-    //         let row = TestRow {
-    //             id: 1,
-    //             test: 1,
-    //         };
-    //         let pk = table.insert::<{ crate::table::tests::tuple_primary_key::TestRow::ROW_SIZE }>(row.clone()).unwrap();
-    //         let selected_row = table.select(pk).unwrap();
-    //
-    //         assert_eq!(selected_row, row);
-    //         assert!(table.select((1, 0).into()).is_none())
-    //     }
-    // }
 }

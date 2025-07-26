@@ -106,7 +106,7 @@ impl<Row, const DATA_LENGTH: usize> Data<Row, DATA_LENGTH> {
         let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(row)
             .map_err(|_| ExecutionError::SerializeError)?;
         let length = bytes.len() as u32;
-        let offset = self.free_offset.fetch_add(length, Ordering::SeqCst);
+        let offset = self.free_offset.fetch_add(length, Ordering::AcqRel);
         if offset > DATA_LENGTH as u32 - length {
             return Err(ExecutionError::PageIsFull {
                 need: length,
@@ -163,7 +163,7 @@ impl<Row, const DATA_LENGTH: usize> Data<Row, DATA_LENGTH> {
         Row: Archive,
         <Row as Archive>::Archived: Portable,
     {
-        if link.offset > self.free_offset.load(Ordering::Relaxed) {
+        if link.offset > self.free_offset.load(Ordering::Acquire) {
             return Err(ExecutionError::DeserializeError);
         }
 
@@ -180,7 +180,7 @@ impl<Row, const DATA_LENGTH: usize> Data<Row, DATA_LENGTH> {
     where
         Row: Archive,
     {
-        if link.offset > self.free_offset.load(Ordering::Relaxed) {
+        if link.offset > self.free_offset.load(Ordering::Acquire) {
             return Err(ExecutionError::DeserializeError);
         }
 
@@ -204,7 +204,7 @@ impl<Row, const DATA_LENGTH: usize> Data<Row, DATA_LENGTH> {
     }
 
     pub fn get_raw_row(&self, link: Link) -> Result<Vec<u8>, ExecutionError> {
-        if link.offset > self.free_offset.load(Ordering::Relaxed) {
+        if link.offset > self.free_offset.load(Ordering::Acquire) {
             return Err(ExecutionError::DeserializeError);
         }
 

@@ -65,13 +65,7 @@ impl Generator {
         columns: &[Ident],
     ) -> TokenStream {
         let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
-        let lock_type_ident = name_generator.get_lock_type_ident();
         let pk_type = name_generator.get_primary_key_type_ident();
-
-        let lock_await_ident =
-            WorktableNameGenerator::get_update_in_place_query_lock_await_ident(&snake_case_name);
-        let unlock_ident =
-            WorktableNameGenerator::get_update_in_place_query_unlock_ident(&snake_case_name);
         let lock_ident =
             WorktableNameGenerator::get_update_in_place_query_lock_ident(&snake_case_name);
 
@@ -114,6 +108,7 @@ impl Generator {
                 ( #(#columns),* )
             }
         };
+        let custom_lock = self.gen_custom_lock_for_update(lock_ident);
 
         quote! {
             pub async fn #method_ident<F: FnMut(#column_types)>(
@@ -122,27 +117,24 @@ impl Generator {
                 by: #by_type,
             ) -> eyre::Result<()> {
                 let pk: #pk_type = by.into();
-                let lock_id = self.0.lock_map.next_id();
-                let mut lock = #lock_type_ident::new(lock_id.into());
-                lock.#lock_ident();
-                let lock = std::sync::Arc::new(lock);
-                if let Some(lock) = self.0.lock_map.insert(pk.clone(), lock.clone()) {
-                    lock.#lock_await_ident().await;
-                }
                 let link = self
                     .0
                     .pk_map
                     .get(&pk)
                     .map(|v| v.get().value)
                     .ok_or(WorkTableError::NotFound)?;
+                let lock = {
+                    #custom_lock
+                };
                 unsafe {
                     self.0
                         .data
                         .with_mut_ref(link, move |archived| f(#column_fields))
                         .map_err(WorkTableError::PagesError)?
                     };
-                lock.#unlock_ident();
-                self.0.lock_map.remove_with_lock_check(&pk, lock);
+
+                lock.unlock();
+                self.0.lock_map.remove_with_lock_check(&pk).await;
 
                 Ok(())
             }

@@ -16,6 +16,7 @@ where
 {
     inner: Vec<T>,
     length_capacity: usize,
+    length_without_deleted: usize,
     length: usize,
 }
 
@@ -44,6 +45,7 @@ where
             inner,
             length,
             length_capacity,
+            length_without_deleted: length,
         }
     }
 }
@@ -57,6 +59,7 @@ where
             inner: Vec::new(),
             length_capacity: capacity,
             length: UNSIZED_HEADER_LENGTH as usize,
+            length_without_deleted: UNSIZED_HEADER_LENGTH as usize,
         }
     }
 
@@ -65,7 +68,7 @@ where
     }
 
     fn halve(&mut self) -> Self {
-        let middle_length = (self.length
+        let middle_length = (self.length_without_deleted
             - (self.max().unwrap().aligned_size() + UNSIZED_HEADER_LENGTH as usize))
             / 2;
         let current_node_id_size = self.max().unwrap().aligned_size();
@@ -97,10 +100,15 @@ where
         let split = Self {
             inner: new_inner,
             length_capacity: self.length_capacity,
-            length: self.length - (current_node_id_size + current_length) + node_id_len,
+            length: self.length_without_deleted - (current_node_id_size + current_length)
+                + node_id_len,
+            length_without_deleted: self.length_without_deleted
+                - (current_node_id_size + current_length)
+                + node_id_len,
         };
         self.length =
             current_length + self.max().unwrap().aligned_size() + UNSIZED_HEADER_LENGTH as usize;
+        self.length_without_deleted = self.length;
 
         split
     }
@@ -126,9 +134,13 @@ where
                     // Node id is stored separately too, so we need to count node_id twice
                     self.length -= node_id_len;
                     self.length += value_size;
+                    self.length_without_deleted -= node_id_len;
+                    self.length_without_deleted += value_size;
                 }
                 self.length += value_size;
                 self.length += UnsizedIndexPageUtility::<T>::slots_value_size();
+                self.length_without_deleted += value_size;
+                self.length_without_deleted += UnsizedIndexPageUtility::<T>::slots_value_size();
                 (true, idx)
             }
             (false, idx) => (false, idx),
@@ -160,8 +172,20 @@ where
     where
         T: Borrow<Q>,
     {
+        let node_id_len = self.max().map(|v| v.aligned_size()).unwrap_or(0);
         // TODO: Refactor this when empty links logic will be added to the page
-        NodeLike::delete(&mut self.inner, value)
+        if let Some((val, i)) = NodeLike::delete(&mut self.inner, value) {
+            let new_node_id_len = self.max().map(|v| v.aligned_size()).unwrap_or(0);
+            if new_node_id_len != node_id_len {
+                self.length_without_deleted -= node_id_len;
+                self.length_without_deleted += new_node_id_len;
+            }
+            self.length_without_deleted -= val.aligned_size();
+            self.length_without_deleted -= UnsizedIndexPageUtility::<T>::slots_value_size();
+            Some((val, i))
+        } else {
+            None
+        }
     }
 
     fn replace(&mut self, idx: usize, value: T) -> Option<T> {
@@ -222,9 +246,34 @@ mod test {
         assert_eq!(node.length, node.length_capacity);
         let split = node.halve();
         assert_eq!(node.length, 152);
+        assert_eq!(node.length_without_deleted, 152);
         assert_eq!(node.inner.len(), 2);
         assert_eq!(split.length, 136);
+        assert_eq!(split.length_without_deleted, 136);
         assert_eq!(split.inner.len(), 1);
+    }
+
+    #[test]
+    fn test_delete() {
+        let mut node = UnsizedNode::<String>::with_capacity(200);
+        node.insert(String::from_utf8(vec![b'1'; 16]).unwrap());
+        assert_eq!(node.length, 120);
+        assert_eq!(node.length_without_deleted, 120);
+        node.delete(&String::from_utf8(vec![b'1'; 16]).unwrap());
+        assert_eq!(node.length, 120);
+        assert_eq!(node.length_without_deleted, 64);
+    }
+
+    #[test]
+    fn test_delete_max_update() {
+        let mut node = UnsizedNode::<String>::with_capacity(200);
+        node.insert(String::from_utf8(vec![b'1'; 16]).unwrap());
+        node.insert(String::from_utf8(vec![b'2'; 24]).unwrap());
+        assert_eq!(node.length, 168);
+        assert_eq!(node.length_without_deleted, 168);
+        node.delete(&String::from_utf8(vec![b'2'; 24]).unwrap());
+        assert_eq!(node.length, 168);
+        assert_eq!(node.length_without_deleted, 120);
     }
 
     #[test]

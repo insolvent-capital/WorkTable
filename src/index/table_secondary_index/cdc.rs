@@ -10,6 +10,13 @@ pub trait TableSecondaryIndexCdc<Row, AvailableTypes, SecondaryEvents, Available
         row: Row,
         link: Link,
     ) -> Result<SecondaryEvents, IndexError<AvailableIndexes>>;
+    fn reinsert_row_cdc(
+        &self,
+        row_old: Row,
+        link_old: Link,
+        row_new: Row,
+        link_new: Link,
+    ) -> eyre::Result<SecondaryEvents>;
     fn delete_row_cdc(
         &self,
         row: Row,

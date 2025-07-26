@@ -14,6 +14,7 @@ impl Generator {
         let name_fn = self.gen_table_name_fn();
         let select_fn = self.gen_table_select_fn();
         let insert_fn = self.gen_table_insert_fn();
+        let reinsert_fn = self.gen_table_reinsert_fn();
         let upsert_fn = self.gen_table_upsert_fn();
         let get_next_fn = self.gen_table_get_next_fn();
         let iter_with_fn = self.gen_table_iter_with_fn();
@@ -27,6 +28,7 @@ impl Generator {
                 #name_fn
                 #select_fn
                 #insert_fn
+                #reinsert_fn
                 #upsert_fn
                 #count_fn
                 #get_next_fn
@@ -132,6 +134,31 @@ impl Generator {
             }
         }
     }
+
+    fn gen_table_reinsert_fn(&self) -> TokenStream {
+        let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
+        let row_type = name_generator.get_row_type_ident();
+        let primary_key_type = name_generator.get_primary_key_type_ident();
+
+        let reinsert = if self.is_persist {
+            quote! {
+                let (pk, op) = self.0.reinsert_cdc(row_old, row_new)?;
+                self.2.apply_operation(op);
+                core::result::Result::Ok(pk)
+            }
+        } else {
+            quote! {
+                self.0.reinsert(row_old, row_new)
+            }
+        };
+
+        quote! {
+            pub fn reinsert(&self, row_old: #row_type, row_new: #row_type) -> core::result::Result<#primary_key_type, WorkTableError> {
+                #reinsert
+            }
+        }
+    }
+
     fn gen_table_upsert_fn(&self) -> TokenStream {
         let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
         let row_type = name_generator.get_row_type_ident();

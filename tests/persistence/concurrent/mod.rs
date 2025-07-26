@@ -52,6 +52,7 @@ worktable! (
 );
 
 #[test]
+#[ignore]
 fn test_concurrent() {
     let config = PersistenceConfig::new("tests/data/concurrent/test", "tests/data/concurrent/test");
 

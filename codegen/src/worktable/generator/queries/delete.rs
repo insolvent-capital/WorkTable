@@ -36,23 +36,25 @@ impl Generator {
     fn gen_full_row_delete(&mut self) -> TokenStream {
         let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
         let pk_ident = name_generator.get_primary_key_type_ident();
-        let lock_ident = name_generator.get_lock_type_ident();
         let delete_logic = self.gen_delete_logic();
+        let full_row_lock = self.gen_full_lock_for_update();
 
         quote! {
             pub async fn delete(&self, pk: #pk_ident) -> core::result::Result<(), WorkTableError> {
-                if let Some(lock) = self.0.lock_map.get(&pk) {
-                    lock.lock_await().await;   // Waiting for all locks released
-                }
+                let lock = {
+                    #full_row_lock
+                };
 
-                let lock_id = self.0.lock_map.next_id();
-                let lock = std::sync::Arc::new(#lock_ident::with_lock(lock_id.into()));   //Creates new LockType with None
-                self.0.lock_map.insert(pk.clone(), lock.clone()); // adds LockType to LockMap
+                let link = self.0
+                    .pk_map
+                    .get(&pk)
+                    .map(|v| v.get().value)
+                    .ok_or(WorkTableError::NotFound)?;
 
                 #delete_logic
 
                 lock.unlock();  // Releases locks
-                self.0.lock_map.remove(&pk); // Removes locks
+                self.0.lock_map.remove_with_lock_check(&pk).await; // Removes locks
 
                 core::result::Result::Ok(())
             }

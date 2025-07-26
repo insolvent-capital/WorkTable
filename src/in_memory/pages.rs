@@ -90,10 +90,6 @@ where
         }
     }
 
-    #[cfg_attr(
-        feature = "perf_measurements",
-        performance_measurement(prefix_name = "DataPages")
-    )]
     pub fn insert(&self, row: Row) -> Result<Link, ExecutionError>
     where
         Row: Archive
@@ -112,49 +108,48 @@ where
             let current_page: usize = page_id_mapper(link.page_id.into());
             let page = &pages[current_page];
 
-            return if let Err(e) = unsafe { page.save_row_by_link(&general_row, link) } {
+            if let Err(e) = unsafe { page.save_row_by_link(&general_row, link) } {
                 match e {
                     DataExecutionError::InvalidLink => {
                         self.empty_links.push(link);
-                        self.retry_insert(general_row)
                     }
                     DataExecutionError::PageIsFull { .. }
                     | DataExecutionError::SerializeError
-                    | DataExecutionError::DeserializeError => Err(e.into()),
+                    | DataExecutionError::DeserializeError => return Err(e.into()),
                 }
             } else {
-                Ok(link)
+                return Ok(link);
             };
         }
 
-        let (link, tried_page) = {
-            let pages = self.pages.read().unwrap();
-            let current_page =
-                page_id_mapper(self.current_page_id.load(Ordering::Relaxed) as usize);
-            let page = &pages[current_page];
+        loop {
+            let (link, tried_page) = {
+                let pages = self.pages.read().unwrap();
+                let current_page =
+                    page_id_mapper(self.current_page_id.load(Ordering::Acquire) as usize);
+                let page = &pages[current_page];
 
-            (page.save_row(&general_row), current_page)
-        };
-        let res = match link {
-            Ok(link) => {
-                self.row_count.fetch_add(1, Ordering::Relaxed);
-                link
-            }
-            Err(e) => {
-                return if let DataExecutionError::PageIsFull { .. } = e {
-                    if tried_page
-                        == page_id_mapper(self.current_page_id.load(Ordering::Relaxed) as usize)
-                    {
-                        self.add_next_page(tried_page);
-                    }
-                    self.retry_insert(general_row)
-                } else {
-                    Err(e.into())
+                (page.save_row(&general_row), current_page)
+            };
+            match link {
+                Ok(link) => {
+                    self.row_count.fetch_add(1, Ordering::Relaxed);
+                    return Ok(link);
                 }
-            }
-        };
-
-        Ok(res)
+                Err(e) => match e {
+                    DataExecutionError::PageIsFull { .. } => {
+                        if tried_page
+                            == page_id_mapper(self.current_page_id.load(Ordering::Relaxed) as usize)
+                        {
+                            self.add_next_page(tried_page);
+                        }
+                    }
+                    DataExecutionError::SerializeError
+                    | DataExecutionError::DeserializeError
+                    | DataExecutionError::InvalidLink => return Err(e.into()),
+                },
+            };
+        }
     }
 
     pub fn insert_cdc(&self, row: Row) -> Result<(Link, Vec<u8>), ExecutionError>
@@ -176,42 +171,13 @@ where
         Ok((link, bytes))
     }
 
-    fn retry_insert(
-        &self,
-        general_row: <Row as StorableRow>::WrappedRow,
-    ) -> Result<Link, ExecutionError>
-    where
-        Row: Archive
-            + for<'a> Serialize<
-                Strategy<Serializer<AlignedVec, ArenaHandle<'a>, Share>, rkyv::rancor::Error>,
-            >,
-        <Row as StorableRow>::WrappedRow: Archive
-            + for<'a> Serialize<
-                Strategy<Serializer<AlignedVec, ArenaHandle<'a>, Share>, rkyv::rancor::Error>,
-            >,
-    {
-        let pages = self.pages.read().unwrap();
-        let current_page = page_id_mapper(self.current_page_id.load(Ordering::Relaxed) as usize);
-        let page = &pages[current_page];
-
-        let res = page
-            .save_row(&general_row)
-            .map_err(ExecutionError::DataPageError);
-        if let Ok(link) = res {
-            self.row_count.fetch_add(1, Ordering::Relaxed);
-            Ok(link)
-        } else {
-            res
-        }
-    }
-
     fn add_next_page(&self, tried_page: usize) {
         let mut pages = self.pages.write().expect("lock should be not poisoned");
-        if tried_page == page_id_mapper(self.current_page_id.load(Ordering::Relaxed) as usize) {
-            let index = self.last_page_id.fetch_add(1, Ordering::Relaxed) + 1;
+        if tried_page == page_id_mapper(self.current_page_id.load(Ordering::Acquire) as usize) {
+            let index = self.last_page_id.fetch_add(1, Ordering::AcqRel) + 1;
 
             pages.push(Arc::new(Data::new(index.into())));
-            self.current_page_id.fetch_add(1, Ordering::Relaxed);
+            self.current_page_id.fetch_add(1, Ordering::AcqRel);
         }
     }
 
@@ -391,7 +357,6 @@ mod tests {
     #[derive(
         Archive, Copy, Clone, Deserialize, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize,
     )]
-
     struct TestRow {
         a: u64,
         b: u64,
@@ -413,6 +378,19 @@ mod tests {
         assert_eq!(link.offset, 0);
 
         assert_eq!(pages.row_count.load(Ordering::Relaxed), 1);
+    }
+
+    #[test]
+    fn insert_many() {
+        let pages = DataPages::<TestRow>::new();
+
+        for _ in 0..10_000 {
+            let row = TestRow { a: 10, b: 20 };
+            pages.insert(row).unwrap();
+        }
+
+        assert_eq!(pages.row_count.load(Ordering::Relaxed), 10_000);
+        assert!(pages.current_page_id.load(Ordering::Relaxed) > 2);
     }
 
     #[test]
@@ -454,14 +432,16 @@ mod tests {
     }
 
     #[test]
-    fn insert_full() {
+    fn insert_on_empty() {
         let pages = DataPages::<TestRow>::new();
 
         let row = TestRow { a: 10, b: 20 };
-        let _ = pages.insert(row).unwrap();
-        let res = pages.insert(row);
+        let link = pages.insert(row).unwrap();
+        let _ = pages.delete(link);
+        let link_new = pages.insert(row).unwrap();
 
-        assert!(res.is_ok())
+        assert_eq!(link, link_new);
+        assert_eq!(pages.select(link).unwrap(), TestRow { a: 10, b: 20 })
     }
 
     //#[test]

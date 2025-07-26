@@ -15,11 +15,13 @@ impl Generator {
         let available_index_ident = name_generator.get_available_indexes_ident();
 
         let save_row_cdc = self.gen_save_row_cdc_index_fn();
+        let reinsert_row_cdc = self.gen_reinsert_row_cdc_index_fn();
         let delete_row_cdc = self.gen_delete_row_cdc_index_fn();
         let process_diff_cdc = self.gen_process_diff_cdc_index_fn();
 
         quote! {
             impl TableSecondaryIndexCdc<#row_type_ident, #available_types_ident, #events_ident, #available_index_ident> for #index_type_ident {
+                #reinsert_row_cdc
                 #save_row_cdc
                 #delete_row_cdc
 
@@ -71,6 +73,46 @@ impl Generator {
                 let mut inserted_indexes: Vec<#available_index_ident> = vec![];
 
                 #(#save_rows)*
+                core::result::Result::Ok(
+                    #events_ident {
+                        #(#idents,)*
+                    }
+                )
+            }
+        }
+    }
+
+    fn gen_reinsert_row_cdc_index_fn(&self) -> TokenStream {
+        let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
+        let row_type_ident = name_generator.get_row_type_ident();
+        let events_ident = name_generator.get_space_secondary_index_events_ident();
+
+        let reinsert_rows = self
+            .columns
+            .indexes
+            .iter()
+            .map(|(i, idx)| {
+                let index_field_name = &idx.name;
+                quote! {
+                    let (_, events) = self.#index_field_name.insert_cdc(row_new.#i.clone(), link_new);
+                    let mut #index_field_name: Vec<_> = events.into_iter().map(|ev| ev.into()).collect();
+                    if row_new.#i != row_old.#i {
+                        let (_, events) = TableIndexCdc::remove_cdc(&self.#index_field_name, row_old.#i.clone(), link_old);
+                        #index_field_name.extend(events.into_iter().map(|ev| ev.into()).collect::<Vec<_>>());
+                    }
+                }
+            })
+            .collect::<Vec<_>>();
+        let idents = self
+            .columns
+            .indexes
+            .values()
+            .map(|idx| &idx.name)
+            .collect::<Vec<_>>();
+
+        quote! {
+            fn reinsert_row_cdc(&self, row_old: #row_type_ident, link_old: Link, row_new: #row_type_ident, link_new: Link) -> eyre::Result<#events_ident> {
+                #(#reinsert_rows)*
                 core::result::Result::Ok(
                     #events_ident {
                         #(#idents,)*

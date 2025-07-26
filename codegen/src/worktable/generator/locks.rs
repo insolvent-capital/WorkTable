@@ -11,7 +11,6 @@ impl Generator {
         quote! {
             #type_
             #impl_
-
         }
     }
 
@@ -32,8 +31,6 @@ impl Generator {
         quote! {
              #[derive(Debug, Clone)]
              pub struct #lock_ident {
-                id: u16,
-                lock: Option<std::sync::Arc<Lock>>,
                 #(#rows)*
             }
         }
@@ -44,16 +41,50 @@ impl Generator {
         let lock_ident = name_generator.get_lock_type_ident();
 
         let new_fn = self.gen_new_fn();
-        let with_lock_fn = self.gen_with_lock_fn();
-        let lock_await_fn = self.gen_lock_await_fn();
-        let unlock_fn = self.gen_unlock_fn();
+        let row_impl = self.gen_lock_row_impl();
 
         quote! {
             impl #lock_ident {
                 #new_fn
+            }
+
+            #row_impl
+        }
+    }
+
+    fn gen_lock_row_impl(&self) -> TokenStream {
+        let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
+        let lock_ident = name_generator.get_lock_type_ident();
+
+        let is_locked_fn = self.gen_is_locked_fn();
+        let with_lock_fn = self.gen_with_lock_fn();
+        let lock_fn = self.gen_lock_fn();
+        let merge_fn = self.gen_merge_fn();
+
+        quote! {
+            impl RowLock for #lock_ident {
+                #is_locked_fn
+                #lock_fn
                 #with_lock_fn
-                #lock_await_fn
-                #unlock_fn
+                #merge_fn
+            }
+        }
+    }
+
+    fn gen_is_locked_fn(&self) -> TokenStream {
+        let rows: Vec<_> = self
+            .columns
+            .columns_map
+            .keys()
+            .map(|i| {
+                let col = Ident::new(format!("{i}_lock").as_str(), Span::mixed_site());
+                quote! { self.#col.as_ref().map(|l| l.is_locked()).unwrap_or(false)  }
+            })
+            .collect();
+
+        quote! {
+            fn is_locked(&self) -> bool {
+                #(#rows) ||*
             }
         }
     }
@@ -70,10 +101,8 @@ impl Generator {
             .collect();
 
         quote! {
-            pub fn new(lock_id: u16) -> Self {
+            pub fn new() -> Self {
                 Self {
-                    id: lock_id,
-                    lock: None,
                     #(#rows),*
                 }
             }
@@ -87,22 +116,52 @@ impl Generator {
             .keys()
             .map(|i| {
                 let col = Ident::new(format!("{i}_lock").as_str(), Span::mixed_site());
-                quote! { #col: Some(std::sync::Arc::new(Lock::new())) }
+                quote! { #col: Some(lock.clone()) }
             })
             .collect();
 
         quote! {
-             pub fn with_lock(lock_id: u16) -> Self {
-                Self {
-                    id: lock_id,
-                    lock: Some(std::sync::Arc::new(Lock::new())),
-                    #(#rows),*
-                }
+             fn with_lock(id: u16) -> (Self, std::sync::Arc<Lock>) {
+                let lock = std::sync::Arc::new(Lock::new(id));
+                (
+                    Self {
+                        #(#rows),*
+                    },
+                    lock
+                )
             }
         }
     }
 
-    fn gen_lock_await_fn(&self) -> TokenStream {
+    fn gen_lock_fn(&self) -> TokenStream {
+        let rows: Vec<_> = self
+            .columns
+            .columns_map
+            .keys()
+            .map(|i| {
+                let col = Ident::new(format!("{i}_lock").as_str(), Span::mixed_site());
+                quote! {
+                    if let Some(lock) = &self.#col {
+                        set.insert(lock.clone());
+                    }
+                    self.#col = Some(lock.clone());
+                }
+            })
+            .collect();
+
+        quote! {
+            #[allow(clippy::mutable_key_type)]
+             fn lock(&mut self, id: u16) -> (std::collections::HashSet<std::sync::Arc<Lock>>,  std::sync::Arc<Lock>) {
+                let mut set = std::collections::HashSet::new();
+                let lock = std::sync::Arc::new(Lock::new(id));
+                #(#rows)*
+
+                (set, lock)
+            }
+        }
+    }
+
+    fn gen_merge_fn(&self) -> TokenStream {
         let rows: Vec<_> = self
             .columns
             .columns_map
@@ -110,48 +169,25 @@ impl Generator {
             .map(|col| {
                 let col = Ident::new(format!("{col}_lock").as_str(), Span::mixed_site());
                 quote! {
-                   if let Some(lock) = &self.#col {
-                        futures.push(lock.as_ref());
-                   }
-                }
-            })
-            .collect();
-        quote! {
-             pub async fn lock_await(&self) {
-                let mut futures = Vec::new();
-
-                if let Some(lock) = &self.lock {
-                    futures.push(lock.as_ref());
-                }
-                #(#rows)*
-                futures::future::join_all(futures).await;
-            }
-        }
-    }
-
-    fn gen_unlock_fn(&self) -> TokenStream {
-        let rows: Vec<_> = self
-            .columns
-            .columns_map
-            .keys()
-            .map(|col| {
-                let col = Ident::new(format!("{col}_lock").as_str(), Span::mixed_site());
-                quote! {
-                     if let Some(#col) = &self.#col {
-                        #col.unlock();
-                     }
+                    if let Some(#col) = &other.#col {
+                        if self.#col.is_none() {
+                            self.#col = Some(#col.clone());
+                        } else {
+                            set.insert(#col.clone());
+                        }
+                    }
+                    other.#col = self.#col.clone();
                 }
             })
             .collect();
 
         quote! {
-            pub fn unlock(&self) {
-                if let Some(lock) = &self.lock {
-                    lock.unlock();
-                }
+            #[allow(clippy::mutable_key_type)]
+            fn merge(&mut self, other: &mut Self) -> std::collections::HashSet<std::sync::Arc<Lock>> {
+                let mut set = std::collections::HashSet::new();
                 #(#rows)*
+                set
             }
-
         }
     }
 }

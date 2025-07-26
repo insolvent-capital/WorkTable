@@ -15,6 +15,7 @@ impl Generator {
         let avt_index_ident = name_generator.get_available_indexes_ident();
 
         let save_row_fn = self.gen_save_row_index_fn();
+        let reinsert_row_fn = self.gen_reinsert_row_index_fn();
         let delete_row_fn = self.gen_delete_row_index_fn();
         let process_difference_fn = self.gen_process_difference_index_fn();
         let delete_from_indexes = self.gen_index_delete_from_indexes_fn();
@@ -22,6 +23,7 @@ impl Generator {
         quote! {
             impl TableSecondaryIndex<#row_type_ident, #avt_type_ident, #avt_index_ident> for #index_type_ident {
                 #save_row_fn
+                #reinsert_row_fn
                 #delete_row_fn
                 #process_difference_fn
                 #delete_from_indexes
@@ -82,6 +84,54 @@ impl Generator {
             fn save_row(&self, row: #row_type_ident, link: Link) -> core::result::Result<(), IndexError<#available_index_ident>> {
                 let mut inserted_indexes: Vec<#available_index_ident> = vec![];
                 #(#save_rows)*
+                core::result::Result::Ok(())
+            }
+        }
+    }
+
+    fn gen_reinsert_row_index_fn(&self) -> TokenStream {
+        let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
+        let row_type_ident = name_generator.get_row_type_ident();
+
+        let reinsert_rows = self
+            .columns
+            .indexes
+            .iter()
+            .map(|(i, idx)| {
+                let index_field_name = &idx.name;
+                let row = if is_float(
+                    self.columns
+                        .columns_map
+                        .get(i)
+                        .unwrap()
+                        .to_string()
+                        .as_str(),
+                ) {
+                    quote! {
+                        OrderedFloat(row.#i)
+                    }
+                } else {
+                    quote! {
+                        row.#i
+                    }
+                };
+                quote! {
+                    let row = &row_new;
+                    let val_new = #row.clone();
+                    self.#index_field_name.insert(val_new.clone(), link_new);
+
+                    let row = &row_old;
+                    let val_old = #row.clone();
+                    if val_new != val_old {
+                        TableIndex::remove(&self.#index_field_name, val_old, link_old);
+                    }
+                }
+            })
+            .collect::<Vec<_>>();
+
+        quote! {
+            fn reinsert_row(&self, row_old: #row_type_ident, link_old: Link, row_new: #row_type_ident, link_new: Link) -> eyre::Result<()> {
+                #(#reinsert_rows)*
                 core::result::Result::Ok(())
             }
         }

@@ -23,6 +23,7 @@ pub use worktable_codegen::worktable;
 pub mod prelude {
     pub use crate::in_memory::{Data, DataPages, RowWrapper, StorableRow};
     pub use crate::lock::LockMap;
+    pub use crate::lock::{Lock, RowLock};
     pub use crate::mem_stat::MemStat;
     pub use crate::persistence::{
         map_index_pages_to_toc_and_general, map_unsized_index_pages_to_toc_and_general,
@@ -36,7 +37,7 @@ pub mod prelude {
     pub use crate::table::system_info::{IndexInfo, IndexKind, SystemInfo};
     pub use crate::util::{OrderedF32Def, OrderedF64Def};
     pub use crate::{
-        lock::Lock, Difference, IndexError, IndexMap, IndexMultiMap, MultiPairRecreate, TableIndex,
+        Difference, IndexError, IndexMap, IndexMultiMap, MultiPairRecreate, TableIndex,
         TableIndexCdc, TableRow, TableSecondaryIndex, TableSecondaryIndexCdc,
         TableSecondaryIndexEventsOps, TableSecondaryIndexInfo, UnsizedNode, WorkTable,
         WorkTableError,
@@ -55,6 +56,7 @@ pub mod prelude {
         core::{multipair::MultiPair as IndexMultiPair, pair::Pair as IndexPair},
     };
     pub use ordered_float::OrderedFloat;
+    pub use parking_lot::RwLock as ParkingRwLock;
     pub use worktable_codegen::{MemStat, PersistIndex, PersistTable};
 
     pub const WT_INDEX_EXTENSION: &str = ".wt.idx";
