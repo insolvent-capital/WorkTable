@@ -5,19 +5,20 @@ use std::future::Future;
 use std::hash::{Hash, Hasher};
 use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use derive_more::From;
 use futures::task::AtomicWaker;
-
 pub use map::LockMap;
+use parking_lot::Mutex;
 pub use row_lock::RowLock;
 
 #[derive(Debug)]
 pub struct Lock {
     id: u16,
-    locked: AtomicBool,
-    waker: AtomicWaker,
+    locked: Arc<AtomicBool>,
+    wakers: Mutex<Vec<Arc<AtomicWaker>>>,
 }
 
 impl PartialEq for Lock {
@@ -38,32 +39,59 @@ impl Lock {
     pub fn new(id: u16) -> Self {
         Self {
             id,
-            locked: AtomicBool::from(true),
-            waker: AtomicWaker::new(),
+            locked: Arc::new(AtomicBool::from(true)),
+            wakers: Mutex::new(vec![]),
         }
     }
 
+    pub fn id(&self) -> u16 {
+        self.id
+    }
+
     pub fn unlock(&self) {
-        self.locked.store(false, Ordering::Release);
-        self.waker.wake()
+        self.locked.store(false, Ordering::Relaxed);
+        let guard = self.wakers.lock();
+        for w in guard.iter() {
+            w.wake()
+        }
     }
 
     pub fn lock(&self) {
-        self.locked.store(true, Ordering::Release);
-        self.waker.wake()
+        self.locked.store(true, Ordering::Relaxed);
     }
 
     pub fn is_locked(&self) -> bool {
-        self.locked.load(Ordering::Acquire)
+        self.locked.load(Ordering::Relaxed)
+    }
+
+    pub fn wait(&self) -> LockWait {
+        let mut guard = self.wakers.lock();
+        let waker = Arc::new(AtomicWaker::new());
+        guard.push(waker.clone());
+        LockWait {
+            locked: self.locked.clone(),
+            waker,
+        }
     }
 }
 
-impl Future for &Lock {
+#[derive(Debug)]
+pub struct LockWait {
+    locked: Arc<AtomicBool>,
+    waker: Arc<AtomicWaker>,
+}
+
+impl Future for LockWait {
     type Output = ();
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        self.as_ref().waker.register(cx.waker());
-        if self.locked.load(Ordering::Acquire) {
+        if !self.locked.load(Ordering::Relaxed) {
+            return Poll::Ready(());
+        }
+
+        self.waker.register(cx.waker());
+
+        if self.locked.load(Ordering::Relaxed) {
             Poll::Pending
         } else {
             Poll::Ready(())

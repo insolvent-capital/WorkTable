@@ -518,6 +518,7 @@ impl Generator {
                     locks.insert(pk, op_lock);
                 }
 
+                let links: Vec<_> = self.0.indexes.#index.get(#by).map(|(_, l)| *l).collect();
                 let mut pk_to_unlock: std::collections::HashMap<_, std::sync::Arc<Lock>> = std::collections::HashMap::new();
                 let op_id = OperationId::Multi(uuid::Uuid::now_v7());
                 for link in links.into_iter() {
@@ -611,6 +612,11 @@ impl Generator {
                 let lock = {
                     #custom_lock
                 };
+
+                let link = self.0.indexes.#index
+                    .get(#by)
+                    .map(|kv| kv.get().value)
+                    .ok_or(WorkTableError::NotFound)?;
 
                 let op_id = OperationId::Single(uuid::Uuid::now_v7());
                 #size_check

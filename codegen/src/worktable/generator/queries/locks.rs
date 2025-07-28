@@ -132,7 +132,7 @@ impl Generator {
                 #[allow(clippy::mutable_key_type)]
                 let (locks, op_lock) = lock_guard.lock(lock_id);
                 drop(lock_guard);
-                futures::future::join_all(locks.iter().map(|l| l.as_ref()).collect::<Vec<_>>()).await;
+                futures::future::join_all(locks.iter().map(|l| l.wait()).collect::<Vec<_>>()).await;
 
                 op_lock
             } else {
@@ -147,7 +147,7 @@ impl Generator {
                     drop(old_lock_guard);
                     drop(guard);
 
-                    futures::future::join_all(locks.iter().map(|l| l.as_ref()).collect::<Vec<_>>()).await;
+                    futures::future::join_all(locks.iter().map(|l| l.wait()).collect::<Vec<_>>()).await;
                 }
 
                 op_lock
@@ -166,8 +166,7 @@ impl Generator {
                 #[allow(clippy::mutable_key_type)]
                 let (locks, op_lock) = lock_guard.#ident(lock_id);
                 drop(lock_guard);
-                futures::future::join_all(locks.iter().map(|l| l.as_ref()).collect::<Vec<_>>()).await;
-
+                futures::future::join_all(locks.iter().map(|l| l.wait()).collect::<Vec<_>>()).await;
                 op_lock
             } else {
                 let mut lock = #lock_ident::new();
@@ -182,7 +181,7 @@ impl Generator {
                     drop(old_lock_guard);
                     drop(guard);
 
-                    futures::future::join_all(locks.iter().map(|l| l.as_ref()).collect::<Vec<_>>()).await;
+                    futures::future::join_all(locks.iter().map(|l| l.wait()).collect::<Vec<_>>()).await;
                 }
 
                 op_lock

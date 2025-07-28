@@ -117,15 +117,15 @@ impl Generator {
                 by: #by_type,
             ) -> eyre::Result<()> {
                 let pk: #pk_type = by.into();
+                let lock = {
+                    #custom_lock
+                };
                 let link = self
                     .0
                     .pk_map
                     .get(&pk)
                     .map(|v| v.get().value)
                     .ok_or(WorkTableError::NotFound)?;
-                let lock = {
-                    #custom_lock
-                };
                 unsafe {
                     self.0
                         .data
