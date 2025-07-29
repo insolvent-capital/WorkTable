@@ -45,12 +45,6 @@ impl Generator {
                     #full_row_lock
                 };
 
-                let link = self.0
-                    .pk_map
-                    .get(&pk)
-                    .map(|v| v.get().value)
-                    .ok_or(WorkTableError::NotFound)?;
-
                 #delete_logic
 
                 lock.unlock();  // Releases locks

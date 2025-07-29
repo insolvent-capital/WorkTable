@@ -43,14 +43,13 @@ impl Parser {
 
 #[cfg(test)]
 mod tests {
-    use proc_macro2::TokenStream;
     use quote::quote;
 
     use crate::worktable::Parser;
 
     #[test]
     fn test_empty() {
-        let tokens = TokenStream::from(quote! {});
+        let tokens = quote! {};
         let mut parser = Parser::new(tokens);
         let empty = parser.parse_persist();
         assert!(empty.is_ok());
@@ -59,7 +58,7 @@ mod tests {
 
     #[test]
     fn test_literal_field() {
-        let tokens = TokenStream::from(quote! {"nme": TestName,});
+        let tokens = quote! {"nme": TestName,};
         let mut parser = Parser::new(tokens);
         let name = parser.parse_persist();
         assert!(name.is_err());
@@ -67,7 +66,7 @@ mod tests {
 
     #[test]
     fn test_persistence() {
-        let tokens = TokenStream::from(quote! {persist: true,});
+        let tokens = quote! {persist: true,};
         let mut parser = Parser::new(tokens);
         let name = parser.parse_persist();
         assert!(name.is_ok());
@@ -76,7 +75,7 @@ mod tests {
 
     #[test]
     fn test_wrong_field() {
-        let tokens = TokenStream::from(quote! {nme: TestName,});
+        let tokens = quote! {nme: TestName,};
         let mut parser = Parser::new(tokens);
         let name = parser.parse_persist();
         assert!(name.is_ok());
@@ -85,7 +84,7 @@ mod tests {
 
     #[test]
     fn test_no_comma() {
-        let tokens = TokenStream::from(quote! {name: TestName});
+        let tokens = quote! {name: TestName};
         let mut parser = Parser::new(tokens);
         let name = parser.parse_persist();
         assert!(name.is_ok());

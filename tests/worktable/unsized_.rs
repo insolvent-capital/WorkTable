@@ -305,6 +305,9 @@ worktable! (
         update: {
             ExchangeAndSomeByTest(exchange, some_string) by test,
             ExchangeAndSomeById(exchange, some_string) by id,
+            ExchangeAgainById(exchange) by id,
+            SomeById(some_string) by id,
+            AnotherById(another) by id,
             ExchangeAndSomeByAnother(exchange, some_string) by another,
             SomeOtherByExchange(some_string, other_srting) by exchange,
         }
@@ -512,4 +515,336 @@ async fn test_update_many_strings_by_string() {
     assert_eq!(empty_links.len(), 2);
     assert!(empty_links.contains(&first_link));
     assert!(empty_links.contains(&second_link))
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn update_parallel_more_strings() {
+    let table = Arc::new(TestMoreStringsWorkTable::default());
+    let e_state = Arc::new(Mutex::new(HashMap::new()));
+    let s_state = Arc::new(Mutex::new(HashMap::new()));
+    for i in 0..100 {
+        let row = TestMoreStringsRow {
+            id: table.get_next_pk().into(),
+            test: i + 1,
+            another: 1,
+            exchange: format!("test_{i}"),
+            some_string: format!("some_{i}"),
+            other_srting: format!("other_{i}"),
+        };
+        let _ = table.insert(row.clone()).unwrap();
+    }
+    let shared = table.clone();
+    let shared_e_state = e_state.clone();
+    let h = tokio::spawn(async move {
+        for _ in 0..2000 {
+            let val = fastrand::u64(..);
+            let id_to_update = fastrand::u64(0..=99);
+            shared
+                .update_exchange_again_by_id(
+                    ExchangeAgainByIdQuery {
+                        exchange: format!("test_{val}"),
+                    },
+                    id_to_update.into(),
+                )
+                .await
+                .unwrap();
+            {
+                let mut guard = shared_e_state.lock();
+                guard
+                    .entry(id_to_update)
+                    .and_modify(|v| *v = format!("test_{val}"))
+                    .or_insert(format!("test_{val}"));
+            }
+        }
+    });
+    for _ in 0..2000 {
+        let val = fastrand::u64(..);
+        let id_to_update = fastrand::u64(0..=99);
+        table
+            .update_some_by_id(
+                SomeByIdQuery {
+                    some_string: format!("some_{val}"),
+                },
+                id_to_update.into(),
+            )
+            .await
+            .unwrap();
+        {
+            let mut guard = s_state.lock();
+            guard
+                .entry(id_to_update)
+                .and_modify(|v| *v = format!("some_{val}"))
+                .or_insert(format!("some_{val}"));
+        }
+    }
+    h.await.unwrap();
+
+    for (id, e) in e_state.lock_arc().iter() {
+        let row = table.select((*id).into()).unwrap();
+        assert_eq!(&row.exchange, e)
+    }
+    for (id, s) in s_state.lock_arc().iter() {
+        let row = table.select((*id).into()).unwrap();
+        assert_eq!(&row.some_string, s)
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 3)]
+async fn update_parallel_more_strings_more_threads() {
+    let table = Arc::new(TestMoreStringsWorkTable::default());
+    let e_state = Arc::new(Mutex::new(HashMap::new()));
+    let s_state = Arc::new(Mutex::new(HashMap::new()));
+    let a_state = Arc::new(Mutex::new(HashMap::new()));
+    for i in 0..100 {
+        let row = TestMoreStringsRow {
+            id: table.get_next_pk().into(),
+            test: i + 1,
+            another: 1,
+            exchange: format!("test_{i}"),
+            some_string: format!("some_{i}"),
+            other_srting: format!("other_{i}"),
+        };
+        let _ = table.insert(row.clone()).unwrap();
+    }
+    let shared = table.clone();
+    let shared_e_state = e_state.clone();
+    let h1 = tokio::spawn(async move {
+        for _ in 0..2000 {
+            let val = fastrand::u64(..);
+            let id_to_update = fastrand::u64(0..=99);
+            shared
+                .update_exchange_again_by_id(
+                    ExchangeAgainByIdQuery {
+                        exchange: format!("test_{val}"),
+                    },
+                    id_to_update.into(),
+                )
+                .await
+                .unwrap();
+            {
+                let mut guard = shared_e_state.lock();
+                guard
+                    .entry(id_to_update)
+                    .and_modify(|v| *v = format!("test_{val}"))
+                    .or_insert(format!("test_{val}"));
+            }
+        }
+    });
+    let shared = table.clone();
+    let shared_t_state = a_state.clone();
+    let h2 = tokio::spawn(async move {
+        for _ in 0..5000 {
+            let val = fastrand::u64(..);
+            let id_to_update = fastrand::u64(0..=99);
+            shared
+                .update_another_by_id(AnotherByIdQuery { another: val }, id_to_update.into())
+                .await
+                .unwrap();
+            {
+                let mut guard = shared_t_state.lock();
+                guard
+                    .entry(id_to_update)
+                    .and_modify(|v| *v = val)
+                    .or_insert(val);
+            }
+        }
+    });
+    for _ in 0..2000 {
+        let val = fastrand::u64(..);
+        let id_to_update = fastrand::u64(0..=99);
+        table
+            .update_some_by_id(
+                SomeByIdQuery {
+                    some_string: format!("some_{val}"),
+                },
+                id_to_update.into(),
+            )
+            .await
+            .unwrap();
+        {
+            let mut guard = s_state.lock();
+            guard
+                .entry(id_to_update)
+                .and_modify(|v| *v = format!("some_{val}"))
+                .or_insert(format!("some_{val}"));
+        }
+    }
+    h1.await.unwrap();
+    h2.await.unwrap();
+
+    for (id, e) in e_state.lock_arc().iter() {
+        let row = table.select((*id).into()).unwrap();
+        assert_eq!(&row.exchange, e)
+    }
+    for (id, s) in s_state.lock_arc().iter() {
+        let row = table.select((*id).into()).unwrap();
+        assert_eq!(&row.some_string, s)
+    }
+    for (id, a) in a_state.lock_arc().iter() {
+        let row = table.select((*id).into()).unwrap();
+        assert_eq!(&row.another, a)
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 3)]
+async fn update_parallel_more_strings_with_select_non_unique() {
+    let table = Arc::new(TestMoreStringsWorkTable::default());
+    let e_state = Arc::new(Mutex::new(HashMap::new()));
+    let a_state = Arc::new(Mutex::new(HashMap::new()));
+    for i in 0..1000 {
+        let e_val = fastrand::u8(0..100);
+        let s_val = fastrand::u8(0..100);
+        let row = TestMoreStringsRow {
+            id: table.get_next_pk().into(),
+            test: i + 1,
+            another: 1,
+            exchange: format!("test_{e_val}"),
+            some_string: format!("some_{s_val}"),
+            other_srting: format!("other_{i}"),
+        };
+        let _ = table.insert(row.clone()).unwrap();
+    }
+    let shared = table.clone();
+    let shared_e_state = e_state.clone();
+    let h1 = tokio::spawn(async move {
+        for _ in 0..5_000 {
+            let val = fastrand::u8(0..100);
+            let id_to_update = fastrand::u64(0..1000);
+            shared
+                .update_exchange_again_by_id(
+                    ExchangeAgainByIdQuery {
+                        exchange: format!("test_{val}"),
+                    },
+                    id_to_update.into(),
+                )
+                .await
+                .unwrap();
+            {
+                let mut guard = shared_e_state.lock();
+                guard
+                    .entry(id_to_update)
+                    .and_modify(|v| *v = format!("test_{val}"))
+                    .or_insert(format!("test_{val}"));
+            }
+        }
+    });
+    let shared = table.clone();
+    let shared_t_state = a_state.clone();
+    let h2 = tokio::spawn(async move {
+        for _ in 0..10_000 {
+            let val = fastrand::u64(..);
+            let id_to_update = fastrand::u64(0..1000);
+            shared
+                .update_another_by_id(AnotherByIdQuery { another: val }, id_to_update.into())
+                .await
+                .unwrap();
+            {
+                let mut guard = shared_t_state.lock();
+                guard
+                    .entry(id_to_update)
+                    .and_modify(|v| *v = val)
+                    .or_insert(val);
+            }
+        }
+    });
+    for _ in 0..20_000 {
+        let val = fastrand::u8(0..100);
+        let vals = table
+            .select_by_exchange(format!("test_{val}"))
+            .execute()
+            .unwrap();
+        for v in vals {
+            assert_eq!(v.exchange, format!("test_{val}"))
+        }
+    }
+    h1.await.unwrap();
+    h2.await.unwrap();
+
+    for (id, e) in e_state.lock_arc().iter() {
+        let row = table.select((*id).into()).unwrap();
+        assert_eq!(&row.exchange, e)
+    }
+    for (id, a) in a_state.lock_arc().iter() {
+        let row = table.select((*id).into()).unwrap();
+        assert_eq!(&row.another, a)
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 3)]
+async fn update_parallel_more_strings_with_select_unique() {
+    let table = Arc::new(TestMoreStringsWorkTable::default());
+    let e_state = Arc::new(Mutex::new(HashMap::new()));
+    let a_state = Arc::new(Mutex::new(HashMap::new()));
+    for i in 0..1000 {
+        let e_val = fastrand::u8(0..100);
+        let s_val = fastrand::u8(0..100);
+        let row = TestMoreStringsRow {
+            id: table.get_next_pk().into(),
+            test: i,
+            another: 1,
+            exchange: format!("test_{e_val}"),
+            some_string: format!("some_{s_val}"),
+            other_srting: format!("other_{i}"),
+        };
+        let _ = table.insert(row.clone()).unwrap();
+    }
+    let shared = table.clone();
+    let shared_e_state = e_state.clone();
+    let h1 = tokio::spawn(async move {
+        for _ in 0..5_000 {
+            let val = fastrand::u8(0..100);
+            let id_to_update = fastrand::u64(0..1000);
+            shared
+                .update_exchange_again_by_id(
+                    ExchangeAgainByIdQuery {
+                        exchange: format!("test_{val}"),
+                    },
+                    id_to_update.into(),
+                )
+                .await
+                .unwrap();
+            {
+                let mut guard = shared_e_state.lock();
+                guard
+                    .entry(id_to_update)
+                    .and_modify(|v| *v = format!("test_{val}"))
+                    .or_insert(format!("test_{val}"));
+            }
+        }
+    });
+    let shared = table.clone();
+    let shared_t_state = a_state.clone();
+    let h2 = tokio::spawn(async move {
+        for _ in 0..10_000 {
+            let val = fastrand::u64(..);
+            let id_to_update = fastrand::u64(0..1000);
+            shared
+                .update_another_by_id(AnotherByIdQuery { another: val }, id_to_update.into())
+                .await
+                .unwrap();
+            {
+                let mut guard = shared_t_state.lock();
+                guard
+                    .entry(id_to_update)
+                    .and_modify(|v| *v = val)
+                    .or_insert(val);
+            }
+        }
+    });
+    for _ in 0..20_000 {
+        let val = fastrand::i64(0..1000);
+        let res = table.select_by_test(val);
+        assert!(res.is_some())
+    }
+    h1.await.unwrap();
+    h2.await.unwrap();
+
+    for (id, e) in e_state.lock_arc().iter() {
+        let row = table.select((*id).into()).unwrap();
+        assert_eq!(&row.exchange, e)
+    }
+    for (id, a) in a_state.lock_arc().iter() {
+        let row = table.select((*id).into()).unwrap();
+        assert_eq!(&row.another, a)
+    }
 }

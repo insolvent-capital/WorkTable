@@ -130,17 +130,16 @@ impl Parser {
 mod tests {
     use std::collections::HashMap;
 
-    use proc_macro2::TokenStream;
     use quote::quote;
 
     use crate::worktable::Parser;
 
     #[test]
     fn test_columns_parse() {
-        let tokens = TokenStream::from(quote! {columns: {
+        let tokens = quote! {columns: {
             id: i64 primary_key,
             test: u64,
-        }});
+        }};
         let mut parser = Parser::new(tokens);
         let columns = parser.parse_columns();
 
@@ -160,10 +159,10 @@ mod tests {
 
     #[test]
     fn test_columns_parse_no_last_comma() {
-        let tokens = TokenStream::from(quote! {columns: {
+        let tokens = quote! {columns: {
             id: i64 primary_key,
             test: u64
-        }});
+        }};
         let mut parser = Parser::new(tokens);
         let columns = parser.parse_columns();
 
@@ -183,10 +182,10 @@ mod tests {
 
     #[test]
     fn test_columns_parse_optional() {
-        let tokens = TokenStream::from(quote! {columns: {
+        let tokens = quote! {columns: {
             id: i64 primary_key,
             test: u64 optional,
-        }});
+        }};
         let mut parser = Parser::new(tokens);
         let columns = parser.parse_columns();
 
@@ -208,11 +207,11 @@ mod tests {
 
     #[test]
     fn test_columns_parse_three() {
-        let tokens = TokenStream::from(quote! {columns: {
+        let tokens = quote! {columns: {
             id: i64 primary_key,
             test: u64,
             a: u64
-        }});
+        }};
         let mut parser = Parser::new(tokens);
         let columns = parser.parse_columns();
 
@@ -232,10 +231,10 @@ mod tests {
 
     #[test]
     fn test_columns_parse_no_primary_key() {
-        let tokens = TokenStream::from(quote! {columns: {
+        let tokens = quote! {columns: {
             id: i64,
             test: u64
-        }});
+        }};
         let mut parser = Parser::new(tokens);
         let columns = parser.parse_columns();
 
@@ -247,7 +246,7 @@ mod tests {
 
         #[test]
         fn test_row_parse() {
-            let row_tokens = TokenStream::from(quote! {id: i64 primary_key,});
+            let row_tokens = quote! {id: i64 primary_key,};
 
             let mut parser = Parser::new(row_tokens);
             let row = parser.parse_row();
@@ -262,7 +261,7 @@ mod tests {
 
         #[test]
         fn test_row_parse_no_comma() {
-            let row_tokens = TokenStream::from(quote! {id: i64 primary_key TreeIndex});
+            let row_tokens = quote! {id: i64 primary_key TreeIndex};
 
             let mut parser = Parser::new(row_tokens);
             let row = parser.parse_row();
@@ -277,7 +276,7 @@ mod tests {
 
         #[test]
         fn test_row_parse_no_primary_key() {
-            let row_tokens = TokenStream::from(quote! {id: i64,});
+            let row_tokens = quote! {id: i64,};
 
             let mut parser = Parser::new(row_tokens);
             let row = parser.parse_row();
@@ -292,7 +291,7 @@ mod tests {
 
         #[test]
         fn test_row_parse_no_primary_key_no_comma() {
-            let row_tokens = TokenStream::from(quote! {id: i64});
+            let row_tokens = quote! {id: i64};
 
             let mut parser = Parser::new(row_tokens);
             let row = parser.parse_row();
@@ -307,7 +306,7 @@ mod tests {
 
         #[test]
         fn test_row_parse_optional() {
-            let row_tokens = TokenStream::from(quote! {id: i64 optional});
+            let row_tokens = quote! {id: i64 optional};
 
             let mut parser = Parser::new(row_tokens);
             let row = parser.parse_row();

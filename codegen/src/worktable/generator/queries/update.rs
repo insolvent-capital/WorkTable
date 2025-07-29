@@ -246,7 +246,7 @@ impl Generator {
                         #full_row_lock
                     };
 
-                    let row_old = self.0.data.select(link)?;
+                    let row_old = self.select(pk.clone()).expect("should not be deleted by other thread");
                     let mut row_new = row_old.clone();
                     let pk = row_old.get_primary_key().clone();
                     #(#row_updates)*

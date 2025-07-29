@@ -84,6 +84,7 @@ impl Generator {
             .ok_or(syn::Error::new(i.span(), "Row not found"))?;
         let fn_name = Ident::new(format!("select_by_{i}").as_str(), Span::mixed_site());
         let field_ident = &idx.name;
+        let row_field_ident = &idx.field;
         let by = if is_float(type_.to_string().as_str()) {
             quote! {
                 &OrderedFloat(by)
@@ -103,7 +104,8 @@ impl Generator {
                 let rows = self.0.indexes.#field_ident
                     .get(#by)
                     .into_iter()
-                    .filter_map(|(_, link)| self.0.data.select(*link).ok());
+                    .filter_map(|(_, link)| self.0.data.select(*link).ok())
+                    .filter(move |r| &r.#row_field_ident == &by);
 
                 SelectQueryBuilder::new(rows)
             }
