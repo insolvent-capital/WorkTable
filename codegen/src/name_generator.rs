@@ -87,6 +87,13 @@ impl WorktableNameGenerator {
         Ident::new(format!("{}Wrapper", self.name).as_str(), Span::mixed_site())
     }
 
+    pub fn get_archived_wrapper_type_ident(&self) -> Ident {
+        Ident::new(
+            format!("Archived{}Wrapper", self.name).as_str(),
+            Span::mixed_site(),
+        )
+    }
+
     pub fn get_lock_type_ident(&self) -> Ident {
         Ident::new(format!("{}Lock", self.name).as_str(), Span::mixed_site())
     }

@@ -179,7 +179,7 @@ impl Generator {
             pub async fn #name(&self, by: #type_) -> core::result::Result<(), WorkTableError> {
                 let rows_to_update = self.0.indexes.#index.get(#by).map(|kv| kv.1).collect::<Vec<_>>();
                 for link in rows_to_update {
-                    let row = self.0.data.select(*link).map_err(WorkTableError::PagesError)?;
+                    let row = self.0.data.select_non_ghosted(*link).map_err(WorkTableError::PagesError)?;
                     self.delete(row.id.into()).await?;
                 }
                 core::result::Result::Ok(())
@@ -201,7 +201,7 @@ impl Generator {
             pub async fn #name(&self, by: #type_) -> core::result::Result<(), WorkTableError> {
                 let row_to_update = self.0.indexes.#index.get(#by).map(|v| v.get().value);
                 if let Some(link) = row_to_update {
-                    let row = self.0.data.select(link).map_err(WorkTableError::PagesError)?;
+                    let row = self.0.data.select_non_ghosted(link).map_err(WorkTableError::PagesError)?;
                     self.delete(row.id.into()).await?;
                 }
                 core::result::Result::Ok(())

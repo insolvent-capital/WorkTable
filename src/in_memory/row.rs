@@ -1,8 +1,6 @@
 use std::fmt::Debug;
-use std::sync::atomic::AtomicBool;
 
-use rkyv::with::{AtomicLoad, Relaxed};
-use rkyv::{Archive, Deserialize, Serialize};
+use rkyv::Archive;
 
 /// Common trait for the `Row`s that can be stored on the [`Data`] page.
 ///
@@ -13,32 +11,10 @@ pub trait StorableRow {
 
 pub trait RowWrapper<Inner> {
     fn get_inner(self) -> Inner;
-
+    fn is_ghosted(&self) -> bool;
     fn from_inner(inner: Inner) -> Self;
 }
 
-/// General `Row` wrapper that is used to append general data for every `Inner`
-/// `Row`.
-#[derive(Archive, Deserialize, Debug, Serialize)]
-pub struct GeneralRow<Inner> {
-    /// Inner generic `Row`.
-    pub inner: Inner,
-
-    /// Indicator for deleted rows.
-    #[rkyv(with = AtomicLoad<Relaxed>)]
-    pub deleted: AtomicBool,
-}
-
-impl<Inner> RowWrapper<Inner> for GeneralRow<Inner> {
-    fn get_inner(self) -> Inner {
-        self.inner
-    }
-
-    /// Creates new [`GeneralRow`] from `Inner`.
-    fn from_inner(inner: Inner) -> Self {
-        Self {
-            inner,
-            deleted: AtomicBool::new(false),
-        }
-    }
+pub trait GhostWrapper {
+    fn unghost(&mut self);
 }

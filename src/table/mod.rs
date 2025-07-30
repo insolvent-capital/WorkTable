@@ -4,7 +4,7 @@ pub mod system_info;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
-use crate::in_memory::{DataPages, RowWrapper, StorableRow};
+use crate::in_memory::{DataPages, GhostWrapper, RowWrapper, StorableRow};
 use crate::lock::LockMap;
 use crate::persistence::{InsertOperation, Operation};
 use crate::prelude::{OperationId, PrimaryKeyGeneratorState};
@@ -172,6 +172,7 @@ where
             + for<'a> Serialize<
                 Strategy<Serializer<AlignedVec, ArenaHandle<'a>, Share>, rkyv::rancor::Error>,
             >,
+        <<Row as StorableRow>::WrappedRow as Archive>::Archived: GhostWrapper,
         PrimaryKey: Clone,
         AvailableTypes: 'static,
         SecondaryIndexes: TableSecondaryIndex<Row, AvailableTypes, AvailableIndexes>,
@@ -182,12 +183,8 @@ where
             .data
             .insert(row.clone())
             .map_err(WorkTableError::PagesError)?;
-        if self
-            .pk_map
-            .insert(pk.clone(), link)
-            .map_or(Ok(()), |_| Err(WorkTableError::AlreadyExists))
-            .is_err()
-        {
+        if let Some(existed_link) = self.pk_map.insert(pk.clone(), link) {
+            self.pk_map.insert(pk.clone(), existed_link);
             self.data.delete(link).map_err(WorkTableError::PagesError)?;
             return Err(WorkTableError::AlreadyExists);
         };
@@ -206,6 +203,11 @@ where
                 }
                 IndexError::NotFound => Err(WorkTableError::NotFound),
             };
+        }
+        unsafe {
+            self.data
+                .with_mut_ref(link, |r| r.unghost())
+                .map_err(WorkTableError::PagesError)?
         }
 
         Ok(pk)
@@ -232,6 +234,7 @@ where
             + for<'a> Serialize<
                 Strategy<Serializer<AlignedVec, ArenaHandle<'a>, Share>, rkyv::rancor::Error>,
             >,
+        <<Row as StorableRow>::WrappedRow as Archive>::Archived: GhostWrapper,
         PrimaryKey: Clone,
         SecondaryIndexes: TableSecondaryIndex<Row, AvailableTypes, AvailableIndexes>
             + TableSecondaryIndexCdc<Row, AvailableTypes, SecondaryEvents, AvailableIndexes>,
@@ -239,12 +242,13 @@ where
         AvailableIndexes: Debug,
     {
         let pk = row.get_primary_key().clone();
-        let (link, bytes) = self
+        let (link, _) = self
             .data
             .insert_cdc(row.clone())
             .map_err(WorkTableError::PagesError)?;
         let (exists, primary_key_events) = self.pk_map.insert_cdc(pk.clone(), link);
-        if exists.is_some() {
+        if let Some(existed_link) = exists {
+            self.pk_map.insert(pk.clone(), existed_link);
             self.data.delete(link).map_err(WorkTableError::PagesError)?;
             return Err(WorkTableError::AlreadyExists);
         }
@@ -265,6 +269,15 @@ where
                 IndexError::NotFound => Err(WorkTableError::NotFound),
             };
         }
+        unsafe {
+            self.data
+                .with_mut_ref(link, |r| r.unghost())
+                .map_err(WorkTableError::PagesError)?
+        }
+        let bytes = self
+            .data
+            .select_raw(link)
+            .map_err(WorkTableError::PagesError)?;
 
         let op = Operation::Insert(InsertOperation {
             id: OperationId::Single(Uuid::now_v7()),
@@ -297,6 +310,7 @@ where
             + for<'a> Serialize<
                 Strategy<Serializer<AlignedVec, ArenaHandle<'a>, Share>, rkyv::rancor::Error>,
             >,
+        <<Row as StorableRow>::WrappedRow as Archive>::Archived: GhostWrapper,
         PrimaryKey: Clone,
         AvailableTypes: 'static,
         SecondaryIndexes: TableSecondaryIndex<Row, AvailableTypes, AvailableIndexes>,
@@ -312,6 +326,11 @@ where
             .data
             .insert(row_new.clone())
             .map_err(WorkTableError::PagesError)?;
+        unsafe {
+            self.data
+                .with_mut_ref(new_link, |r| r.unghost())
+                .map_err(WorkTableError::PagesError)?
+        }
         // we can not check for existence here.
         self.pk_map.insert(pk.clone(), new_link);
         self.indexes
@@ -346,6 +365,7 @@ where
             + for<'a> Serialize<
                 Strategy<Serializer<AlignedVec, ArenaHandle<'a>, Share>, rkyv::rancor::Error>,
             >,
+        <<Row as StorableRow>::WrappedRow as Archive>::Archived: GhostWrapper,
         PrimaryKey: Clone,
         SecondaryIndexes: TableSecondaryIndex<Row, AvailableTypes, AvailableIndexes>
             + TableSecondaryIndexCdc<Row, AvailableTypes, SecondaryEvents, AvailableIndexes>,
@@ -358,10 +378,15 @@ where
             .get(&pk)
             .map(|v| v.get().value)
             .ok_or(WorkTableError::NotFound)?;
-        let (new_link, bytes) = self
+        let (new_link, _) = self
             .data
             .insert_cdc(row_new.clone())
             .map_err(WorkTableError::PagesError)?;
+        unsafe {
+            self.data
+                .with_mut_ref(new_link, |r| r.unghost())
+                .map_err(WorkTableError::PagesError)?
+        }
         // we can not check for existence here.
         let (_, primary_key_events) = self.pk_map.insert_cdc(pk.clone(), new_link);
         let secondary_keys_events = self
@@ -370,6 +395,10 @@ where
             .map_err(|_| WorkTableError::SecondaryIndexError)?;
         self.data
             .delete(old_link)
+            .map_err(WorkTableError::PagesError)?;
+        let bytes = self
+            .data
+            .select_raw(new_link)
             .map_err(WorkTableError::PagesError)?;
 
         let op = Operation::Insert(InsertOperation {

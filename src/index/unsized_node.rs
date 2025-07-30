@@ -114,7 +114,7 @@ where
     }
 
     fn need_to_split(&self, _: usize) -> bool {
-        self.length >= self.length_capacity
+        self.length >= self.length_capacity && self.inner.len() > 1
     }
 
     fn len(&self) -> usize {

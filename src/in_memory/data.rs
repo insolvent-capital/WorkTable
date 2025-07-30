@@ -220,7 +220,7 @@ impl<Row, const DATA_LENGTH: usize> Data<Row, DATA_LENGTH> {
 }
 
 /// Error that can appear on [`Data`] page operations.
-#[derive(Copy, Clone, Debug, Display, Error)]
+#[derive(Copy, Clone, Debug, Display, Error, PartialEq)]
 pub enum ExecutionError {
     /// Error of trying to save row in [`Data`] page with not enough space left.
     #[display("need {}, but {} left", need, left)]

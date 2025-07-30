@@ -66,7 +66,7 @@ impl Generator {
                     let lock = {
                        #full_row_lock
                     };
-                    let row_old = self.0.data.select(link)?;
+                    let row_old = self.0.data.select_non_ghosted(link)?;
                     self.reinsert(row_old, row)?;
 
                     lock.unlock();
@@ -295,7 +295,7 @@ impl Generator {
         let avt_type_ident = name_generator.get_available_type_ident();
         let diff_container = if idx_idents.is_some() {
             quote! {
-                let row_old = self.0.data.select(link)?;
+                let row_old = self.0.data.select_non_ghosted(link)?;
                 let row_new = row.clone();
                 let updated_bytes: Vec<u8> = vec![];
                 let mut diffs: std::collections::HashMap<&str, Difference<#avt_type_ident>> = std::collections::HashMap::new();
@@ -514,7 +514,7 @@ impl Generator {
 
                 let mut locks = std::collections::HashMap::new();
                 for link in links.iter() {
-                    let pk = self.0.data.select(*link)?.get_primary_key().clone();
+                    let pk = self.0.data.select_non_ghosted(*link)?.get_primary_key().clone();
                     let op_lock = {
                         #custom_lock
                     };
@@ -525,7 +525,7 @@ impl Generator {
                 let mut pk_to_unlock: std::collections::HashMap<_, std::sync::Arc<Lock>> = std::collections::HashMap::new();
                 let op_id = OperationId::Multi(uuid::Uuid::now_v7());
                 for link in links.into_iter() {
-                    let pk = self.0.data.select(link)?.get_primary_key().clone();
+                    let pk = self.0.data.select_non_ghosted(link)?.get_primary_key().clone();
                     let mut bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&row)
                         .map_err(|_| WorkTableError::SerializeError)?;
 
@@ -610,7 +610,7 @@ impl Generator {
                     .get(#by)
                     .map(|kv| kv.get().value)
                     .ok_or(WorkTableError::NotFound)?;
-                let pk = self.0.data.select(link)?.get_primary_key().clone();
+                let pk = self.0.data.select_non_ghosted(link)?.get_primary_key().clone();
 
                 let lock = {
                     #custom_lock

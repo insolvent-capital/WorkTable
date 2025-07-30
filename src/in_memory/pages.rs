@@ -203,6 +203,27 @@ where
         Ok(gen_row.get_inner())
     }
 
+    pub fn select_non_ghosted(&self, link: Link) -> Result<Row, ExecutionError>
+    where
+        Row: Archive
+            + for<'a> Serialize<
+                Strategy<Serializer<AlignedVec, ArenaHandle<'a>, Share>, rkyv::rancor::Error>,
+            >,
+        <<Row as StorableRow>::WrappedRow as Archive>::Archived: Portable
+            + Deserialize<<Row as StorableRow>::WrappedRow, HighDeserializer<rkyv::rancor::Error>>,
+    {
+        let pages = self.pages.read().unwrap();
+        let page = pages
+            // - 1 is used because page ids are starting from 1.
+            .get(page_id_mapper(link.page_id.into()))
+            .ok_or(ExecutionError::PageNotFound(link.page_id))?;
+        let gen_row = page.get_row(link).map_err(ExecutionError::DataPageError)?;
+        if gen_row.is_ghosted() {
+            return Err(ExecutionError::Ghosted);
+        }
+        Ok(gen_row.get_inner())
+    }
+
     #[cfg_attr(
         feature = "perf_measurements",
         performance_measurement(prefix_name = "DataPages")
@@ -332,27 +353,30 @@ where
     }
 }
 
-#[derive(Debug, Display, Error, From)]
+#[derive(Debug, Display, Error, From, PartialEq)]
 pub enum ExecutionError {
     DataPageError(DataExecutionError),
 
     PageNotFound(#[error(not(source))] PageId),
 
     Locked,
+
+    Ghosted,
 }
 
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
-    use std::sync::atomic::Ordering;
+    use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::{Arc, RwLock};
     use std::thread;
     use std::time::Instant;
 
-    use crate::in_memory::pages::DataPages;
-    use crate::in_memory::row::GeneralRow;
-    use crate::in_memory::StorableRow;
+    use rkyv::with::{AtomicLoad, Relaxed};
     use rkyv::{Archive, Deserialize, Serialize};
+
+    use crate::in_memory::pages::DataPages;
+    use crate::in_memory::{PagesExecutionError, RowWrapper, StorableRow};
 
     #[derive(
         Archive, Copy, Clone, Deserialize, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize,
@@ -360,6 +384,41 @@ mod tests {
     struct TestRow {
         a: u64,
         b: u64,
+    }
+
+    /// General `Row` wrapper that is used to append general data for every `Inner`
+    /// `Row`.
+    #[derive(Archive, Deserialize, Debug, Serialize)]
+    pub struct GeneralRow<Inner> {
+        /// Inner generic `Row`.
+        pub inner: Inner,
+
+        /// Indicator for ghosted rows.
+        #[rkyv(with = AtomicLoad<Relaxed>)]
+        pub is_ghosted: AtomicBool,
+
+        /// Indicator for deleted rows.
+        #[rkyv(with = AtomicLoad<Relaxed>)]
+        pub deleted: AtomicBool,
+    }
+
+    impl<Inner> RowWrapper<Inner> for GeneralRow<Inner> {
+        fn get_inner(self) -> Inner {
+            self.inner
+        }
+
+        fn is_ghosted(&self) -> bool {
+            self.is_ghosted.load(Ordering::Relaxed)
+        }
+
+        /// Creates new [`GeneralRow`] from `Inner`.
+        fn from_inner(inner: Inner) -> Self {
+            Self {
+                inner,
+                is_ghosted: AtomicBool::new(true),
+                deleted: AtomicBool::new(false),
+            }
+        }
     }
 
     impl StorableRow for TestRow {
@@ -402,6 +461,17 @@ mod tests {
         let res = pages.select(link).unwrap();
 
         assert_eq!(res, row)
+    }
+
+    #[test]
+    fn select_non_ghosted() {
+        let pages = DataPages::<TestRow>::new();
+
+        let row = TestRow { a: 10, b: 20 };
+        let link = pages.insert(row).unwrap();
+        let res = pages.select_non_ghosted(link);
+        assert!(res.is_err());
+        assert_eq!(res.err(), Some(PagesExecutionError::Ghosted))
     }
 
     #[test]

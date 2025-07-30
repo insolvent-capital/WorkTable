@@ -31,7 +31,7 @@ impl Generator {
             {
                 let iter = self.0.pk_map
                     .iter()
-                    .filter_map(|(_, link)| self.0.data.select(*link).ok());
+                    .filter_map(|(_, link)| self.0.data.select_non_ghosted(*link).ok());
 
                 SelectQueryBuilder::new(iter)
             }

@@ -66,7 +66,7 @@ impl Generator {
         Ok(quote! {
             pub fn #fn_name(&self, by: #type_) -> Option<#row_ident> {
                 let link = self.0.indexes.#field_ident.get(#by).map(|kv| kv.get().value)?;
-                self.0.data.select(link).ok()
+                self.0.data.select_non_ghosted(link).ok()
             }
         })
     }
@@ -104,7 +104,7 @@ impl Generator {
                 let rows = self.0.indexes.#field_ident
                     .get(#by)
                     .into_iter()
-                    .filter_map(|(_, link)| self.0.data.select(*link).ok())
+                    .filter_map(|(_, link)| self.0.data.select_non_ghosted(*link).ok())
                     .filter(move |r| &r.#row_field_ident == &by);
 
                 SelectQueryBuilder::new(rows)
