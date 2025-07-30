@@ -27,7 +27,7 @@ fn insert() {
     let selected_row = table.select(pk).unwrap();
 
     assert_eq!(selected_row, row);
-    assert!(table.select(2.into()).is_none())
+    assert!(table.select(2).is_none())
 }
 
 #[tokio::test]
@@ -46,7 +46,7 @@ async fn update() {
     let selected_row = table.select(pk).unwrap();
 
     assert_eq!(selected_row, new_row);
-    assert!(table.select(2.into()).is_none())
+    assert!(table.select(2).is_none())
 }
 
 #[tokio::test]
@@ -64,7 +64,7 @@ async fn update_in_a_middle() {
         test: [1; 20],
     };
     table.update(new_row.clone()).await.unwrap();
-    let selected_row = table.select(3.into()).unwrap();
+    let selected_row = table.select(3).unwrap();
 
     assert_eq!(selected_row, new_row);
 }
@@ -85,7 +85,7 @@ async fn update_query() {
     let selected_row = table.select(pk).unwrap();
 
     assert_eq!(selected_row.test, q.test);
-    assert!(table.select(2.into()).is_none())
+    assert!(table.select(2).is_none())
 }
 
 type ArrI = [i64; 20];
@@ -114,7 +114,7 @@ fn insert_i() {
     let selected_row = table.select(pk).unwrap();
 
     assert_eq!(selected_row, row);
-    assert!(table.select(2.into()).is_none())
+    assert!(table.select(2).is_none())
 }
 
 #[tokio::test]
@@ -133,7 +133,7 @@ async fn update_i() {
     let selected_row = table.select(pk).unwrap();
 
     assert_eq!(selected_row, new_row);
-    assert!(table.select(2.into()).is_none())
+    assert!(table.select(2).is_none())
 }
 
 #[tokio::test]
@@ -151,7 +151,7 @@ async fn update_in_a_middle_i() {
         test: [1; 20],
     };
     table.update(new_row.clone()).await.unwrap();
-    let selected_row = table.select(3.into()).unwrap();
+    let selected_row = table.select(3).unwrap();
 
     assert_eq!(selected_row, new_row);
 }
@@ -172,5 +172,5 @@ async fn update_query_i() {
     let selected_row = table.select(pk).unwrap();
 
     assert_eq!(selected_row.test, q.test);
-    assert!(table.select(2.into()).is_none())
+    assert!(table.select(2).is_none())
 }

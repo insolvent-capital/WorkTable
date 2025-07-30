@@ -34,7 +34,7 @@ fn insert() {
     let selected_row = table.select(pk).unwrap();
 
     assert_eq!(selected_row, row);
-    assert!(table.select(2.into()).is_none())
+    assert!(table.select(2).is_none())
 }
 
 #[tokio::test]
@@ -53,5 +53,5 @@ async fn update() {
     let selected_row = table.select(pk).unwrap();
 
     assert_eq!(selected_row, updated);
-    assert!(table.select(2.into()).is_none())
+    assert!(table.select(2).is_none())
 }

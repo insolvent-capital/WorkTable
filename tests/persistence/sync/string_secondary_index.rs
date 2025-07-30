@@ -61,7 +61,7 @@ fn test_space_insert_sync() {
         };
         {
             let table = TestSyncWorkTable::load_from_file(config).await.unwrap();
-            assert!(table.select(pk.into()).is_some());
+            assert!(table.select(pk).is_some());
             assert_eq!(table.0.pk_gen.get_state(), pk + 1)
         }
     });
@@ -109,7 +109,7 @@ fn test_space_insert_many_sync() {
             let table = TestSyncWorkTable::load_from_file(config).await.unwrap();
             let last = *pks.last().unwrap();
             for pk in pks {
-                assert!(table.select(pk.into()).is_some());
+                assert!(table.select(pk).is_some());
             }
             assert_eq!(table.0.pk_gen.get_state(), last + 1)
         }
@@ -155,16 +155,16 @@ fn test_space_update_full_sync() {
                 .unwrap();
             table.wait_for_ops().await;
             assert_eq!(
-                table.select(row.id.into()).unwrap().another,
+                table.select(row.id).unwrap().another,
                 "Some string to test updated".to_string()
             );
             row.id
         };
         {
             let table = TestSyncWorkTable::load_from_file(config).await.unwrap();
-            assert!(table.select(pk.into()).is_some());
+            assert!(table.select(pk).is_some());
             assert_eq!(
-                table.select(pk.into()).unwrap().another,
+                table.select(pk).unwrap().another,
                 "Some string to test updated".to_string()
             );
             assert_eq!(table.0.pk_gen.get_state(), pk + 1)
@@ -205,7 +205,7 @@ fn test_space_update_query_pk_sync() {
                     AnotherByIdQuery {
                         another: "Some string to test updated".to_string(),
                     },
-                    row.id.into(),
+                    row.id,
                 )
                 .await
                 .unwrap();
@@ -214,9 +214,9 @@ fn test_space_update_query_pk_sync() {
         };
         {
             let table = TestSyncWorkTable::load_from_file(config).await.unwrap();
-            assert!(table.select(pk.into()).is_some());
+            assert!(table.select(pk).is_some());
             assert_eq!(
-                table.select(pk.into()).unwrap().another,
+                table.select(pk).unwrap().another,
                 "Some string to test updated".to_string()
             );
             assert_eq!(table.0.pk_gen.get_state(), pk + 1)
@@ -265,8 +265,8 @@ fn test_space_update_query_unique_sync() {
         };
         {
             let table = TestSyncWorkTable::load_from_file(config).await.unwrap();
-            assert!(table.select(pk.into()).is_some());
-            assert_eq!(table.select(pk.into()).unwrap().field, 1.0);
+            assert!(table.select(pk).is_some());
+            assert_eq!(table.select(pk).unwrap().field, 1.0);
             assert_eq!(table.0.pk_gen.get_state(), pk + 1)
         }
     });
@@ -317,9 +317,9 @@ fn test_space_update_query_non_unique_sync() {
         };
         {
             let table = TestSyncWorkTable::load_from_file(config).await.unwrap();
-            assert!(table.select(pk.into()).is_some());
+            assert!(table.select(pk).is_some());
             assert_eq!(
-                table.select(pk.into()).unwrap().another,
+                table.select(pk).unwrap().another,
                 "Some string to test updated".to_string()
             );
             assert_eq!(table.0.pk_gen.get_state(), pk + 1)
@@ -361,7 +361,7 @@ fn test_space_delete_sync() {
         };
         {
             let table = TestSyncWorkTable::load_from_file(config).await.unwrap();
-            assert!(table.select(pk.into()).is_none());
+            assert!(table.select(pk).is_none());
             assert_eq!(table.0.pk_gen.get_state(), pk + 1)
         }
     });
@@ -401,7 +401,7 @@ fn test_space_delete_query_sync() {
         };
         {
             let table = TestSyncWorkTable::load_from_file(config).await.unwrap();
-            assert!(table.select(pk.into()).is_none());
+            assert!(table.select(pk).is_none());
             assert_eq!(table.0.pk_gen.get_state(), pk + 1)
         }
     });

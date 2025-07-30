@@ -242,7 +242,7 @@ where
         for (pos, id) in ops_pos_set {
             let mut row: BatchInnerRow = self
                 .queue_inner_wt
-                .select(id.into())
+                .select(id)
                 .expect("exists as Id exists")
                 .into();
             let op = self

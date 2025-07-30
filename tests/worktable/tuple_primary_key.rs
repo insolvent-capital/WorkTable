@@ -22,5 +22,5 @@ fn insert() {
     let selected_row = table.select(pk).unwrap();
 
     assert_eq!(selected_row, row);
-    assert!(table.select((1, 0).into()).is_none())
+    assert!(table.select((1, 0)).is_none())
 }

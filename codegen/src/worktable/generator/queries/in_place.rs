@@ -36,7 +36,6 @@ impl Generator {
                     .from_case(Case::Pascal)
                     .to_case(Case::Snake);
                 let index = self.columns.indexes.values().find(|idx| idx.field == op.by);
-                let by_type = self.columns.columns_map.get(&op.by).unwrap();
                 if let Some(index) = index {
                     let _index_name = &index.name;
 
@@ -46,7 +45,7 @@ impl Generator {
                         todo!()
                     }
                 } else if self.columns.primary_keys.len() == 1 {
-                    self.gen_primary_key_in_place(snake_case_name, by_type, &op.columns)
+                    self.gen_primary_key_in_place(snake_case_name, &op.columns)
                 } else {
                     todo!()
                 }
@@ -58,12 +57,7 @@ impl Generator {
         }
     }
 
-    fn gen_primary_key_in_place(
-        &self,
-        snake_case_name: String,
-        by_type: &TokenStream,
-        columns: &[Ident],
-    ) -> TokenStream {
+    fn gen_primary_key_in_place(&self, snake_case_name: String, columns: &[Ident]) -> TokenStream {
         let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
         let pk_type = name_generator.get_primary_key_type_ident();
         let lock_ident =
@@ -111,11 +105,13 @@ impl Generator {
         let custom_lock = self.gen_custom_lock_for_update(lock_ident);
 
         quote! {
-            pub async fn #method_ident<F: FnMut(#column_types)>(
+            pub async fn #method_ident<Pk, F: FnMut(#column_types)>(
                 &self,
                 mut f: F,
-                by: #by_type,
-            ) -> eyre::Result<()> {
+                by: Pk,
+            ) -> eyre::Result<()>
+            where #pk_type: From<Pk>
+            {
                 let pk: #pk_type = by.into();
                 let lock = {
                     #custom_lock

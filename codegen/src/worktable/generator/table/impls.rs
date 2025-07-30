@@ -105,8 +105,9 @@ impl Generator {
         let primary_key_type = name_generator.get_primary_key_type_ident();
 
         quote! {
-            pub fn select(&self, pk: #primary_key_type) -> Option<#row_type> {
-                self.0.select(pk)
+            pub fn select<Pk>(&self, pk: Pk) -> Option<#row_type>
+            where #primary_key_type: From<Pk> {
+                self.0.select(pk.into())
             }
         }
     }

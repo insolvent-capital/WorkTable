@@ -246,7 +246,7 @@ impl Generator {
                         #full_row_lock
                     };
 
-                    let row_old = self.select(pk.clone()).expect("should not be deleted by other thread");
+                    let row_old = self.0.select(pk.clone()).expect("should not be deleted by other thread");
                     let mut row_new = row_old.clone();
                     let pk = row_old.get_primary_key().clone();
                     #(#row_updates)*
@@ -388,7 +388,10 @@ impl Generator {
         let custom_lock = self.gen_custom_lock_for_update(lock_ident);
 
         quote! {
-            pub async fn #method_ident(&self, row: #query_ident, pk: #pk_ident) -> core::result::Result<(), WorkTableError> {
+            pub async fn #method_ident<Pk>(&self, row: #query_ident, pk: Pk) -> core::result::Result<(), WorkTableError>
+            where #pk_ident: From<Pk>
+            {
+                let pk = pk.into();
                 let lock = {
                     #custom_lock
                 };

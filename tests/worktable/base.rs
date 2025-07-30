@@ -124,7 +124,7 @@ async fn update_spawn() {
     let selected_row = table.select(pk).unwrap();
 
     assert_eq!(selected_row, updated);
-    assert!(table.select(2.into()).is_none())
+    assert!(table.select(2).is_none())
 }
 
 #[tokio::test]
@@ -152,7 +152,7 @@ async fn upsert_spawn() {
     let selected_row = table.select(pk).unwrap();
 
     assert_eq!(selected_row, updated);
-    assert!(table.select(2.into()).is_none())
+    assert!(table.select(2).is_none())
 }
 
 #[tokio::test]
@@ -175,7 +175,7 @@ async fn update() {
     let selected_row = table.select(pk).unwrap();
 
     assert_eq!(selected_row, updated);
-    assert!(table.select(2.into()).is_none())
+    assert!(table.select(2).is_none())
 }
 
 #[tokio::test]
@@ -200,7 +200,7 @@ async fn update_string() {
 
     assert_eq!(selected_row, updated);
     assert_eq!(table.0.data.get_empty_links().first().unwrap(), &first_link);
-    assert!(table.select(2.into()).is_none())
+    assert!(table.select(2).is_none())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -241,7 +241,7 @@ async fn update_parallel() {
         let val = fastrand::u64(..);
         let id_to_update = fastrand::u64(0..=99);
         table
-            .update_another_by_id(AnotherByIdQuery { another: val }, id_to_update.into())
+            .update_another_by_id(AnotherByIdQuery { another: val }, id_to_update)
             .await
             .unwrap();
         {
@@ -440,10 +440,10 @@ async fn upsert() {
         exchange: "test".to_string(),
     };
     table.upsert(updated.clone()).await.unwrap();
-    let selected_row = table.select(row.id.into()).unwrap();
+    let selected_row = table.select(row.id).unwrap();
 
     assert_eq!(selected_row, updated);
-    assert!(table.select(2.into()).is_none())
+    assert!(table.select(2).is_none())
 }
 
 #[test]

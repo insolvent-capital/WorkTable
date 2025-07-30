@@ -269,7 +269,7 @@ async fn test_update_in_place_and_update_sized_multithread() -> eyre::Result<()>
         let val = fastrand::u64(..);
         let id_to_update = fastrand::u64(0..=99);
         table
-            .update_something_by_id(SomethingByIdQuery { something: val }, id_to_update.into())
+            .update_something_by_id(SomethingByIdQuery { something: val }, id_to_update)
             .await?;
         {
             let mut guard = i_state.lock();
@@ -283,15 +283,15 @@ async fn test_update_in_place_and_update_sized_multithread() -> eyre::Result<()>
     h2.await?;
 
     for (id, smth) in i_state.lock_arc().iter() {
-        let row = table.select((*id).into()).unwrap();
+        let row = table.select(*id).unwrap();
         assert_eq!(&row.something, smth);
     }
     for (id, val) in val2_state.lock_arc().iter() {
-        let row = table.select((*id).into()).unwrap();
+        let row = table.select(*id).unwrap();
         assert_eq!(&row.val2, val);
     }
     for (id, val) in val_state.lock_arc().iter() {
-        let row = table.select((*id).into()).unwrap();
+        let row = table.select(*id).unwrap();
         assert_eq!(&row.val, val);
     }
     Ok(())
@@ -361,7 +361,7 @@ async fn test_update_in_place_and_update_unsized_multithread() -> eyre::Result<(
                 AnotherByIdQuery {
                     another: format!("another_{val}"),
                 },
-                id_to_update.into(),
+                id_to_update,
             )
             .await?;
         {
@@ -376,12 +376,12 @@ async fn test_update_in_place_and_update_unsized_multithread() -> eyre::Result<(
     h2.await?;
 
     for (id, smth) in i_state.lock_arc().iter() {
-        let row = table.select((*id).into()).unwrap();
+        let row = table.select(*id).unwrap();
         assert_eq!(&row.another, smth);
     }
     let mut errors = 0;
     for (id, val) in val2_state.lock_arc().iter() {
-        let row = table.select((*id).into()).unwrap();
+        let row = table.select(*id).unwrap();
         if &row.val2 != val {
             errors += 1;
         }
@@ -389,7 +389,7 @@ async fn test_update_in_place_and_update_unsized_multithread() -> eyre::Result<(
     assert_eq!(errors, 0);
     let mut errors = 0;
     for (id, val) in val_state.lock_arc().iter() {
-        let row = table.select((*id).into()).unwrap();
+        let row = table.select(*id).unwrap();
         if &row.val != val {
             errors += 1;
         }

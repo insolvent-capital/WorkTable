@@ -200,7 +200,7 @@ async fn update_many_times() {
                 ExchangeByIdQuery {
                     exchange: format!("test_{val}"),
                 },
-                id_to_update.into(),
+                id_to_update,
             )
             .await
             .unwrap();
@@ -265,7 +265,7 @@ async fn update_parallel() {
                 ExchangeByIdQuery {
                     exchange: format!("test_{val}"),
                 },
-                id_to_update.into(),
+                id_to_update,
             )
             .await
             .unwrap();
@@ -544,7 +544,7 @@ async fn update_parallel_more_strings() {
                     ExchangeAgainByIdQuery {
                         exchange: format!("test_{val}"),
                     },
-                    id_to_update.into(),
+                    id_to_update,
                 )
                 .await
                 .unwrap();
@@ -565,7 +565,7 @@ async fn update_parallel_more_strings() {
                 SomeByIdQuery {
                     some_string: format!("some_{val}"),
                 },
-                id_to_update.into(),
+                id_to_update,
             )
             .await
             .unwrap();
@@ -580,11 +580,11 @@ async fn update_parallel_more_strings() {
     h.await.unwrap();
 
     for (id, e) in e_state.lock_arc().iter() {
-        let row = table.select((*id).into()).unwrap();
+        let row = table.select(*id).unwrap();
         assert_eq!(&row.exchange, e)
     }
     for (id, s) in s_state.lock_arc().iter() {
-        let row = table.select((*id).into()).unwrap();
+        let row = table.select(*id).unwrap();
         assert_eq!(&row.some_string, s)
     }
 }
@@ -617,7 +617,7 @@ async fn update_parallel_more_strings_more_threads() {
                     ExchangeAgainByIdQuery {
                         exchange: format!("test_{val}"),
                     },
-                    id_to_update.into(),
+                    id_to_update,
                 )
                 .await
                 .unwrap();
@@ -637,7 +637,7 @@ async fn update_parallel_more_strings_more_threads() {
             let val = fastrand::u64(..);
             let id_to_update = fastrand::u64(0..=99);
             shared
-                .update_another_by_id(AnotherByIdQuery { another: val }, id_to_update.into())
+                .update_another_by_id(AnotherByIdQuery { another: val }, id_to_update)
                 .await
                 .unwrap();
             {
@@ -657,7 +657,7 @@ async fn update_parallel_more_strings_more_threads() {
                 SomeByIdQuery {
                     some_string: format!("some_{val}"),
                 },
-                id_to_update.into(),
+                id_to_update,
             )
             .await
             .unwrap();
@@ -673,15 +673,15 @@ async fn update_parallel_more_strings_more_threads() {
     h2.await.unwrap();
 
     for (id, e) in e_state.lock_arc().iter() {
-        let row = table.select((*id).into()).unwrap();
+        let row = table.select(*id).unwrap();
         assert_eq!(&row.exchange, e)
     }
     for (id, s) in s_state.lock_arc().iter() {
-        let row = table.select((*id).into()).unwrap();
+        let row = table.select(*id).unwrap();
         assert_eq!(&row.some_string, s)
     }
     for (id, a) in a_state.lock_arc().iter() {
-        let row = table.select((*id).into()).unwrap();
+        let row = table.select(*id).unwrap();
         assert_eq!(&row.another, a)
     }
 }
@@ -715,7 +715,7 @@ async fn update_parallel_more_strings_with_select_non_unique() {
                     ExchangeAgainByIdQuery {
                         exchange: format!("test_{val}"),
                     },
-                    id_to_update.into(),
+                    id_to_update,
                 )
                 .await
                 .unwrap();
@@ -735,7 +735,7 @@ async fn update_parallel_more_strings_with_select_non_unique() {
             let val = fastrand::u64(..);
             let id_to_update = fastrand::u64(0..1000);
             shared
-                .update_another_by_id(AnotherByIdQuery { another: val }, id_to_update.into())
+                .update_another_by_id(AnotherByIdQuery { another: val }, id_to_update)
                 .await
                 .unwrap();
             {
@@ -761,11 +761,11 @@ async fn update_parallel_more_strings_with_select_non_unique() {
     h2.await.unwrap();
 
     for (id, e) in e_state.lock_arc().iter() {
-        let row = table.select((*id).into()).unwrap();
+        let row = table.select(*id).unwrap();
         assert_eq!(&row.exchange, e)
     }
     for (id, a) in a_state.lock_arc().iter() {
-        let row = table.select((*id).into()).unwrap();
+        let row = table.select(*id).unwrap();
         assert_eq!(&row.another, a)
     }
 }
@@ -799,7 +799,7 @@ async fn update_parallel_more_strings_with_select_unique() {
                     ExchangeAgainByIdQuery {
                         exchange: format!("test_{val}"),
                     },
-                    id_to_update.into(),
+                    id_to_update,
                 )
                 .await
                 .unwrap();
@@ -819,7 +819,7 @@ async fn update_parallel_more_strings_with_select_unique() {
             let val = fastrand::u64(..);
             let id_to_update = fastrand::u64(0..1000);
             shared
-                .update_another_by_id(AnotherByIdQuery { another: val }, id_to_update.into())
+                .update_another_by_id(AnotherByIdQuery { another: val }, id_to_update)
                 .await
                 .unwrap();
             {
@@ -840,11 +840,11 @@ async fn update_parallel_more_strings_with_select_unique() {
     h2.await.unwrap();
 
     for (id, e) in e_state.lock_arc().iter() {
-        let row = table.select((*id).into()).unwrap();
+        let row = table.select(*id).unwrap();
         assert_eq!(&row.exchange, e)
     }
     for (id, a) in a_state.lock_arc().iter() {
-        let row = table.select((*id).into()).unwrap();
+        let row = table.select(*id).unwrap();
         assert_eq!(&row.another, a)
     }
 }
