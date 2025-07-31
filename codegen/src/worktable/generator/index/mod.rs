@@ -158,9 +158,15 @@ impl Generator {
             }
         } else {
             quote! {
-                #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Hash, Eq)]
+                #[derive(Debug, Clone, Copy, MoreDisplay, PartialEq, PartialOrd, Ord, Hash, Eq)]
                 pub enum #avt_type_ident {
                     #(#indexes)*
+                }
+
+                impl AvailableIndex for #avt_type_ident {
+                    fn to_string(&self) -> String {
+                        ToString::to_string(&self)
+                    }
                 }
             }
         }

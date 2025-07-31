@@ -2,12 +2,11 @@ mod cdc;
 mod index_events;
 mod info;
 
+use data_bucket::Link;
 use std::collections::HashMap;
 
-use data_bucket::Link;
-
-use crate::Difference;
 use crate::WorkTableError;
+use crate::{AvailableIndex, Difference};
 
 pub use cdc::TableSecondaryIndexCdc;
 pub use index_events::TableSecondaryIndexEventsOps;
@@ -84,10 +83,16 @@ pub enum IndexError<IndexNameEnum> {
     NotFound,
 }
 
-impl<IndexNameEnum> From<IndexError<IndexNameEnum>> for WorkTableError {
+impl<IndexNameEnum> From<IndexError<IndexNameEnum>> for WorkTableError
+where
+    IndexNameEnum: AvailableIndex,
+{
     fn from(value: IndexError<IndexNameEnum>) -> Self {
         match value {
-            IndexError::AlreadyExists { .. } => WorkTableError::AlreadyExists,
+            IndexError::AlreadyExists {
+                at,
+                inserted_already: _,
+            } => WorkTableError::AlreadyExists(at.to_string()),
             IndexError::NotFound => WorkTableError::NotFound,
         }
     }

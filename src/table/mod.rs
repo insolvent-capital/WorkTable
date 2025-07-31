@@ -10,7 +10,8 @@ use crate::persistence::{InsertOperation, Operation};
 use crate::prelude::{OperationId, PrimaryKeyGeneratorState};
 use crate::primary_key::{PrimaryKeyGenerator, TablePrimaryKey};
 use crate::{
-    in_memory, IndexError, IndexMap, TableRow, TableSecondaryIndex, TableSecondaryIndexCdc,
+    in_memory, AvailableIndex, IndexError, IndexMap, TableRow, TableSecondaryIndex,
+    TableSecondaryIndexCdc,
 };
 use data_bucket::{Link, INNER_PAGE_SIZE};
 use derive_more::{Display, Error, From};
@@ -175,6 +176,7 @@ where
         <<Row as StorableRow>::WrappedRow as Archive>::Archived: GhostWrapper,
         PrimaryKey: Clone,
         AvailableTypes: 'static,
+        AvailableIndexes: AvailableIndex,
         SecondaryIndexes: TableSecondaryIndex<Row, AvailableTypes, AvailableIndexes>,
         LockType: 'static,
     {
@@ -186,12 +188,12 @@ where
         if let Some(existed_link) = self.pk_map.insert(pk.clone(), link) {
             self.pk_map.insert(pk.clone(), existed_link);
             self.data.delete(link).map_err(WorkTableError::PagesError)?;
-            return Err(WorkTableError::AlreadyExists);
+            return Err(WorkTableError::AlreadyExists("Primary".to_string()));
         };
         if let Err(e) = self.indexes.save_row(row.clone(), link) {
             return match e {
                 IndexError::AlreadyExists {
-                    at: _,
+                    at,
                     inserted_already,
                 } => {
                     self.data.delete(link).map_err(WorkTableError::PagesError)?;
@@ -199,7 +201,7 @@ where
                     self.indexes
                         .delete_from_indexes(row, link, inserted_already)?;
 
-                    Err(WorkTableError::AlreadyExists)
+                    Err(WorkTableError::AlreadyExists(at.to_string()))
                 }
                 IndexError::NotFound => Err(WorkTableError::NotFound),
             };
@@ -240,6 +242,7 @@ where
             + TableSecondaryIndexCdc<Row, AvailableTypes, SecondaryEvents, AvailableIndexes>,
         PkGen: PrimaryKeyGeneratorState,
         AvailableIndexes: Debug,
+        AvailableIndexes: AvailableIndex,
     {
         let pk = row.get_primary_key().clone();
         let (link, _) = self
@@ -250,13 +253,13 @@ where
         if let Some(existed_link) = exists {
             self.pk_map.insert(pk.clone(), existed_link);
             self.data.delete(link).map_err(WorkTableError::PagesError)?;
-            return Err(WorkTableError::AlreadyExists);
+            return Err(WorkTableError::AlreadyExists("Primary".to_string()));
         }
         let indexes_res = self.indexes.save_row_cdc(row.clone(), link);
         if let Err(e) = indexes_res {
             return match e {
                 IndexError::AlreadyExists {
-                    at: _,
+                    at,
                     inserted_already,
                 } => {
                     self.data.delete(link).map_err(WorkTableError::PagesError)?;
@@ -264,7 +267,7 @@ where
                     self.indexes
                         .delete_from_indexes(row, link, inserted_already)?;
 
-                    Err(WorkTableError::AlreadyExists)
+                    Err(WorkTableError::AlreadyExists(at.to_string()))
                 }
                 IndexError::NotFound => Err(WorkTableError::NotFound),
             };
@@ -417,7 +420,8 @@ where
 #[derive(Debug, Display, Error, From)]
 pub enum WorkTableError {
     NotFound,
-    AlreadyExists,
+    #[display("Value already exists for `{}` index", _0)]
+    AlreadyExists(#[error(not(source))] String),
     SerializeError,
     SecondaryIndexError,
     PagesError(in_memory::PagesExecutionError),

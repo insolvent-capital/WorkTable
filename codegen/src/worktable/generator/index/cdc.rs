@@ -93,13 +93,23 @@ impl Generator {
             .iter()
             .map(|(i, idx)| {
                 let index_field_name = &idx.name;
-                quote! {
-                    let (_, events) = self.#index_field_name.insert_cdc(row_new.#i.clone(), link_new);
-                    let mut #index_field_name: Vec<_> = events.into_iter().map(|ev| ev.into()).collect();
-                    if row_new.#i != row_old.#i {
+                let remove = if idx.is_unique {
+                    quote! {
+                        if row_new.#i != row_old.#i {
+                            let (_, events) = TableIndexCdc::remove_cdc(&self.#index_field_name, row_old.#i.clone(), link_old);
+                            #index_field_name.extend(events.into_iter().map(|ev| ev.into()).collect::<Vec<_>>());
+                        }
+                    }
+                } else {
+                    quote! {
                         let (_, events) = TableIndexCdc::remove_cdc(&self.#index_field_name, row_old.#i.clone(), link_old);
                         #index_field_name.extend(events.into_iter().map(|ev| ev.into()).collect::<Vec<_>>());
                     }
+                };
+                quote! {
+                    let (_, events) = self.#index_field_name.insert_cdc(row_new.#i.clone(), link_new);
+                    let mut #index_field_name: Vec<_> = events.into_iter().map(|ev| ev.into()).collect();
+                    #remove
                 }
             })
             .collect::<Vec<_>>();

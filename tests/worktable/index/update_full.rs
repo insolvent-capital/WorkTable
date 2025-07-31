@@ -69,7 +69,7 @@ async fn update_by_full_row_non_unique_indexes() {
     };
 
     let attr1_new = "1337".to_string();
-    let attr2_new = 1337;
+    let attr2_new = 1000;
     let attr3_new = 1337;
 
     let pk = test_table.insert(row.clone()).unwrap();
@@ -89,26 +89,51 @@ async fn update_by_full_row_non_unique_indexes() {
         .select_by_attr1(attr1_new.clone())
         .execute()
         .expect("rows");
+    assert_eq!(
+        test_table
+            .0
+            .indexes
+            .idx1
+            .get(&attr1_new)
+            .collect::<Vec<_>>()
+            .len(),
+        1
+    );
     assert_eq!(updated.first().unwrap().attr1, attr1_new);
     let updated = test_table
         .select_by_attr2(attr2_new)
         .execute()
         .expect("rows");
+    assert_eq!(
+        test_table
+            .0
+            .indexes
+            .idx2
+            .get(&attr2_new)
+            .collect::<Vec<_>>()
+            .len(),
+        1
+    );
     assert_eq!(updated.first().unwrap().attr2, attr2_new);
     let updated = test_table
         .select_by_attr3(attr3_new)
         .execute()
         .expect("rows");
+    assert_eq!(
+        test_table
+            .0
+            .indexes
+            .idx3
+            .get(&attr3_new)
+            .collect::<Vec<_>>()
+            .len(),
+        1
+    );
     assert_eq!(updated.first().unwrap().attr3, attr3_new);
 
     // Check old idx removed
     let updated = test_table
         .select_by_attr1(attr1_old.clone())
-        .execute()
-        .expect("rows");
-    assert_eq!(updated.first(), None);
-    let updated = test_table
-        .select_by_attr2(attr2_old)
         .execute()
         .expect("rows");
     assert_eq!(updated.first(), None);
@@ -166,4 +191,96 @@ async fn update_by_full_row_unique_with_string_update() {
     assert_eq!(updated, None);
     let updated = test_table.select_by_attr3(attr3_old);
     assert_eq!(updated, None);
+}
+
+#[tokio::test]
+async fn update_by_full_row_non_unique_with_string_update() {
+    let test_table = Test3NonUniqueWorkTable::default();
+
+    let attr1_old = "TEST".to_string();
+    let attr2_old = 1000;
+    let attr3_old = 65000;
+
+    let row = Test3NonUniqueRow {
+        val: 1,
+        attr1: attr1_old.clone(),
+        attr2: attr2_old,
+        attr3: attr3_old,
+        id: 0,
+    };
+
+    let attr1_new = "TEST 1337 TO BE BIGGER THAN PREVIOUS".to_string();
+    let attr2_new = 1337;
+    let attr3_new = 65000;
+
+    let pk = test_table.insert(row.clone()).unwrap();
+    test_table
+        .update(Test3NonUniqueRow {
+            attr1: attr1_new.clone(),
+            id: pk.clone().into(),
+            val: row.val,
+            attr2: attr2_new,
+            attr3: attr3_new,
+        })
+        .await
+        .unwrap();
+
+    // Checks idx updated
+    let updated = test_table
+        .select_by_attr1(attr1_new.clone())
+        .execute()
+        .expect("rows");
+    assert_eq!(
+        test_table
+            .0
+            .indexes
+            .idx1
+            .get(&attr1_new)
+            .collect::<Vec<_>>()
+            .len(),
+        1
+    );
+    assert_eq!(updated.first().unwrap().attr1, attr1_new);
+    let updated = test_table
+        .select_by_attr2(attr2_new)
+        .execute()
+        .expect("rows");
+    assert_eq!(
+        test_table
+            .0
+            .indexes
+            .idx2
+            .get(&attr2_new)
+            .collect::<Vec<_>>()
+            .len(),
+        1
+    );
+    assert_eq!(updated.first().unwrap().attr2, attr2_new);
+    let updated = test_table
+        .select_by_attr3(attr3_new)
+        .execute()
+        .expect("rows");
+    assert_eq!(
+        test_table
+            .0
+            .indexes
+            .idx3
+            .get(&attr3_new)
+            .collect::<Vec<_>>()
+            .len(),
+        1
+    );
+    assert_eq!(updated.first().unwrap().attr3, attr3_new);
+
+    // Check old idx removed
+    let updated = test_table
+        .select_by_attr1(attr1_old.clone())
+        .execute()
+        .expect("rows");
+    assert_eq!(updated.first(), None);
+    let updated = test_table
+        .select_by_attr2(attr2_old)
+        .execute()
+        .expect("rows");
+    assert_eq!(updated.first(), None);
 }

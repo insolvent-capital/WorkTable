@@ -37,8 +37,8 @@ pub mod prelude {
     pub use crate::table::system_info::{IndexInfo, IndexKind, SystemInfo};
     pub use crate::util::{OrderedF32Def, OrderedF64Def};
     pub use crate::{
-        Difference, IndexError, IndexMap, IndexMultiMap, MultiPairRecreate, TableIndex,
-        TableIndexCdc, TableRow, TableSecondaryIndex, TableSecondaryIndexCdc,
+        AvailableIndex, Difference, IndexError, IndexMap, IndexMultiMap, MultiPairRecreate,
+        TableIndex, TableIndexCdc, TableRow, TableSecondaryIndex, TableSecondaryIndexCdc,
         TableSecondaryIndexEventsOps, TableSecondaryIndexInfo, UnsizedNode, WorkTable,
         WorkTableError,
     };
@@ -50,7 +50,7 @@ pub mod prelude {
         VariableSizeMeasurable, VariableSizeMeasure, DATA_VERSION, GENERAL_HEADER_SIZE,
         INNER_PAGE_SIZE, PAGE_SIZE,
     };
-    pub use derive_more::{From, Into};
+    pub use derive_more::{Display as MoreDisplay, From, Into};
     pub use indexset::{
         cdc::change::{ChangeEvent as IndexChangeEvent, Id as IndexChangeEventId},
         core::{multipair::MultiPair as IndexMultiPair, pair::Pair as IndexPair},

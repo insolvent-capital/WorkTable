@@ -115,6 +115,17 @@ impl Generator {
                         row.#i
                     }
                 };
+                let remove = if idx.is_unique {
+                    quote! {
+                        if val_new != val_old {
+                            TableIndex::remove(&self.#index_field_name, val_old, link_old);
+                        }
+                    }
+                } else {
+                    quote! {
+                        TableIndex::remove(&self.#index_field_name, val_old, link_old);
+                    }
+                };
                 quote! {
                     let row = &row_new;
                     let val_new = #row.clone();
@@ -122,9 +133,7 @@ impl Generator {
 
                     let row = &row_old;
                     let val_old = #row.clone();
-                    if val_new != val_old {
-                        TableIndex::remove(&self.#index_field_name, val_old, link_old);
-                    }
+                    #remove
                 }
             })
             .collect::<Vec<_>>();
