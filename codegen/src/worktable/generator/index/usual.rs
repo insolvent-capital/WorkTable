@@ -136,20 +136,24 @@ impl Generator {
                         TableIndex::remove(&self.#index_field_name, val_old, link_old);
                     }
                 };
-                let insert = quote! {
-                    let row = &row_new;
-                    let val_new = #row.clone();
-                    let row = &row_old;
-                    let val_old = #row.clone();
-                    if val_new != val_old {
-                        if self.#index_field_name.insert_checked(val_new.clone(), link_new).is_none() {
-                            return Err(IndexError::AlreadyExists {
-                                at: #available_index_ident::#index_variant,
-                                inserted_already: inserted_indexes.clone(),
-                            })
+                let insert = if idx.is_unique {
+                    quote! {
+                        let row = &row_new;
+                        let val_new = #row.clone();
+                        let row = &row_old;
+                        let val_old = #row.clone();
+                        if val_new != val_old {
+                            if self.#index_field_name.insert_checked(val_new.clone(), link_new).is_none() {
+                                return Err(IndexError::AlreadyExists {
+                                    at: #available_index_ident::#index_variant,
+                                    inserted_already: inserted_indexes.clone(),
+                                })
+                            }
+                            inserted_indexes.push(#available_index_ident::#index_variant);
                         }
-                        inserted_indexes.push(#available_index_ident::#index_variant);
                     }
+                } else {
+                    quote! {}
                 };
                 let remove = quote! {
                     let row = &row_new;

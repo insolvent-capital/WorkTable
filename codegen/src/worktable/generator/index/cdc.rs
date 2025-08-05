@@ -119,22 +119,28 @@ impl Generator {
                         #index_field_name.extend(events.into_iter().map(|ev| ev.into()).collect::<Vec<_>>());
                     }
                 };
-                let insert = quote! {
-                    let mut #index_field_name = if row_new.#i != row_old.#i {
-                        let #index_field_name: Vec<_> = if let Some(events) = self.#index_field_name.insert_checked_cdc(row_new.#i.clone(), link_new) {
-                            events.into_iter().map(|ev| ev.into()).collect()
-                        } else {
-                            return Err(IndexError::AlreadyExists {
-                                at: #available_index_ident::#index_variant,
-                                inserted_already: inserted_indexes.clone(),
-                            });
-                        };
-                        inserted_indexes.push(#available_index_ident::#index_variant);
+                let insert = if idx.is_unique {
+                    quote! {
+                        let mut #index_field_name = if row_new.#i != row_old.#i {
+                            let #index_field_name: Vec<_> = if let Some(events) = self.#index_field_name.insert_checked_cdc(row_new.#i.clone(), link_new) {
+                                events.into_iter().map(|ev| ev.into()).collect()
+                            } else {
+                                return Err(IndexError::AlreadyExists {
+                                    at: #available_index_ident::#index_variant,
+                                    inserted_already: inserted_indexes.clone(),
+                                });
+                            };
+                            inserted_indexes.push(#available_index_ident::#index_variant);
                         
-                        #index_field_name
-                    } else {
-                        vec![]
-                    };
+                            #index_field_name
+                        } else {
+                            vec![]
+                        };
+                    }
+                } else {
+                    quote! {
+                        let mut #index_field_name = vec![];
+                    }
                 };
                 (insert, remove)
             })

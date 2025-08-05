@@ -358,6 +358,7 @@ where
                     at,
                     inserted_already,
                 } => {
+                    self.pk_map.insert(pk.clone(), old_link);
                     self.indexes
                         .delete_from_indexes(row_new, new_link, inserted_already)?;
                     self.data
@@ -432,6 +433,7 @@ where
                     at,
                     inserted_already,
                 } => {
+                    self.pk_map.insert(pk.clone(), old_link);
                     self.indexes
                         .delete_from_indexes(row_new, new_link, inserted_already)?;
                     self.data
