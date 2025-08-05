@@ -6,6 +6,7 @@ use indexset::cdc::change::ChangeEvent;
 use indexset::core::pair::Pair;
 
 use crate::persistence::{OperationId, OperationType};
+use crate::TableSecondaryIndexEventsOps;
 
 #[derive(Clone, Debug)]
 pub enum Operation<PrimaryKeyGenState, PrimaryKey, SecondaryKeys> {
@@ -83,6 +84,17 @@ impl<PrimaryKeyGenState, PrimaryKey, SecondaryKeys>
             Operation::Insert(insert) => &insert.secondary_keys_events,
             Operation::Update(update) => &update.secondary_keys_events,
             Operation::Delete(delete) => &delete.secondary_keys_events,
+        }
+    }
+
+    pub fn extend_secondary_key_events<AvailableIndexes>(&mut self, evs: SecondaryKeys)
+    where
+        SecondaryKeys: TableSecondaryIndexEventsOps<AvailableIndexes>,
+    {
+        match self {
+            Operation::Insert(insert) => insert.secondary_keys_events.extend(evs),
+            Operation::Update(update) => update.secondary_keys_events.extend(evs),
+            Operation::Delete(delete) => delete.secondary_keys_events.extend(evs),
         }
     }
 

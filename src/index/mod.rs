@@ -15,7 +15,7 @@ pub use table_secondary_index::{
 };
 pub use unsized_node::UnsizedNode;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Difference<AvailableTypes> {
     pub old: AvailableTypes,
     pub new: AvailableTypes,

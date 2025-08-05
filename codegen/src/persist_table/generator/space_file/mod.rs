@@ -199,6 +199,7 @@ impl Generator {
                     indexes,
                     pk_gen: PrimaryKeyGeneratorState::from_state(self.data_info.inner.pk_gen_state),
                     lock_map: LockMap::default(),
+                    update_state: IndexMap::default(),
                     table_name: "",
                     pk_phantom: std::marker::PhantomData,
                 };

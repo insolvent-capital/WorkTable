@@ -38,7 +38,7 @@ impl Generator {
                 quote! {
                     fn #fn_ident(&self, link: Link) -> core::result::Result<usize, WorkTableError> {
                         self.0.data
-                            .with_ref(link, |row_ref| row_ref.inner.#f.len())
+                            .with_ref(link, |row_ref| row_ref.inner.#f.as_str().to_string().aligned_size())
                             .map_err(WorkTableError::PagesError)
                     }
                 }

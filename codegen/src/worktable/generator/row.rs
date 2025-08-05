@@ -10,11 +10,13 @@ impl Generator {
         let def = self.gen_row_type();
         let table_row_impl = self.gen_row_table_row_impl();
         let row_fields_enum = self.gen_row_fields_enum();
+        let query_impl = self.gen_query_impl();
 
         quote! {
             #def
             #table_row_impl
             #row_fields_enum
+            #query_impl
         }
     }
 
@@ -89,6 +91,19 @@ impl Generator {
             #[repr(C)]
             pub struct #ident {
                 #(#rows)*
+            }
+        }
+    }
+
+    fn gen_query_impl(&self) -> TokenStream {
+        let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
+        let ident = name_generator.get_row_type_ident();
+
+        quote! {
+            impl Query<#ident> for #ident {
+                fn merge(self, row: #ident) -> #ident {
+                    self
+                }
             }
         }
     }

@@ -3,7 +3,7 @@ members = ["codegen", "examples", "performance_measurement", "performance_measur
 
 [package]
 name = "worktable"
-version = "0.7.0"
+version = "0.7.1"
 edition = "2024"
 authors = ["Handy-caT"]
 license = "MIT"
@@ -16,7 +16,7 @@ perf_measurements = ["dep:performance_measurement", "dep:performance_measurement
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-worktable_codegen = { path = "codegen", version = "0.7.0" }
+worktable_codegen = { path = "codegen", version = "0.7.1" }
 
 eyre = "0.6.12"
 derive_more = { version = "1.0.0", features = ["from", "error", "display", "into"] }
@@ -27,14 +27,14 @@ lockfree = { version = "0.5.1" }
 fastrand = "2.3.0"
 futures = "0.3.30"
 uuid = { version = "1.10.0", features = ["v4", "v7"] }
-data_bucket = "0.2.9"
+data_bucket = "0.2.10"
 # data_bucket = { git = "https://github.com/pathscale/DataBucket", branch = "page_cdc_correction", version = "0.2.7" }
-# data_bucket = { path = "../DataBucket", version = "0.2.7" }
+# data_bucket = { path = "../DataBucket", version = "0.2.9" }
 performance_measurement_codegen = { path = "performance_measurement/codegen", version = "0.1.0", optional = true }
 performance_measurement = { path = "performance_measurement", version = "0.1.0", optional = true }
 # indexset = { version = "0.12.3", features = ["concurrent", "cdc", "multimap"] }
-# indexset = { path = "../indexset", version = "0.12.3", features = ["concurrent", "cdc", "multimap"] }
-indexset = { package = "wt-indexset", version = "0.12.5", features = ["concurrent", "cdc", "multimap"] }
+# indexset = { package = "wt-indexset", path = "../indexset", version = "0.12.5", features = ["concurrent", "cdc", "multimap"] }
+indexset = { package = "wt-indexset", version = "0.12.6", features = ["concurrent", "cdc", "multimap"] }
 convert_case = "0.6.0"
 ordered-float = "5.0.0"
 parking_lot = "0.12.3"

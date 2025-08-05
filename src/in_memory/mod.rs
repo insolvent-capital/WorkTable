@@ -4,4 +4,4 @@ mod row;
 
 pub use data::{Data, ExecutionError as DataExecutionError, DATA_INNER_LENGTH};
 pub use pages::{DataPages, ExecutionError as PagesExecutionError};
-pub use row::{GhostWrapper, RowWrapper, StorableRow};
+pub use row::{GhostWrapper, Query, RowWrapper, StorableRow};

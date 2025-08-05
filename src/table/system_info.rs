@@ -69,7 +69,7 @@ impl<
     >
 where
     PrimaryKey: Debug + Clone + Ord + Send + 'static + std::hash::Hash,
-    Row: StorableRow,
+    Row: StorableRow + Send + Clone + 'static,
     <Row as StorableRow>::WrappedRow: RowWrapper<Row>,
     NodeType: NodeLike<Pair<PrimaryKey, Link>> + Send + 'static,
     SecondaryIndexes: MemStat + TableSecondaryIndexInfo,

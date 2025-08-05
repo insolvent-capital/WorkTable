@@ -11,6 +11,7 @@ use crate::{IndexMap, IndexMultiMap};
 
 pub trait TableIndexCdc<T> {
     fn insert_cdc(&self, value: T, link: Link) -> (Option<Link>, Vec<ChangeEvent<Pair<T, Link>>>);
+    fn insert_checked_cdc(&self, value: T, link: Link) -> Option<Vec<ChangeEvent<Pair<T, Link>>>>;
     #[allow(clippy::type_complexity)]
     fn remove_cdc(
         &self,
@@ -27,6 +28,16 @@ where
     fn insert_cdc(&self, value: T, link: Link) -> (Option<Link>, Vec<ChangeEvent<Pair<T, Link>>>) {
         let (res, evs) = self.insert_cdc(value, link);
         (res, evs.into_iter().map(Into::into).collect())
+    }
+
+    // TODO: refactor this to be more straightforward
+    fn insert_checked_cdc(&self, value: T, link: Link) -> Option<Vec<ChangeEvent<Pair<T, Link>>>> {
+        let (res, evs) = self.insert_cdc(value, link);
+        if res.is_some() {
+            None
+        } else {
+            Some(evs.into_iter().map(Into::into).collect())
+        }
     }
 
     fn remove_cdc(
@@ -46,6 +57,10 @@ where
 {
     fn insert_cdc(&self, value: T, link: Link) -> (Option<Link>, Vec<ChangeEvent<Pair<T, Link>>>) {
         self.insert_cdc(value, link)
+    }
+
+    fn insert_checked_cdc(&self, value: T, link: Link) -> Option<Vec<ChangeEvent<Pair<T, Link>>>> {
+        self.checked_insert_cdc(value, link)
     }
 
     fn remove_cdc(

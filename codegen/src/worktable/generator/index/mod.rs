@@ -164,7 +164,7 @@ impl Generator {
                 }
 
                 impl AvailableIndex for #avt_type_ident {
-                    fn to_string(&self) -> String {
+                    fn to_string_value(&self) -> String {
                         ToString::to_string(&self)
                     }
                 }

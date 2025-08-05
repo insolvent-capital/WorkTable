@@ -65,13 +65,16 @@ impl Generator {
     }
 
     pub fn gen_result_types_def(&mut self) -> syn::Result<TokenStream> {
+        let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
+        let row_ident = name_generator.get_row_type_ident();
+
         if let Some(queries) = &self.queries {
             let query_defs = queries
                 .updates
                 .keys()
                 .map(|v| {
                     let ident = Ident::new(format!("{v}Query").as_str(), Span::mixed_site());
-                    let rows = queries
+                    let (rows, updates): (Vec<_>, Vec<_>) = queries
                         .updates
                         .get(v)
                         .expect("exists")
@@ -105,9 +108,15 @@ impl Generator {
                                 quote! {pub #i: #type_,}
                             };
 
-                            Ok::<_, syn::Error>(def)
+                            let update = quote! {
+                                row.#i = self.#i;
+                            };
+
+                            Ok::<_, syn::Error>((def, update))
                         })
-                        .collect::<Result<Vec<_>, _>>()?;
+                        .collect::<Result<Vec<(_, _)>, _>>()?
+                        .into_iter()
+                        .unzip();
 
                     Ok::<_, syn::Error>(quote! {
 
@@ -115,6 +124,14 @@ impl Generator {
                         #[repr(C)]
                         pub struct #ident {
                             #(#rows)*
+                        }
+
+                        impl Query<#row_ident> for #ident {
+                            fn merge(self, mut row: #row_ident) -> #row_ident {
+                                #(#updates)*
+
+                                row
+                            }
                         }
                     })
                 })

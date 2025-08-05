@@ -38,6 +38,7 @@ where
     pages: RwLock<Vec<Arc<Data<<Row as StorableRow>::WrappedRow, DATA_LENGTH>>>>,
 
     /// Stack with empty [`Link`]s. It stores [`Link`]s of rows that was deleted.
+    // TODO: Proper empty links registry + defragmentation
     empty_links: Stack<Link>,
 
     /// Count of saved rows.

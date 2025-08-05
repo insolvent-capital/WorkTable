@@ -18,3 +18,7 @@ pub trait RowWrapper<Inner> {
 pub trait GhostWrapper {
     fn unghost(&mut self);
 }
+
+pub trait Query<Row> {
+    fn merge(self, row: Row) -> Row;
+}

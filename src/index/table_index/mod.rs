@@ -14,6 +14,7 @@ pub use cdc::TableIndexCdc;
 
 pub trait TableIndex<T> {
     fn insert(&self, value: T, link: Link) -> Option<Link>;
+    fn insert_checked(&self, value: T, link: Link) -> Option<()>;
     fn remove(&self, value: T, link: Link) -> Option<(T, Link)>;
 }
 
@@ -24,6 +25,14 @@ where
 {
     fn insert(&self, value: T, link: Link) -> Option<Link> {
         self.insert(value, link)
+    }
+
+    fn insert_checked(&self, value: T, link: Link) -> Option<()> {
+        if self.insert(value, link).is_some() {
+            None
+        } else {
+            Some(())
+        }
     }
 
     fn remove(&self, value: T, link: Link) -> Option<(T, Link)> {
@@ -38,6 +47,10 @@ where
 {
     fn insert(&self, value: T, link: Link) -> Option<Link> {
         self.insert(value, link)
+    }
+
+    fn insert_checked(&self, value: T, link: Link) -> Option<()> {
+        self.checked_insert(value, link)
     }
 
     fn remove(&self, value: T, _: Link) -> Option<(T, Link)> {
