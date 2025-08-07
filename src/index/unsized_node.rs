@@ -16,7 +16,7 @@ where
 {
     inner: Vec<T>,
     length_capacity: usize,
-    length_without_deleted: usize,
+    removed_length: usize,
     length: usize,
 }
 
@@ -45,8 +45,22 @@ where
             inner,
             length,
             length_capacity,
-            length_without_deleted: length,
+            removed_length: 0,
         }
+    }
+
+    pub fn rebuild(&mut self) {
+        self.length = self
+            .inner
+            .last()
+            .expect("should not rebuild on empty node")
+            .aligned_size();
+        self.length += UNSIZED_HEADER_LENGTH as usize;
+        for value in self.inner.iter() {
+            self.length += value.aligned_size();
+            self.length += UnsizedIndexPageUtility::<T>::slots_value_size();
+        }
+        self.removed_length = 0;
     }
 }
 
@@ -59,7 +73,7 @@ where
             inner: Vec::new(),
             length_capacity: capacity,
             length: UNSIZED_HEADER_LENGTH as usize,
-            length_without_deleted: UNSIZED_HEADER_LENGTH as usize,
+            removed_length: 0,
         }
     }
 
@@ -68,10 +82,10 @@ where
     }
 
     fn halve(&mut self) -> Self {
-        let middle_length = (self.length_without_deleted
+        let middle_length = (self.length
+            - self.removed_length
             - (self.max().unwrap().aligned_size() + UNSIZED_HEADER_LENGTH as usize))
             / 2;
-        let current_node_id_size = self.max().unwrap().aligned_size();
         let mut middle_variance = f64::INFINITY;
         let mut ind = false;
         let mut i = 1;
@@ -79,7 +93,9 @@ where
         let mut middle_idx = 0;
         let mut iter = self.inner.iter();
         while !ind {
-            let val = iter.next().expect("we should stop before node's end");
+            let Some(val) = iter.next() else {
+                break;
+            };
             current_length += val.aligned_size();
             current_length += UnsizedIndexPageUtility::<T>::slots_value_size();
             let current_middle_variance =
@@ -96,19 +112,8 @@ where
         }
 
         let new_inner = self.inner.split_off(middle_idx);
-        let node_id_len = new_inner.last().unwrap().aligned_size();
-        let split = Self {
-            inner: new_inner,
-            length_capacity: self.length_capacity,
-            length: self.length_without_deleted - (current_node_id_size + current_length)
-                + node_id_len,
-            length_without_deleted: self.length_without_deleted
-                - (current_node_id_size + current_length)
-                + node_id_len,
-        };
-        self.length =
-            current_length + self.max().unwrap().aligned_size() + UNSIZED_HEADER_LENGTH as usize;
-        self.length_without_deleted = self.length;
+        let split = Self::from_inner(new_inner, self.length_capacity);
+        self.rebuild();
 
         split
     }
@@ -134,13 +139,10 @@ where
                     // Node id is stored separately too, so we need to count node_id twice
                     self.length -= node_id_len;
                     self.length += value_size;
-                    self.length_without_deleted -= node_id_len;
-                    self.length_without_deleted += value_size;
                 }
                 self.length += value_size;
                 self.length += UnsizedIndexPageUtility::<T>::slots_value_size();
-                self.length_without_deleted += value_size;
-                self.length_without_deleted += UnsizedIndexPageUtility::<T>::slots_value_size();
+
                 (true, idx)
             }
             (false, idx) => (false, idx),
@@ -172,16 +174,14 @@ where
     where
         T: Borrow<Q>,
     {
-        let node_id_len = self.max().map(|v| v.aligned_size()).unwrap_or(0);
         // TODO: Refactor this when empty links logic will be added to the page
         if let Some((val, i)) = NodeLike::delete(&mut self.inner, value) {
-            let new_node_id_len = self.max().map(|v| v.aligned_size()).unwrap_or(0);
-            if new_node_id_len != node_id_len {
-                self.length_without_deleted -= node_id_len;
-                self.length_without_deleted += new_node_id_len;
+            self.removed_length +=
+                val.aligned_size() + UnsizedIndexPageUtility::<T>::slots_value_size();
+
+            if self.removed_length > self.length_capacity / 2 {
+                self.rebuild()
             }
-            self.length_without_deleted -= val.aligned_size();
-            self.length_without_deleted -= UnsizedIndexPageUtility::<T>::slots_value_size();
             Some((val, i))
         } else {
             None
@@ -246,10 +246,10 @@ mod test {
         assert_eq!(node.length, node.length_capacity);
         let split = node.halve();
         assert_eq!(node.length, 152);
-        assert_eq!(node.length_without_deleted, 152);
+        assert_eq!(node.removed_length, 0);
         assert_eq!(node.inner.len(), 2);
         assert_eq!(split.length, 136);
-        assert_eq!(split.length_without_deleted, 136);
+        assert_eq!(split.removed_length, 0);
         assert_eq!(split.inner.len(), 1);
     }
 
@@ -258,10 +258,10 @@ mod test {
         let mut node = UnsizedNode::<String>::with_capacity(200);
         node.insert(String::from_utf8(vec![b'1'; 16]).unwrap());
         assert_eq!(node.length, 120);
-        assert_eq!(node.length_without_deleted, 120);
+        assert_eq!(node.removed_length, 0);
         node.delete(&String::from_utf8(vec![b'1'; 16]).unwrap());
         assert_eq!(node.length, 120);
-        assert_eq!(node.length_without_deleted, 64);
+        assert_eq!(node.removed_length, 32);
     }
 
     #[test]
@@ -270,10 +270,10 @@ mod test {
         node.insert(String::from_utf8(vec![b'1'; 16]).unwrap());
         node.insert(String::from_utf8(vec![b'2'; 24]).unwrap());
         assert_eq!(node.length, 168);
-        assert_eq!(node.length_without_deleted, 168);
+        assert_eq!(node.removed_length, 0);
         node.delete(&String::from_utf8(vec![b'2'; 24]).unwrap());
         assert_eq!(node.length, 168);
-        assert_eq!(node.length_without_deleted, 120);
+        assert_eq!(node.removed_length, 40);
     }
 
     #[test]

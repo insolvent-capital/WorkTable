@@ -237,6 +237,53 @@ fn insert_when_unique_violated() {
 }
 
 #[test]
+fn insert_after_unique_violated() {
+    let table = Arc::new(TestWorkTable::default());
+
+    let row = TestRow {
+        id: table.get_next_pk().into(),
+        val: 13,
+        attr1: "Attribute".to_string(),
+        attr2: i16::MIN,
+        attr3: 123456789,
+        attr4: "Attribute4".to_string(),
+    };
+    let _ = table.insert(row.clone()).unwrap();
+
+    let row_new_attr_2 = 128;
+    let row_new_attr_4 = row.attr4.clone();
+
+    for _ in 0..5_000 {
+        let row = TestRow {
+            id: table.get_next_pk().into(),
+            val: 13,
+            attr1: "Attribute".to_string(),
+            attr2: row_new_attr_2,
+            attr3: 123456789,
+            attr4: row_new_attr_4.clone(),
+        };
+        assert!(table.insert(row).is_err());
+    }
+
+    for i in 2..5_000 {
+        let attr2 = if i % 2 == 0 {
+            i as i16 / 2
+        } else {
+            -i as i16 / 2
+        };
+        let row = TestRow {
+            id: table.get_next_pk().into(),
+            val: 13,
+            attr1: "Attribute".to_string(),
+            attr2,
+            attr3: 123456789,
+            attr4: format!("{i}"),
+        };
+        assert!(table.insert(row).is_ok());
+    }
+}
+
+#[test]
 fn insert_when_pk_violated() {
     let table = Arc::new(TestWorkTable::default());
 
@@ -274,4 +321,63 @@ fn insert_when_pk_violated() {
     }
 
     h.join().unwrap();
+}
+
+worktable!(
+    name: TestStrings,
+    columns: {
+        id: u64 primary_key autoincrement,
+        attr1: String,
+        attr2: String,
+        attr3: String,
+    },
+    indexes: {
+        attr1_idx: attr1,
+        attr2_idx: attr2 unique,
+        attr4_idx: attr3 unique,
+    }
+);
+
+#[test]
+fn insert_after_unique_violated_strings() {
+    let table = Arc::new(TestStringsWorkTable::default());
+
+    let row = TestStringsRow {
+        id: table.get_next_pk().into(),
+        attr1: "Attribute_1".to_string(),
+        attr2: "Attribute_2".to_string(),
+        attr3: "Attribute_3".to_string(),
+    };
+    let _ = table.insert(row.clone()).unwrap();
+
+    let row_new_attr_3 = row.attr3.clone();
+    for _ in 0..5_000 {
+        let row = TestStringsRow {
+            id: table.get_next_pk().into(),
+            attr1: "Attribute_1_NEW".to_string(),
+            attr2: "Attribute_2_NEW".to_string(),
+            attr3: row_new_attr_3.clone(),
+        };
+        assert!(table.insert(row).is_err());
+    }
+    let row_new_attr_2 = row.attr2.clone();
+    for i in 0..5_000 {
+        let row = TestStringsRow {
+            id: table.get_next_pk().into(),
+            attr1: "Attribute_1_NEW".to_string(),
+            attr2: row_new_attr_2.clone(),
+            attr3: format!("Attribute_3_{i}"),
+        };
+        assert!(table.insert(row).is_err());
+    }
+
+    for i in 0..5_000 {
+        let row = TestStringsRow {
+            id: table.get_next_pk().into(),
+            attr1: format!("Attribute_1_{i}"),
+            attr2: format!("Attribute_2_{i}"),
+            attr3: format!("Attribute_3_{i}"),
+        };
+        assert!(table.insert(row).is_ok());
+    }
 }

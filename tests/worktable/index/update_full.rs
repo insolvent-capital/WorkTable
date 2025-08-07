@@ -306,7 +306,7 @@ async fn update_by_full_row_with_reinsert_and_primary_key_violation() {
     };
     test_table.insert(row2.clone()).unwrap();
     let mut update = row1.clone();
-    update.id = row2.id.clone();
+    update.id = row2.id;
     update.attr1 = "TEST_______________________1".to_string();
     assert!(test_table.update(update).await.is_err());
 
@@ -389,7 +389,7 @@ async fn update_by_full_row_with_secondary_unique_violation() {
     };
     test_table.insert(row2.clone()).unwrap();
     let mut update = row1.clone();
-    update.attr2 = row2.attr2.clone();
+    update.attr2 = row2.attr2;
     assert!(test_table.update(update).await.is_err());
 
     assert_eq!(test_table.select(row1.id).unwrap(), row1);
