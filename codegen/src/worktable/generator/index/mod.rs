@@ -2,7 +2,7 @@ mod cdc;
 mod info;
 mod usual;
 
-use crate::name_generator::{is_float, is_unsized, WorktableNameGenerator};
+use crate::name_generator::{WorktableNameGenerator, is_float, is_unsized};
 use crate::worktable::generator::Generator;
 use convert_case::{Case, Casing};
 use proc_macro2::TokenStream;
@@ -43,7 +43,9 @@ impl Generator {
             .indexes
             .iter()
             .map(|(i, idx)| {
-                let t = self.columns.columns_map.get(i).unwrap();
+                let Some(t) = self.columns.columns_map.get(i) else {
+                    panic!("cannot find column `{i}` in this table")
+                };
                 let t = if is_float(t.to_string().as_str()) {
                     quote! { OrderedFloat<#t> }
                 } else {
@@ -98,7 +100,9 @@ impl Generator {
             .indexes
             .iter()
             .map(|(i, idx)| {
-                let t = self.columns.columns_map.get(i).unwrap();
+                let Some(t) = self.columns.columns_map.get(i) else {
+                    panic!("cannot find column `{i}` in this table")
+                };
                 let t = if is_float(t.to_string().as_str()) {
                     quote! { OrderedFloat<#t> }
                 } else {
