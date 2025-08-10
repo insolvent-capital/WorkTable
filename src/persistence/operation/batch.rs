@@ -246,17 +246,40 @@ where
                 .prepared_index_evs
                 .as_ref()
                 .expect("should be set before 0 iteration");
-            if let Some(id) = prepared_evs.primary_evs.first().map(|ev| ev.id()) {
-                if !id.is_next_for(last_ids.primary_id)
-                    && last_ids.primary_id != IndexChangeEventId::default()
+            if let Some(id) = prepared_evs.primary_evs.first().map(|ev| ev.id())
+                && !id.is_next_for(last_ids.primary_id)
+                && last_ids.primary_id != IndexChangeEventId::default()
+            {
+                let mut possibly_valid = false;
+                if id.inner().overflowing_sub(last_ids.primary_id.inner()).0 == 2 {
+                    // TODO: for split sometimes this happens
+                    let ev = prepared_evs.primary_evs.first().unwrap();
+                    if let ChangeEvent::SplitNode { .. } = ev {
+                        possibly_valid = true
+                    }
+                    if attempts > 8 {
+                        possibly_valid = true
+                    }
+                }
+
+                if !possibly_valid {
+                    self.ops.extend(ops_to_remove);
+                    return Ok(None);
+                }
+            }
+            let secondary_first = prepared_evs.secondary_evs.first_evs();
+            for (index, id) in secondary_first {
+                let Some(last) = last_ids.secondary_ids.get(&index) else {
+                    continue;
+                };
+                if let Some(id) = id
+                    && !id.is_next_for(*last)
+                    && *last != IndexChangeEventId::default()
                 {
                     let mut possibly_valid = false;
-                    if id.inner().overflowing_sub(last_ids.primary_id.inner()).0 == 2 {
+                    if id.inner().overflowing_sub(last.inner()).0 == 2 {
                         // TODO: for split sometimes this happens
-                        let ev = prepared_evs.primary_evs.first().unwrap();
-                        if let ChangeEvent::SplitNode { .. } = ev {
-                            possibly_valid = true
-                        }
+                        possibly_valid = prepared_evs.secondary_evs.is_first_ev_is_split(index);
                         if attempts > 8 {
                             possibly_valid = true
                         }
@@ -265,29 +288,6 @@ where
                     if !possibly_valid {
                         self.ops.extend(ops_to_remove);
                         return Ok(None);
-                    }
-                }
-            }
-            let secondary_first = prepared_evs.secondary_evs.first_evs();
-            for (index, id) in secondary_first {
-                let Some(last) = last_ids.secondary_ids.get(&index) else {
-                    continue;
-                };
-                if let Some(id) = id {
-                    if !id.is_next_for(*last) && *last != IndexChangeEventId::default() {
-                        let mut possibly_valid = false;
-                        if id.inner().overflowing_sub(last.inner()).0 == 2 {
-                            // TODO: for split sometimes this happens
-                            possibly_valid = prepared_evs.secondary_evs.is_first_ev_is_split(index);
-                            if attempts > 8 {
-                                possibly_valid = true
-                            }
-                        }
-
-                        if !possibly_valid {
-                            self.ops.extend(ops_to_remove);
-                            return Ok(None);
-                        }
                     }
                 }
             }

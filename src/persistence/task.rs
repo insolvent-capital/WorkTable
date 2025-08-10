@@ -413,10 +413,10 @@ impl<PrimaryKeyGenState, PrimaryKey, SecondaryKeys, AvailableIndexes>
                 } else {
                     None
                 };
-                if let Some(op) = op {
-                    if let Err(err) = analyzer.push(op) {
-                        tracing::warn!("Error while feeding data to analyzer: {}", err);
-                    }
+                if let Some(op) = op
+                    && let Err(err) = analyzer.push(op.clone())
+                {
+                    tracing::warn!("Error while feeding data to analyzer: {}", err);
                 }
                 let ops_available_iter = engine_queue.pop_iter();
                 if let Err(err) = analyzer.extend_from_iter(ops_available_iter) {

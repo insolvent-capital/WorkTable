@@ -165,7 +165,7 @@ impl<Row, const DATA_LENGTH: usize> Data<Row, DATA_LENGTH> {
     pub unsafe fn get_mut_row_ref(
         &self,
         link: Link,
-    ) -> Result<Seal<<Row as Archive>::Archived>, ExecutionError>
+    ) -> Result<Seal<'_, <Row as Archive>::Archived>, ExecutionError>
     where
         Row: Archive,
         <Row as Archive>::Archived: Portable,

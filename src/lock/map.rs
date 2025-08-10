@@ -49,12 +49,11 @@ where
         LockType: RowLock,
     {
         let mut set = self.map.write();
-        if let Some(lock) = set.get(key).cloned() {
-            if let Ok(guard) = lock.try_read() {
-                if !guard.is_locked() {
-                    set.remove(key);
-                }
-            }
+        if let Some(lock) = set.get(key).cloned()
+            && let Ok(guard) = lock.try_read()
+            && !guard.is_locked()
+        {
+            set.remove(key);
         }
     }
 

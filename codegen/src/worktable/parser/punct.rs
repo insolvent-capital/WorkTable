@@ -29,10 +29,10 @@ impl Parser {
     pub fn try_parse_comma(&mut self) -> syn::Result<()> {
         let iter = &mut self.input_iter;
 
-        if let Some(colon) = iter.peek() {
-            if comma(colon).is_ok() {
-                iter.next();
-            }
+        if let Some(colon) = iter.peek()
+            && comma(colon).is_ok()
+        {
+            iter.next();
         }
 
         Ok(())
