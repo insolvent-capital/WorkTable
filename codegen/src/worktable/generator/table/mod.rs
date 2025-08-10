@@ -1,7 +1,7 @@
 use proc_macro2::{Literal, TokenStream};
 use quote::quote;
 
-use crate::name_generator::{is_unsized_vec, WorktableNameGenerator};
+use crate::name_generator::{WorktableNameGenerator, is_unsized_vec};
 use crate::worktable::generator::Generator;
 
 mod impls;

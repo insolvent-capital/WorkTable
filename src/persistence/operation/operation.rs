@@ -5,8 +5,8 @@ use data_bucket::Link;
 use indexset::cdc::change::ChangeEvent;
 use indexset::core::pair::Pair;
 
-use crate::persistence::{OperationId, OperationType};
 use crate::TableSecondaryIndexEventsOps;
+use crate::persistence::{OperationId, OperationType};
 
 #[derive(Clone, Debug)]
 pub enum Operation<PrimaryKeyGenState, PrimaryKey, SecondaryKeys> {

@@ -1,7 +1,7 @@
 use proc_macro2::Literal;
 use std::collections::HashMap;
 
-use crate::name_generator::{is_float, WorktableNameGenerator};
+use crate::name_generator::{WorktableNameGenerator, is_float};
 use crate::worktable::generator::Generator;
 use crate::worktable::model::Operation;
 use convert_case::{Case, Casing};

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use crate::worktable::model::index::Index;
 use crate::worktable::model::GeneratorType;
+use crate::worktable::model::index::Index;
 use proc_macro2::{Ident, TokenStream};
 use quote::quote;
 use syn::spanned::Spanned;

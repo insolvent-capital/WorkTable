@@ -26,11 +26,11 @@ pub mod prelude {
     pub use crate::lock::{Lock, RowLock};
     pub use crate::mem_stat::MemStat;
     pub use crate::persistence::{
-        map_index_pages_to_toc_and_general, map_unsized_index_pages_to_toc_and_general,
-        validate_events, DeleteOperation, IndexTableOfContents, InsertOperation, Operation,
-        OperationId, PersistenceConfig, PersistenceEngine, PersistenceEngineOps, PersistenceTask,
-        SpaceData, SpaceDataOps, SpaceIndex, SpaceIndexOps, SpaceIndexUnsized,
-        SpaceSecondaryIndexOps, UpdateOperation,
+        DeleteOperation, IndexTableOfContents, InsertOperation, Operation, OperationId,
+        PersistenceConfig, PersistenceEngine, PersistenceEngineOps, PersistenceTask, SpaceData,
+        SpaceDataOps, SpaceIndex, SpaceIndexOps, SpaceIndexUnsized, SpaceSecondaryIndexOps,
+        UpdateOperation, map_index_pages_to_toc_and_general,
+        map_unsized_index_pages_to_toc_and_general, validate_events,
     };
     pub use crate::primary_key::{PrimaryKeyGenerator, PrimaryKeyGeneratorState, TablePrimaryKey};
     pub use crate::table::select::{Order, QueryParams, SelectQueryBuilder, SelectQueryExecutor};
@@ -43,12 +43,12 @@ pub mod prelude {
         WorkTableError,
     };
     pub use data_bucket::{
-        align, get_index_page_size_from_data_length, map_data_pages_to_general, parse_data_page,
-        parse_page, persist_page, seek_to_page_start, update_at, DataPage, GeneralHeader,
-        GeneralPage, IndexPage, Interval, Link, PageType, Persistable, PersistableIndex,
+        DATA_VERSION, DataPage, GENERAL_HEADER_SIZE, GeneralHeader, GeneralPage, INNER_PAGE_SIZE,
+        IndexPage, Interval, Link, PAGE_SIZE, PageType, Persistable, PersistableIndex,
         SizeMeasurable, SizeMeasure, SpaceInfoPage, TableOfContentsPage, UnsizedIndexPage,
-        VariableSizeMeasurable, VariableSizeMeasure, DATA_VERSION, GENERAL_HEADER_SIZE,
-        INNER_PAGE_SIZE, PAGE_SIZE,
+        VariableSizeMeasurable, VariableSizeMeasure, align, get_index_page_size_from_data_length,
+        map_data_pages_to_general, parse_data_page, parse_page, persist_page, seek_to_page_start,
+        update_at,
     };
     pub use derive_more::{Display as MoreDisplay, From, Into};
     pub use indexset::{

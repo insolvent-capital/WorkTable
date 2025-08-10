@@ -1,6 +1,6 @@
 use std::fs::copy;
 
-use data_bucket::{Link, INNER_PAGE_SIZE};
+use data_bucket::{INNER_PAGE_SIZE, Link};
 use indexset::cdc::change::ChangeEvent;
 use indexset::core::pair::Pair;
 use worktable::prelude::{SpaceIndex, SpaceIndexOps};

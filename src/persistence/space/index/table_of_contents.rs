@@ -1,19 +1,19 @@
 use std::fmt::Debug;
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
 
 use data_bucket::page::PageId;
 use data_bucket::{
-    parse_page, persist_page, GeneralHeader, GeneralPage, PageType, SizeMeasurable, SpaceId,
-    TableOfContentsPage,
+    GeneralHeader, GeneralPage, PageType, SizeMeasurable, SpaceId, TableOfContentsPage, parse_page,
+    persist_page,
 };
 use rkyv::de::Pool;
 use rkyv::rancor::Strategy;
+use rkyv::ser::Serializer;
 use rkyv::ser::allocator::ArenaHandle;
 use rkyv::ser::sharing::Share;
-use rkyv::ser::Serializer;
 use rkyv::util::AlignedVec;
-use rkyv::{rancor, Archive, Deserialize, Serialize};
+use rkyv::{Archive, Deserialize, Serialize, rancor};
 use tokio::fs::File;
 
 #[derive(Debug)]
@@ -203,8 +203,8 @@ where
 #[cfg(test)]
 mod tests {
     use crate::persistence::space::index::table_of_contents::IndexTableOfContents;
-    use std::sync::atomic::AtomicU32;
     use std::sync::Arc;
+    use std::sync::atomic::AtomicU32;
 
     #[test]
     fn empty() {

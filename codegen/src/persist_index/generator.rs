@@ -2,10 +2,10 @@ use std::collections::HashMap;
 
 use proc_macro2::{Ident, Literal, TokenStream};
 use quote::__private::Span;
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use syn::ItemStruct;
 
-use crate::name_generator::{is_unsized, WorktableNameGenerator};
+use crate::name_generator::{WorktableNameGenerator, is_unsized};
 use crate::persist_table::WT_INDEX_EXTENSION;
 
 pub struct Generator {

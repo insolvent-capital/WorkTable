@@ -1,8 +1,8 @@
 use proc_macro2::{Delimiter, TokenTree};
 use syn::spanned::Spanned as _;
 
-use crate::worktable::model::{Columns, GeneratorType, Row};
 use crate::worktable::Parser;
+use crate::worktable::model::{Columns, GeneratorType, Row};
 
 impl Parser {
     pub fn parse_columns(&mut self) -> syn::Result<Columns> {

@@ -1,6 +1,6 @@
 use proc_macro2::TokenStream;
-use syn::spanned::Spanned;
 use syn::ItemStruct;
+use syn::spanned::Spanned;
 
 pub struct Parser;
 

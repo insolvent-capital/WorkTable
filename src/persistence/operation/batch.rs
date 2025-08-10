@@ -7,11 +7,11 @@ use data_bucket::page::PageId;
 use data_bucket::{Link, SizeMeasurable};
 use indexset::cdc::change::ChangeEvent;
 use indexset::core::pair::Pair;
-use worktable_codegen::{worktable, MemStat};
+use worktable_codegen::{MemStat, worktable};
 
+use crate::persistence::OperationType;
 use crate::persistence::space::{BatchChangeEvent, BatchData};
 use crate::persistence::task::{LastEventIds, QueueInnerRow};
-use crate::persistence::OperationType;
 use crate::prelude::*;
 use crate::prelude::{From, Order, SelectQueryExecutor};
 

@@ -61,13 +61,15 @@ fn insert_when_pk_exists() {
     };
     assert!(table.insert(next_row.clone()).is_err());
     assert_eq!(table.select(pk.clone()).unwrap(), row);
-    assert!(table
-        .0
-        .indexes
-        .attr1_idx
-        .get(&next_row.attr1)
-        .collect::<Vec<_>>()
-        .is_empty());
+    assert!(
+        table
+            .0
+            .indexes
+            .attr1_idx
+            .get(&next_row.attr1)
+            .collect::<Vec<_>>()
+            .is_empty()
+    );
     assert!(table.0.indexes.attr2_idx.get(&next_row.attr2).is_none());
     assert_eq!(
         table
@@ -104,13 +106,15 @@ fn insert_when_secondary_unique_exists() {
         attr4: "Attributeee".to_string(),
     };
     assert!(table.insert(next_row.clone()).is_err());
-    assert!(table
-        .0
-        .indexes
-        .attr1_idx
-        .get(&next_row.attr1)
-        .collect::<Vec<_>>()
-        .is_empty());
+    assert!(
+        table
+            .0
+            .indexes
+            .attr1_idx
+            .get(&next_row.attr1)
+            .collect::<Vec<_>>()
+            .is_empty()
+    );
     assert_eq!(
         table
             .0
@@ -158,13 +162,15 @@ fn insert_when_secondary_unique_string_exists() {
         attr4: "Attribute4".to_string(),
     };
     assert!(table.insert(next_row.clone()).is_err());
-    assert!(table
-        .0
-        .indexes
-        .attr1_idx
-        .get(&next_row.attr1)
-        .collect::<Vec<_>>()
-        .is_empty());
+    assert!(
+        table
+            .0
+            .indexes
+            .attr1_idx
+            .get(&next_row.attr1)
+            .collect::<Vec<_>>()
+            .is_empty()
+    );
     assert!(table.0.indexes.attr4_idx.get(&row.attr4).is_some());
     assert_eq!(
         table

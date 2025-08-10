@@ -1,4 +1,4 @@
-use data_bucket::{parse_page, IndexPage, INNER_PAGE_SIZE};
+use data_bucket::{INNER_PAGE_SIZE, IndexPage, parse_page};
 use tokio::fs::OpenOptions;
 
 #[tokio::test]

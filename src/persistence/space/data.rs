@@ -2,20 +2,20 @@ use std::future::Future;
 use std::io::SeekFrom;
 use std::path::Path;
 
-use crate::persistence::space::{open_or_create_file, BatchData};
 use crate::persistence::SpaceDataOps;
+use crate::persistence::space::{BatchData, open_or_create_file};
 use crate::prelude::WT_DATA_EXTENSION;
 use convert_case::{Case, Casing};
 use data_bucket::{
-    parse_data_pages_batch, parse_general_header_by_index, parse_page, persist_page,
-    persist_pages_batch, update_at, DataPage, GeneralHeader, GeneralPage, Link, PageType,
-    Persistable, SizeMeasurable, SpaceInfoPage,
+    DataPage, GeneralHeader, GeneralPage, Link, PageType, Persistable, SizeMeasurable,
+    SpaceInfoPage, parse_data_pages_batch, parse_general_header_by_index, parse_page, persist_page,
+    persist_pages_batch, update_at,
 };
 use rkyv::api::high::HighDeserializer;
 use rkyv::rancor::Strategy;
+use rkyv::ser::Serializer;
 use rkyv::ser::allocator::ArenaHandle;
 use rkyv::ser::sharing::Share;
-use rkyv::ser::Serializer;
 use rkyv::util::AlignedVec;
 use rkyv::{Archive, Deserialize, Serialize};
 use tokio::fs::File;

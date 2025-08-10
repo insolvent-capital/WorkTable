@@ -5,18 +5,18 @@ use std::fmt::Debug;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use data_bucket::page::PageId;
 use data_bucket::Link;
+use data_bucket::page::PageId;
 use indexset::core::multipair::MultiPair;
 use indexset::core::node::NodeLike;
 use indexset::core::pair::Pair;
 use ordered_float::OrderedFloat;
 use uuid::Uuid;
 
+use crate::IndexMultiMap;
 use crate::persistence::OperationType;
 use crate::prelude::OperationId;
-use crate::IndexMultiMap;
-use crate::{impl_memstat_zero, IndexMap};
+use crate::{IndexMap, impl_memstat_zero};
 
 pub trait MemStat {
     fn heap_size(&self) -> usize;

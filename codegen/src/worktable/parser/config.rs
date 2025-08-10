@@ -3,8 +3,8 @@ use std::str::FromStr;
 use proc_macro2::{Delimiter, TokenTree};
 use syn::spanned::Spanned;
 
-use crate::worktable::model::Config;
 use crate::worktable::Parser;
+use crate::worktable::model::Config;
 
 const CONFIG_FIELD_NAME: &str = "config";
 

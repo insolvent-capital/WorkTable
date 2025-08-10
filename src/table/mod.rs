@@ -10,10 +10,10 @@ use crate::persistence::{InsertOperation, Operation};
 use crate::prelude::{OperationId, PrimaryKeyGeneratorState};
 use crate::primary_key::{PrimaryKeyGenerator, TablePrimaryKey};
 use crate::{
-    in_memory, AvailableIndex, IndexError, IndexMap, TableRow, TableSecondaryIndex,
-    TableSecondaryIndexCdc,
+    AvailableIndex, IndexError, IndexMap, TableRow, TableSecondaryIndex, TableSecondaryIndexCdc,
+    in_memory,
 };
-use data_bucket::{Link, INNER_PAGE_SIZE};
+use data_bucket::{INNER_PAGE_SIZE, Link};
 use derive_more::{Display, Error, From};
 use indexset::core::node::NodeLike;
 use indexset::core::pair::Pair;
@@ -21,9 +21,9 @@ use indexset::core::pair::Pair;
 use performance_measurement_codegen::performance_measurement;
 use rkyv::api::high::HighDeserializer;
 use rkyv::rancor::Strategy;
+use rkyv::ser::Serializer;
 use rkyv::ser::allocator::ArenaHandle;
 use rkyv::ser::sharing::Share;
-use rkyv::ser::Serializer;
 use rkyv::util::AlignedVec;
 use rkyv::{Archive, Deserialize, Serialize};
 use uuid::Uuid;
@@ -63,16 +63,16 @@ pub struct WorkTable<
 
 // Manual implementations to avoid unneeded trait bounds.
 impl<
-        Row,
-        PrimaryKey,
-        AvailableTypes,
-        AvailableIndexes,
-        SecondaryIndexes,
-        LockType,
-        PkGen,
-        PkNodeType,
-        const DATA_LENGTH: usize,
-    > Default
+    Row,
+    PrimaryKey,
+    AvailableTypes,
+    AvailableIndexes,
+    SecondaryIndexes,
+    LockType,
+    PkGen,
+    PkNodeType,
+    const DATA_LENGTH: usize,
+> Default
     for WorkTable<
         Row,
         PrimaryKey,
@@ -107,16 +107,16 @@ where
 }
 
 impl<
-        Row,
-        PrimaryKey,
-        AvailableTypes,
-        AvailableIndexes,
-        SecondaryIndexes,
-        LockType,
-        PkGen,
-        PkNodeType,
-        const DATA_LENGTH: usize,
-    >
+    Row,
+    PrimaryKey,
+    AvailableTypes,
+    AvailableIndexes,
+    SecondaryIndexes,
+    LockType,
+    PkGen,
+    PkNodeType,
+    const DATA_LENGTH: usize,
+>
     WorkTable<
         Row,
         PrimaryKey,

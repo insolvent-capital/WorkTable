@@ -148,10 +148,12 @@ async fn update_by_pk_with_reinsert_and_secondary_unique_violation() {
         attr2: 999,
         attr3: 0,
     };
-    assert!(test_table
-        .update_unique_three_attr_by_id(update, row1.id)
-        .await
-        .is_err());
+    assert!(
+        test_table
+            .update_unique_three_attr_by_id(update, row1.id)
+            .await
+            .is_err()
+    );
 
     assert_eq!(
         test_table.select_by_attr1(row1.attr1.clone()).unwrap(),
@@ -193,10 +195,12 @@ async fn update_by_pk_with_secondary_unique_violation() {
         attr2: row2.attr2,
         attr3: 0,
     };
-    assert!(test_table
-        .update_unique_three_attr_by_id(update, row1.id)
-        .await
-        .is_err());
+    assert!(
+        test_table
+            .update_unique_three_attr_by_id(update, row1.id)
+            .await
+            .is_err()
+    );
 
     assert_eq!(
         test_table.select_by_attr1(row1.attr1.clone()).unwrap(),

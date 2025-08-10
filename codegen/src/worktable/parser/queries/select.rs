@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use proc_macro2::{Ident, TokenTree};
 use syn::spanned::Spanned;
 
-use crate::worktable::model::Operation;
 use crate::worktable::Parser;
+use crate::worktable::model::Operation;
 
 impl Parser {
     pub fn _parse_selects(&mut self) -> syn::Result<HashMap<Ident, Operation>> {

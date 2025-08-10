@@ -497,11 +497,13 @@ fn select_by_exchange() {
 
     assert_eq!(selected_rows.len(), 1);
     assert!(selected_rows.contains(&row));
-    assert!(table
-        .select_by_exchange("test1".to_string())
-        .execute()
-        .expect("REASON")
-        .is_empty())
+    assert!(
+        table
+            .select_by_exchange("test1".to_string())
+            .execute()
+            .expect("REASON")
+            .is_empty()
+    )
 }
 
 #[test]
@@ -529,11 +531,13 @@ fn select_multiple_by_exchange() {
     assert_eq!(selected_rows.len(), 2);
     assert!(selected_rows.contains(&row));
     assert!(selected_rows.contains(&row_next));
-    assert!(table
-        .select_by_exchange("test1".to_string())
-        .execute()
-        .expect("REASON")
-        .is_empty())
+    assert!(
+        table
+            .select_by_exchange("test1".to_string())
+            .execute()
+            .expect("REASON")
+            .is_empty()
+    )
 }
 
 #[test]

@@ -73,10 +73,12 @@ async fn update_with_reinsert_and_secondary_unique_violation() {
         attr1: row2.attr1.clone(),
         attr2: 999,
     };
-    assert!(test_table
-        .update_unique_two_attr_by_third(update, row1.attr3,)
-        .await
-        .is_err());
+    assert!(
+        test_table
+            .update_unique_two_attr_by_third(update, row1.attr3,)
+            .await
+            .is_err()
+    );
 
     assert_eq!(
         test_table.select_by_attr1(row1.attr1.clone()).unwrap(),
@@ -117,10 +119,12 @@ async fn update_with_secondary_unique_violation() {
         attr1: row1.attr1.clone(),
         attr2: row2.attr2,
     };
-    assert!(test_table
-        .update_unique_two_attr_by_third(update, row1.attr3)
-        .await
-        .is_err());
+    assert!(
+        test_table
+            .update_unique_two_attr_by_third(update, row1.attr3)
+            .await
+            .is_err()
+    );
 
     assert_eq!(
         test_table.select_by_attr1(row1.attr1.clone()).unwrap(),

@@ -1,7 +1,7 @@
 use proc_macro2::{Literal, TokenStream};
 use quote::quote;
 
-use crate::name_generator::{is_unsized, WorktableNameGenerator};
+use crate::name_generator::{WorktableNameGenerator, is_unsized};
 use crate::persist_index::generator::Generator;
 
 impl Generator {

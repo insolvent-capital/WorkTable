@@ -4,8 +4,8 @@ use data_bucket::{
     VariableSizeMeasurable,
 };
 use std::fmt::Debug;
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
 
 #[allow(clippy::type_complexity)]
 pub fn map_index_pages_to_toc_and_general<T, const DATA_LENGTH: u32>(

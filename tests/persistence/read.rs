@@ -3,8 +3,8 @@ use worktable::prelude::*;
 
 // TODO: Fix naming.
 use crate::persistence::{
-    get_empty_test_wt, get_test_wt, TestPersistWorkTable, TEST_PERSIST_INNER_SIZE,
-    TEST_PERSIST_PAGE_SIZE,
+    TEST_PERSIST_INNER_SIZE, TEST_PERSIST_PAGE_SIZE, TestPersistWorkTable, get_empty_test_wt,
+    get_test_wt,
 };
 use crate::remove_dir_if_exists;
 

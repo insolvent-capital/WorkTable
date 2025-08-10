@@ -8,13 +8,13 @@ use crate::persistence::operation::BatchOperation;
 pub use engine::PersistenceEngine;
 pub use manager::PersistenceConfig;
 pub use operation::{
-    validate_events, DeleteOperation, InsertOperation, Operation, OperationId, OperationType,
-    UpdateOperation,
+    DeleteOperation, InsertOperation, Operation, OperationId, OperationType, UpdateOperation,
+    validate_events,
 };
 pub use space::{
-    map_index_pages_to_toc_and_general, map_unsized_index_pages_to_toc_and_general,
     IndexTableOfContents, SpaceData, SpaceDataOps, SpaceIndex, SpaceIndexOps, SpaceIndexUnsized,
-    SpaceSecondaryIndexOps,
+    SpaceSecondaryIndexOps, map_index_pages_to_toc_and_general,
+    map_unsized_index_pages_to_toc_and_general,
 };
 use std::future::Future;
 pub use task::PersistenceTask;

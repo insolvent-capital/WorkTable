@@ -39,11 +39,7 @@ impl Generator {
                 if let Some(index) = index {
                     let _index_name = &index.name;
 
-                    if index.is_unique {
-                        todo!()
-                    } else {
-                        todo!()
-                    }
+                    if index.is_unique { todo!() } else { todo!() }
                 } else if self.columns.primary_keys.len() == 1 {
                     self.gen_primary_key_in_place(snake_case_name, &op.columns)
                 } else {

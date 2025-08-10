@@ -1,7 +1,7 @@
-use std::sync::atomic::AtomicU32;
 use std::sync::Arc;
+use std::sync::atomic::AtomicU32;
 
-use data_bucket::{Link, INNER_PAGE_SIZE};
+use data_bucket::{INNER_PAGE_SIZE, Link};
 use tokio::fs::OpenOptions;
 use worktable::prelude::IndexTableOfContents;
 

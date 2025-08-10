@@ -1,6 +1,6 @@
-use crate::name_generator::{is_float, WorktableNameGenerator};
-use crate::worktable::generator::queries::r#type::map_to_uppercase;
+use crate::name_generator::{WorktableNameGenerator, is_float};
 use crate::worktable::generator::Generator;
+use crate::worktable::generator::queries::r#type::map_to_uppercase;
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Literal, Span, TokenStream};
 use quote::quote;
@@ -131,7 +131,7 @@ impl Generator {
                                 });
                             };
                             inserted_indexes.push(#available_index_ident::#index_variant);
-                        
+
                             #index_field_name
                         } else {
                             vec![]

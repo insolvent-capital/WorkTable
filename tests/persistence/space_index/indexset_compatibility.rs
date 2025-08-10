@@ -1,7 +1,7 @@
 mod sized {
     use std::fs::copy;
 
-    use data_bucket::{Link, INNER_PAGE_SIZE};
+    use data_bucket::{INNER_PAGE_SIZE, Link};
     use indexset::concurrent::map::BTreeMap;
     use worktable::prelude::{SpaceIndex, SpaceIndexOps};
 
@@ -134,11 +134,11 @@ mod unsized_ {
     use std::fs::copy;
 
     use crate::{check_if_files_are_same, remove_file_if_exists};
-    use data_bucket::{Link, INNER_PAGE_SIZE};
+    use data_bucket::{INNER_PAGE_SIZE, Link};
     use indexset::concurrent::map::BTreeMap;
     use indexset::core::pair::Pair;
-    use worktable::prelude::{SpaceIndexOps, SpaceIndexUnsized};
     use worktable::UnsizedNode;
+    use worktable::prelude::{SpaceIndexOps, SpaceIndexUnsized};
 
     #[tokio::test]
     async fn test_indexset_node_creation() {

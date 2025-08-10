@@ -1,12 +1,12 @@
+use crate::TableSecondaryIndexEventsOps;
 use crate::persistence::operation::{BatchOperation, Operation};
 use crate::persistence::{
     PersistenceEngineOps, SpaceDataOps, SpaceIndexOps, SpaceSecondaryIndexOps,
 };
 use crate::prelude::{PrimaryKeyGeneratorState, TablePrimaryKey};
-use crate::TableSecondaryIndexEventsOps;
+use futures::StreamExt;
 use futures::future::Either;
 use futures::stream::FuturesUnordered;
-use futures::StreamExt;
 use std::fmt::Debug;
 use std::fs;
 use std::hash::Hash;
@@ -34,14 +34,14 @@ where
 }
 
 impl<
-        SpaceData,
-        SpacePrimaryIndex,
-        SpaceSecondaryIndexes,
-        PrimaryKey,
-        SecondaryIndexEvents,
-        AvailableIndexes,
-        PrimaryKeyGenState,
-    >
+    SpaceData,
+    SpacePrimaryIndex,
+    SpaceSecondaryIndexes,
+    PrimaryKey,
+    SecondaryIndexEvents,
+    AvailableIndexes,
+    PrimaryKeyGenState,
+>
     PersistenceEngine<
         SpaceData,
         SpacePrimaryIndex,
@@ -76,14 +76,14 @@ where
 }
 
 impl<
-        SpaceData,
-        SpacePrimaryIndex,
-        SpaceSecondaryIndexes,
-        PrimaryKey,
-        SecondaryIndexEvents,
-        AvailableIndexes,
-        PrimaryKeyGenState,
-    > PersistenceEngineOps<PrimaryKeyGenState, PrimaryKey, SecondaryIndexEvents, AvailableIndexes>
+    SpaceData,
+    SpacePrimaryIndex,
+    SpaceSecondaryIndexes,
+    PrimaryKey,
+    SecondaryIndexEvents,
+    AvailableIndexes,
+    PrimaryKeyGenState,
+> PersistenceEngineOps<PrimaryKeyGenState, PrimaryKey, SecondaryIndexEvents, AvailableIndexes>
     for PersistenceEngine<
         SpaceData,
         SpacePrimaryIndex,

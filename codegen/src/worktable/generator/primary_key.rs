@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::name_generator::{is_unsized_vec, WorktableNameGenerator};
+use crate::name_generator::{WorktableNameGenerator, is_unsized_vec};
 use crate::worktable::generator::Generator;
 use crate::worktable::model::{GeneratorType, PrimaryKey};
 
@@ -142,7 +142,7 @@ impl Generator {
                 return Err(syn::Error::new(
                     i.span(),
                     "Type is not supported for autoincrement",
-                ))
+                ));
             }
         })
     }

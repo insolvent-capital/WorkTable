@@ -7,8 +7,8 @@ mod update;
 use proc_macro2::TokenTree;
 use syn::spanned::Spanned;
 
-use crate::worktable::model::Queries;
 use crate::worktable::Parser;
+use crate::worktable::model::Queries;
 
 impl Parser {
     pub fn parse_queries(&mut self) -> syn::Result<Queries> {

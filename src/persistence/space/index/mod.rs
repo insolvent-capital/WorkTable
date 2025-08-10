@@ -6,15 +6,15 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::path::Path;
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
 
 use convert_case::{Case, Casing};
 use data_bucket::page::{IndexValue, PageId};
 use data_bucket::{
-    get_index_page_size_from_data_length, parse_page, persist_page, persist_pages_batch,
-    GeneralHeader, GeneralPage, IndexPage, IndexPageUtility, Link, PageType, SizeMeasurable,
-    SpaceId, SpaceInfoPage, GENERAL_HEADER_SIZE,
+    GENERAL_HEADER_SIZE, GeneralHeader, GeneralPage, IndexPage, IndexPageUtility, Link, PageType,
+    SizeMeasurable, SpaceId, SpaceInfoPage, get_index_page_size_from_data_length, parse_page,
+    persist_page, persist_pages_batch,
 };
 use eyre::eyre;
 use indexset::cdc::change::ChangeEvent;
@@ -22,15 +22,15 @@ use indexset::concurrent::map::BTreeMap;
 use indexset::core::pair::Pair;
 use rkyv::de::Pool;
 use rkyv::rancor::Strategy;
+use rkyv::ser::Serializer;
 use rkyv::ser::allocator::ArenaHandle;
 use rkyv::ser::sharing::Share;
-use rkyv::ser::Serializer;
 use rkyv::util::AlignedVec;
-use rkyv::{rancor, Archive, Deserialize, Serialize};
+use rkyv::{Archive, Deserialize, Serialize, rancor};
 use tokio::fs::File;
 
-use crate::persistence::space::{open_or_create_file, BatchChangeEvent};
 use crate::persistence::SpaceIndexOps;
+use crate::persistence::space::{BatchChangeEvent, open_or_create_file};
 use crate::prelude::WT_INDEX_EXTENSION;
 
 pub use table_of_contents::IndexTableOfContents;
@@ -567,7 +567,7 @@ where
 #[cfg(test)]
 mod test {
     use data_bucket::{
-        get_index_page_size_from_data_length, IndexPage, IndexValue, Persistable, INNER_PAGE_SIZE,
+        INNER_PAGE_SIZE, IndexPage, IndexValue, Persistable, get_index_page_size_from_data_length,
     };
 
     #[test]

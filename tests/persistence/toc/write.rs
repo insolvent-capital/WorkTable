@@ -1,6 +1,6 @@
 use data_bucket::INNER_PAGE_SIZE;
-use std::sync::atomic::AtomicU32;
 use std::sync::Arc;
+use std::sync::atomic::AtomicU32;
 use tokio::fs::File;
 use worktable::prelude::IndexTableOfContents;
 

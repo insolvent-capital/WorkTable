@@ -1,7 +1,7 @@
 use data_bucket::Link;
 use indexset::core::node::NodeLike;
 use indexset::core::pair::Pair;
-use prettytable::{format::consts::FORMAT_NO_BORDER_LINE_SEPARATOR, row, Table};
+use prettytable::{Table, format::consts::FORMAT_NO_BORDER_LINE_SEPARATOR, row};
 use std::fmt::{self, Debug, Display, Formatter};
 
 use crate::in_memory::{RowWrapper, StorableRow};
@@ -46,16 +46,16 @@ impl Display for IndexKind {
 }
 
 impl<
-        Row,
-        PrimaryKey,
-        AvailableTypes,
-        AvailableIndexes,
-        SecondaryIndexes,
-        LockType,
-        PkGen,
-        NodeType,
-        const DATA_LENGTH: usize,
-    >
+    Row,
+    PrimaryKey,
+    AvailableTypes,
+    AvailableIndexes,
+    SecondaryIndexes,
+    LockType,
+    PkGen,
+    NodeType,
+    const DATA_LENGTH: usize,
+>
     WorkTable<
         Row,
         PrimaryKey,
