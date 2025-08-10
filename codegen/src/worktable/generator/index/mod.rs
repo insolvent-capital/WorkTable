@@ -10,8 +10,8 @@ use quote::quote;
 
 impl Generator {
     /// Generates index type and it's impls.
-    pub fn gen_index_def(&mut self) -> TokenStream {
-        let type_def = self.gen_type_def();
+    pub fn gen_index_def(&mut self) -> syn::Result<TokenStream> {
+        let type_def = self.gen_type_def()?;
         let impl_def = self.gen_secondary_index_impl_def();
         let info_def = self.gen_secondary_index_info_impl_def();
         let cdc_impl_def = if self.is_persist {
@@ -19,23 +19,23 @@ impl Generator {
         } else {
             quote! {}
         };
-        let default_impl = self.gen_index_default_impl();
+        let default_impl = self.gen_index_default_impl()?;
         let available_indexes = self.gen_available_indexes();
 
-        quote! {
+        Ok(quote! {
             #type_def
             #impl_def
             #info_def
             #cdc_impl_def
             #default_impl
             #available_indexes
-        }
+        })
     }
 
     /// Generates table's secondary index struct definition. It has fields with index names and types varying on index
     /// uniqueness. For unique index it's `TreeIndex<T, Link`, for non-unique `TreeIndex<T, Arc<LockFreeSet<Link>>>`.
     /// Index also derives `PersistIndex` and `MemStat` macro.
-    fn gen_type_def(&mut self) -> TokenStream {
+    fn gen_type_def(&mut self) -> syn::Result<TokenStream> {
         let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
         let ident = name_generator.get_index_type_ident();
         let index_rows = self
@@ -44,7 +44,10 @@ impl Generator {
             .iter()
             .map(|(i, idx)| {
                 let Some(t) = self.columns.columns_map.get(i) else {
-                    panic!("cannot find column `{i}` in this table")
+                    return Err(syn::Error::new(
+                        i.span(),
+                        format!("cannot find column `{i}` in this table"),
+                    ));
                 };
                 let t = if is_float(t.to_string().as_str()) {
                     quote! { OrderedFloat<#t> }
@@ -54,7 +57,7 @@ impl Generator {
                 let i = &idx.name;
 
                 #[allow(clippy::collapsible_else_if)]
-                if idx.is_unique {
+                let res = if idx.is_unique {
                     if is_unsized(&t.to_string()) {
                         quote! {
                             #i: IndexMap<#t, Link, UnsizedNode<IndexPair<#t, Link>>>
@@ -68,9 +71,10 @@ impl Generator {
                     } else {
                         quote! {#i: IndexMultiMap<#t, Link>}
                     }
-                }
+                };
+                Ok::<_, syn::Error>(res)
             })
-            .collect::<Vec<_>>();
+            .collect::<Result<Vec<_>, syn::Error>>()?;
 
         let derive = if self.is_persist {
             quote! {
@@ -82,15 +86,15 @@ impl Generator {
             }
         };
 
-        quote! {
+        Ok(quote! {
             #derive
             pub struct #ident {
                 #(#index_rows),*
             }
-        }
+        })
     }
 
-    fn gen_index_default_impl(&self) -> TokenStream {
+    fn gen_index_default_impl(&self) -> syn::Result<TokenStream> {
         let name_generator = WorktableNameGenerator::from_table_name(self.name.to_string());
         let index_type_ident = name_generator.get_index_type_ident();
         let const_name = name_generator.get_page_inner_size_const_ident();
@@ -101,7 +105,10 @@ impl Generator {
             .iter()
             .map(|(i, idx)| {
                 let Some(t) = self.columns.columns_map.get(i) else {
-                    panic!("cannot find column `{i}` in this table")
+                    return Err(syn::Error::new(
+                        i.span(),
+                        format!("cannot find column `{i}` in this table"),
+                    ));
                 };
                 let t = if is_float(t.to_string().as_str()) {
                     quote! { OrderedFloat<#t> }
@@ -111,7 +118,7 @@ impl Generator {
                 let i = &idx.name;
 
                 #[allow(clippy::collapsible_else_if)]
-                if idx.is_unique {
+                let res = if idx.is_unique {
                     if is_unsized(&t.to_string()) {
                         quote! {
                             #i: IndexMap::with_maximum_node_size(#const_name),
@@ -125,11 +132,13 @@ impl Generator {
                     } else {
                         quote! {#i: IndexMultiMap::with_maximum_node_size(get_index_page_size_from_data_length::<#t>(#const_name)),}
                     }
-                }
-            })
-            .collect::<Vec<_>>();
+                };
 
-        quote! {
+                Ok::<_, syn::Error>(res)
+            })
+            .collect::<Result<Vec<_>, syn::Error>>()?;
+
+        Ok(quote! {
             impl Default for #index_type_ident {
                 fn default() -> Self {
                     Self {
@@ -137,7 +146,7 @@ impl Generator {
                     }
                 }
             }
-        }
+        })
     }
 
     fn gen_available_indexes(&self) -> TokenStream {
