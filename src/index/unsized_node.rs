@@ -118,8 +118,9 @@ where
         split
     }
 
-    fn need_to_split(&self, _: usize) -> bool {
-        self.length >= self.length_capacity && self.inner.len() > 1
+    fn need_to_split(&self, _: usize, value: &T) -> bool {
+        let final_length = self.length + value.aligned_size();
+        final_length >= self.length_capacity && self.inner.len() > 1
     }
 
     fn len(&self) -> usize {
