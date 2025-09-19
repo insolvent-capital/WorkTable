@@ -152,7 +152,7 @@ impl Generator {
                 self.iter_with_async(|row| {
                     if row.#field == by {
                         futures::future::Either::Left(async move {
-                            self.delete(row.id.into()).await
+                            self.delete(row.get_primary_key()).await
                         })
                     } else {
                         futures::future::Either::Right(async {
@@ -180,7 +180,7 @@ impl Generator {
                 let rows_to_update = self.0.indexes.#index.get(#by).map(|kv| kv.1).collect::<Vec<_>>();
                 for link in rows_to_update {
                     let row = self.0.data.select_non_ghosted(*link).map_err(WorkTableError::PagesError)?;
-                    self.delete(row.id.into()).await?;
+                    self.delete(row.get_primary_key()).await?;
                 }
                 core::result::Result::Ok(())
             }
@@ -202,7 +202,7 @@ impl Generator {
                 let row_to_update = self.0.indexes.#index.get(#by).map(|v| v.get().value);
                 if let Some(link) = row_to_update {
                     let row = self.0.data.select_non_ghosted(link).map_err(WorkTableError::PagesError)?;
-                    self.delete(row.id.into()).await?;
+                    self.delete(row.get_primary_key()).await?;
                 }
                 core::result::Result::Ok(())
             }

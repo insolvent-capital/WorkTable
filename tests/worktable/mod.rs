@@ -4,6 +4,7 @@ mod bench;
 mod config;
 mod count;
 mod custom_pk;
+mod delete;
 mod float;
 mod in_place;
 mod index;

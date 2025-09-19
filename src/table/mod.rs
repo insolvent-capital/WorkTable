@@ -161,11 +161,6 @@ where
         if let Some(link) = link {
             self.data.select(link).ok()
         } else {
-            println!(
-                "{:?} Unavailable in primary index, vals available {:?}",
-                pk,
-                self.pk_map.iter().collect::<Vec<_>>()
-            );
             None
         }
     }

@@ -401,14 +401,12 @@ where
                     let page_to_update = if let Some(page) = page {
                         page
                     } else {
-                        // println!("Try to parse page: {:?} {:?}", page_index, page_id);
                         let page =
                             parse_page::<UnsizedIndexPage<T, INNER_PAGE_SIZE>, INNER_PAGE_SIZE>(
                                 &mut self.index_file,
                                 page_index.into(),
                             )
                             .await?;
-                        // println!("Page {:?} {:?} parsed", page_index, page_id);
                         pages.insert(page_index, page);
                         pages
                             .get_mut(&page_index)
