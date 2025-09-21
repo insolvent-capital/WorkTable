@@ -3,7 +3,7 @@ members = ["codegen", "examples", "performance_measurement", "performance_measur
 
 [package]
 name = "worktable"
-version = "0.8.3"
+version = "0.8.4"
 edition = "2024"
 authors = ["Handy-caT"]
 license = "MIT"
@@ -16,7 +16,7 @@ perf_measurements = ["dep:performance_measurement", "dep:performance_measurement
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-worktable_codegen = { path = "codegen", version = "0.7.2" }
+worktable_codegen = { path = "codegen", version = "0.8.4" }
 
 eyre = "0.6.12"
 derive_more = { version = "1.0.0", features = ["from", "error", "display", "into"] }
