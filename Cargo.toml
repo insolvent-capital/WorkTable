@@ -3,7 +3,7 @@ members = ["codegen", "examples", "performance_measurement", "performance_measur
 
 [package]
 name = "worktable"
-version = "0.8.4"
+version = "0.8.5"
 edition = "2024"
 authors = ["Handy-caT"]
 license = "MIT"

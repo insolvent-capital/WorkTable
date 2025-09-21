@@ -194,6 +194,7 @@ where
         if let Some(old) = self.inner.get_mut(idx) {
             let old = std::mem::replace(old, value);
             self.length += value_size;
+            self.removed_length += old.aligned_size();
             return Some(old);
         }
 
