@@ -63,7 +63,7 @@ impl Generator {
             quote! {}
         } else {
             quote! {
-                if bytes.len() >= link.length as usize {
+                if true {
                     lock.unlock();  // Releases locks
                     let lock = {
                        #full_row_lock
@@ -238,7 +238,7 @@ impl Generator {
                 .map(|f| {
                     let fn_ident = Ident::new(format!("get_{f}_size").as_str(), Span::call_site());
                     quote! {
-                        need_to_reinsert |= archived_row.#fn_ident() >= self.#fn_ident(link)?;
+                        need_to_reinsert |= archived_row.#fn_ident() != self.#fn_ident(link)?;
                     }
                 })
                 .collect();
@@ -532,7 +532,7 @@ impl Generator {
                 .map(|f| {
                     let fn_ident = Ident::new(format!("get_{f}_size").as_str(), Span::call_site());
                     quote! {
-                        need_to_reinsert |= archived_row.#fn_ident() >= self.#fn_ident(link)?;
+                        need_to_reinsert |= archived_row.#fn_ident() != self.#fn_ident(link)?;
                     }
                 })
                 .collect();
